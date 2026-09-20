@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import List, Optional
 from app.domain.models import User
 
 class IUserRepository(ABC):
@@ -17,4 +17,13 @@ class IUserRepository(ABC):
 
     @abstractmethod
     def create(self, user: User) -> User:
+        pass
+
+    @abstractmethod
+    def update(self, user: User) -> User:
+        pass
+
+    @abstractmethod
+    def search(self, keyword: str, limit: int = 20) -> List[User]:
+        """Tìm người dùng theo username/email/họ tên, phục vụ việc mời vào phòng riêng tư."""
         pass
