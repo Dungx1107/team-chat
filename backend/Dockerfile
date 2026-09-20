@@ -12,6 +12,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Tạo user non-root để an toàn bảo mật
 RUN useradd -m -u 1000 appuser && chown -R appuser /app
+
+# Tạo sẵn thư mục uploads với đúng chủ sở hữu.
+# Khi Docker gắn named volume lên đường dẫn này, quyền sở hữu của thư mục
+# trong image được kế thừa -- nếu bỏ bước này, volume sẽ thuộc root
+# và tiến trình chạy dưới appuser không ghi được tệp lên.
+RUN mkdir -p /app/uploads && chown -R appuser:appuser /app/uploads
+
 USER appuser
 
 # Copy toàn bộ mã nguồn vào container
