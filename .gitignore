@@ -34,3 +34,12 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Ket qua goi API luc kiem thu (co the chua token that)
+auth_res.json
+*_res.json
+*.token
+
+# Tep nguoi dung tai len (nam trong Docker volume, khong thuoc ma nguon)
+backend/uploads/
+uploads/
