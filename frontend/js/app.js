@@ -66,6 +66,16 @@ async function onLoginSubmit(event) {
   }
 }
 
+// Phiên hết hạn giữa chừng: đưa về màn hình đăng nhập kèm lời giải thích,
+// thay vì để người dùng bấm mãi mà không có phản hồi.
+window.addEventListener("session-expired", () => {
+  const wasInChat = !document.getElementById("chat-view").classList.contains("hidden");
+  handleLogout();
+  if (wasInChat) {
+    showAlert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+  }
+});
+
 function handleLogout() {
   realtime.disconnect();
   resetChatArea();

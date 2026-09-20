@@ -39,6 +39,8 @@ const realtime = {
     el.title = s.title;
   },
 
+  failedAttempts: 0,
+
   connect() {
     const token = api.getToken();
     if (!token) return;
@@ -56,6 +58,7 @@ const realtime = {
 
     this.socket.onopen = () => {
       this.reconnectDelay = 1000;
+      this.failedAttempts = 0;
       this.setStatus("online");
       // Mở lại kết nối thì phải đăng ký lại phòng đang xem
       if (this.subscribedRoom !== null) {
@@ -73,9 +76,25 @@ const realtime = {
       this.emit(msg.event, msg.data);
     };
 
-    this.socket.onclose = () => {
+    this.socket.onclose = (event) => {
       this.setStatus("offline");
-      if (!this.manuallyClosed) this.scheduleReconnect();
+      if (this.manuallyClosed) return;
+
+      // 4001 = server từ chối vì token không hợp lệ. Nối lại cũng vô ích.
+      if (event.code === 4001) {
+        api.onSessionExpired();
+        return;
+      }
+
+      // Chưa lần nào bắt tay được: nhiều khả năng token đã chết và bị chặn
+      // ngay từ khâu handshake. Thử vài lần rồi dừng, thay vì dội request mãi.
+      this.failedAttempts = (this.failedAttempts || 0) + 1;
+      if (this.failedAttempts >= 4) {
+        api.onSessionExpired();
+        return;
+      }
+
+      this.scheduleReconnect();
     };
 
     this.socket.onerror = () => {
@@ -127,6 +146,7 @@ const realtime = {
       this.socket = null;
     }
     this.subscribedRoom = null;
+    this.failedAttempts = 0;
     this.setStatus("offline");
   },
 

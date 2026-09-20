@@ -14,6 +14,7 @@ const api = {
   },
 
   setSession(accessToken, refreshToken, user) {
+    this.sessionExpiredNotified = false;
     localStorage.setItem("access_token", accessToken);
     if (refreshToken) localStorage.setItem("refresh_token", refreshToken);
     if (user) localStorage.setItem("current_user", JSON.stringify(user));
@@ -57,9 +58,16 @@ const api = {
     const response = await fetch(url, { ...options, headers });
 
     // Access token hết hạn -> thử làm mới một lần rồi gọi lại
-    if (response.status === 401 && !isRetry && this.getRefreshToken()) {
-      const refreshed = await this.tryRefresh();
+    if (response.status === 401 && !isRetry) {
+      const refreshed = this.getRefreshToken() ? await this.tryRefresh() : false;
       if (refreshed) return this.request(endpoint, options, true);
+
+      // Không gia hạn được: phiên đã chết hẳn. Phải báo cho người dùng biết,
+      // nếu không họ ngồi bấm gửi tin nhắn mà không hiểu vì sao không có gì xảy ra.
+      this.onSessionExpired();
+      const err = new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
+      err.status = 401;
+      throw err;
     }
 
     if (response.status === 204) return true;
@@ -78,6 +86,15 @@ const api = {
     }
 
     return data;
+  },
+
+  // Chỉ bắn một lần, tránh 5 request cùng hỏng thì hiện 5 thông báo
+  sessionExpiredNotified: false,
+
+  onSessionExpired() {
+    if (this.sessionExpiredNotified) return;
+    this.sessionExpiredNotified = true;
+    window.dispatchEvent(new CustomEvent("session-expired"));
   },
 
   async tryRefresh() {
