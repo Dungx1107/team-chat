@@ -1,5 +1,8 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, Boolean
+from sqlalchemy import (
+    Column, Integer, String, Text, DateTime, ForeignKey,
+    UniqueConstraint, Boolean, BigInteger, Index
+)
 from sqlalchemy.orm import relationship
 from app.infra.db.session import Base
 
@@ -13,6 +16,12 @@ class UserModel(Base):
     first_name = Column(String(50), nullable=False)
     last_name = Column(String(50), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+
+    # Hồ sơ cá nhân
+    avatar_url = Column(String(255), nullable=True)
+    bio = Column(String(500), nullable=True)
+    status = Column(String(100), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Quan hệ
@@ -40,6 +49,8 @@ class RoomModel(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(150), nullable=False)
+    description = Column(String(300), nullable=True)
+    is_private = Column(Boolean, default=False, nullable=False, index=True)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -65,14 +76,54 @@ class RoomMemberModel(Base):
     user = relationship("UserModel", back_populates="memberships")
 
 
+class AttachmentModel(Base):
+    __tablename__ = "attachments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    filename = Column(String(255), nullable=False)
+    stored_name = Column(String(255), unique=True, nullable=False, index=True)
+    content_type = Column(String(120), nullable=False)
+    size_bytes = Column(BigInteger, nullable=False)
+    uploaded_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class MessageModel(Base):
     __tablename__ = "messages"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     room_id = Column(Integer, ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    content = Column(Text, nullable=False)
+    content = Column(Text, nullable=False, default="")
+    message_type = Column(String(20), default="TEXT", nullable=False)
+    attachment_id = Column(Integer, ForeignKey("attachments.id", ondelete="SET NULL"), nullable=True)
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    edited_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    __table_args__ = (
+        # Truy vấn nóng nhất là "lấy tin nhắn mới nhất của một phòng"
+        Index("ix_messages_room_created", "room_id", "created_at"),
+    )
 
     room = relationship("RoomModel", back_populates="messages")
     sender = relationship("UserModel", back_populates="messages")
+    attachment = relationship("AttachmentModel", lazy="joined")
+    reactions = relationship("ReactionModel", back_populates="message", cascade="all, delete-orphan")
+
+
+class ReactionModel(Base):
+    __tablename__ = "reactions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    message_id = Column(Integer, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    emoji = Column(String(16), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        # Mỗi người chỉ thả được một lần cho mỗi loại biểu cảm trên một tin nhắn
+        UniqueConstraint("message_id", "user_id", "emoji", name="uq_reaction_once"),
+    )
+
+    message = relationship("MessageModel", back_populates="reactions")
