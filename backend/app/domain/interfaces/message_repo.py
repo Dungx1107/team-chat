@@ -17,6 +17,14 @@ class IMessageRepository(ABC):
         pass
 
     @abstractmethod
+    def get_pinned_by_room_id(self, room_id: int) -> List[Message]:
+        pass
+
+    @abstractmethod
+    def set_pinned(self, message_id: int, pinned: bool, user_id: Optional[int]) -> Optional[Message]:
+        pass
+
+    @abstractmethod
     def update(self, message: Message) -> Message:
         pass
 
@@ -32,6 +40,10 @@ class IAttachmentRepository(ABC):
 
     @abstractmethod
     def get_by_id(self, attachment_id: int) -> Optional[Attachment]:
+        pass
+
+    @abstractmethod
+    def get_message_room_id(self, attachment_id: int) -> Optional[int]:
         pass
 
 

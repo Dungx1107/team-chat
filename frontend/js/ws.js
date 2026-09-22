@@ -11,6 +11,7 @@ const realtime = {
   reconnectTimer: null,
   manuallyClosed: false,
   handlers: {},
+  heartbeatTimer: null,
 
   on(event, handler) {
     (this.handlers[event] = this.handlers[event] || []).push(handler);
@@ -60,6 +61,8 @@ const realtime = {
       this.reconnectDelay = 1000;
       this.failedAttempts = 0;
       this.setStatus("online");
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = setInterval(() => this.send({ action: "ping" }), 30000);
       // Mở lại kết nối thì phải đăng ký lại phòng đang xem
       if (this.subscribedRoom !== null) {
         this.subscribe(this.subscribedRoom);
@@ -77,6 +80,8 @@ const realtime = {
     };
 
     this.socket.onclose = (event) => {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
       this.setStatus("offline");
       if (this.manuallyClosed) return;
 
@@ -132,7 +137,11 @@ const realtime = {
   },
 
   sendTyping(roomId) {
-    this.send({ action: "typing", room_id: roomId });
+    this.send({ action: "typing.start", room_id: roomId });
+  },
+
+  stopTyping(roomId) {
+    this.send({ action: "typing.stop", room_id: roomId });
   },
 
   disconnect() {
@@ -145,6 +154,8 @@ const realtime = {
       this.socket.close();
       this.socket = null;
     }
+    clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
     this.subscribedRoom = null;
     this.failedAttempts = 0;
     this.setStatus("offline");

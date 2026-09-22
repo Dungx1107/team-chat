@@ -1,5 +1,7 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+import mimetypes
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from app.api.schemas import (
     RoomCreateRequest,
     RoomUpdateRequest,
@@ -8,14 +10,14 @@ from app.api.schemas import (
     AddMemberRequest,
     ChangeRoleRequest,
 )
-from app.api.dependencies import get_room_service, get_current_user_id
+from app.api.dependencies import get_room_service, get_current_user_id, file_storage
 from app.services.room_service import RoomService
 from app.infra.realtime.connection_manager import connection_manager
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
 
-def _to_response(room, my_role=None, member_count=None) -> RoomResponse:
+def _to_response(room, my_role=None, member_count=None, last_message=None, unread_count=0) -> RoomResponse:
     return RoomResponse(
         id=room.id,
         name=room.name,
@@ -25,6 +27,9 @@ def _to_response(room, my_role=None, member_count=None) -> RoomResponse:
         created_at=room.created_at,
         my_role=my_role,
         member_count=member_count,
+        avatar_url=getattr(room, "avatar_url", None),
+        last_message=last_message,
+        unread_count=unread_count,
     )
 
 
@@ -62,6 +67,7 @@ def list_rooms(
             r,
             my_role=member.role if member else None,
             member_count=room_service.room_repo.count_members(r.id),
+            last_message=room_service.room_repo.get_last_message_summary(r.id),
         ))
     return result
 
@@ -79,6 +85,7 @@ def get_room(
             room,
             my_role=member.role if member else None,
             member_count=room_service.room_repo.count_members(room_id),
+            last_message=room_service.room_repo.get_last_message_summary(room_id),
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -120,6 +127,38 @@ def delete_room(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+
+@router.post("/{room_id}/avatar", response_model=RoomResponse)
+def upload_room_avatar(
+    room_id: int,
+    file: UploadFile = File(...),
+    current_user_id: int = Depends(get_current_user_id),
+    room_service: RoomService = Depends(get_room_service),
+):
+    try:
+        room = room_service.update_avatar(
+            room_id, current_user_id, file.file, file.filename or "room-avatar.png",
+            file.content_type or "application/octet-stream",
+        )
+        member = room_service.room_repo.get_member(room_id, current_user_id)
+        return _to_response(room, member.role if member else None, room_service.room_repo.count_members(room_id))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+
+@router.get("/{room_id}/avatar")
+def get_room_avatar(room_id: int, room_service: RoomService = Depends(get_room_service)):
+    try:
+        room = room_service._get_room_or_fail(room_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    if not room.avatar_url or not file_storage.exists(room.avatar_url):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Phòng chưa có avatar")
+    mime_type = mimetypes.guess_type(room.avatar_url)[0] or "application/octet-stream"
+    return StreamingResponse(file_storage.open_stream(room.avatar_url), media_type=mime_type)
 
 
 # ---------- Thành viên và phân quyền ----------

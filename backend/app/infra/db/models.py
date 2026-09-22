@@ -28,7 +28,12 @@ class UserModel(Base):
     refresh_tokens = relationship("RefreshTokenModel", back_populates="user", cascade="all, delete-orphan")
     owned_rooms = relationship("RoomModel", back_populates="owner", cascade="all, delete-orphan")
     memberships = relationship("RoomMemberModel", back_populates="user", cascade="all, delete-orphan")
-    messages = relationship("MessageModel", back_populates="sender", cascade="all, delete-orphan")
+    messages = relationship(
+        "MessageModel",
+        back_populates="sender",
+        foreign_keys="MessageModel.user_id",
+        cascade="all, delete-orphan",
+    )
 
 
 class RefreshTokenModel(Base):
@@ -52,6 +57,7 @@ class RoomModel(Base):
     description = Column(String(300), nullable=True)
     is_private = Column(Boolean, default=False, nullable=False, index=True)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    avatar_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     owner = relationship("UserModel", back_populates="owned_rooms")
@@ -99,17 +105,26 @@ class MessageModel(Base):
     attachment_id = Column(Integer, ForeignKey("attachments.id", ondelete="SET NULL"), nullable=True)
     is_deleted = Column(Boolean, default=False, nullable=False)
     edited_at = Column(DateTime, nullable=True)
+    reply_to_id = Column(Integer, ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
+    forwarded_from_id = Column(Integer, ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
+    pinned = Column(Boolean, default=False, nullable=False)
+    pinned_at = Column(DateTime, nullable=True)
+    pinned_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     __table_args__ = (
         # Truy vấn nóng nhất là "lấy tin nhắn mới nhất của một phòng"
         Index("ix_messages_room_created", "room_id", "created_at"),
+        Index("ix_messages_room_pinned", "room_id", "pinned"),
     )
 
     room = relationship("RoomModel", back_populates="messages")
-    sender = relationship("UserModel", back_populates="messages")
+    sender = relationship("UserModel", back_populates="messages", foreign_keys=[user_id])
+    pinned_by_user = relationship("UserModel", foreign_keys=[pinned_by])
     attachment = relationship("AttachmentModel", lazy="joined")
     reactions = relationship("ReactionModel", back_populates="message", cascade="all, delete-orphan")
+    reply_to = relationship("MessageModel", remote_side=[id], foreign_keys=[reply_to_id])
 
 
 class ReactionModel(Base):

@@ -5,6 +5,7 @@ from app.infra.db.session import SessionLocal
 from app.infra.realtime.connection_manager import connection_manager
 from app.infra.security.jwt import decode_access_token
 from app.repositories.room_repo import RoomRepository
+from app.repositories.user_repo import UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +74,32 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             elif action == "unsubscribe" and room_id is not None:
                 await connection_manager.unsubscribe(user_id, int(room_id))
 
-            elif action == "typing" and room_id is not None:
-                # Báo "đang soạn tin" cho người khác trong phòng
+            elif action in ("typing.start", "typing.stop") and room_id is not None:
+                if not _can_access_room(user_id, int(room_id)):
+                    continue
+                is_typing = action == "typing.start"
+                await connection_manager.update_typing(user_id, int(room_id), is_typing)
+                typing_user = None
+                if is_typing:
+                    db = SessionLocal()
+                    try:
+                        user = UserRepository(db).get_by_id(user_id)
+                        if user:
+                            typing_user = {
+                                "id": user.id,
+                                "full_name": user.full_name,
+                                "avatar_url": user.avatar_url,
+                            }
+                    finally:
+                        db.close()
+                payload = {"room_id": int(room_id), "user_id": user_id}
+                if typing_user:
+                    payload["user"] = typing_user
                 await connection_manager.broadcast_room_async(
                     int(room_id),
-                    "user.typing",
-                    {"room_id": int(room_id), "user_id": user_id},
+                    action,
+                    payload,
+                    exclude_user=user_id,
                 )
 
             elif action == "ping":

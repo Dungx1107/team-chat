@@ -20,6 +20,9 @@ class RoomResponse(BaseModel):
     created_at: datetime
     my_role: Optional[str] = None
     member_count: Optional[int] = None
+    avatar_url: Optional[str] = None
+    last_message: Optional[dict] = None
+    unread_count: int = 0
 
 class MemberResponse(BaseModel):
     user_id: int

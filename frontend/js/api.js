@@ -158,6 +158,16 @@ const api = {
     return this.request(`/rooms/${roomId}/leave`, { method: "DELETE" });
   },
 
+  uploadRoomAvatar(roomId, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return this.request(`/rooms/${roomId}/avatar`, { method: "POST", body: form });
+  },
+
+  roomAvatarUrl(roomId, version = null) {
+    return `${API_BASE_URL}/rooms/${roomId}/avatar${version ? `?v=${version}` : ""}`;
+  },
+
   // ---------- Thành viên ----------
 
   getMembers(roomId) {
@@ -188,10 +198,14 @@ const api = {
     return this.request(`/rooms/${roomId}/messages?limit=${limit}&offset=${offset}`);
   },
 
-  sendMessage(roomId, content) {
+  getPinnedMessages(roomId) {
+    return this.request(`/rooms/${roomId}/pinned-messages`);
+  },
+
+  sendMessage(roomId, content, replyToId = null) {
     return this.request(`/rooms/${roomId}/messages`, {
       method: "POST",
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, reply_to_id: replyToId }),
     });
   },
 
@@ -206,6 +220,18 @@ const api = {
     return this.request(`/messages/${messageId}`, { method: "DELETE" });
   },
 
+  editMessage(messageId, content) {
+    return this.request(`/messages/${messageId}`, { method: "PATCH", body: JSON.stringify({ content }) });
+  },
+
+  pinMessage(messageId) {
+    return this.request(`/messages/${messageId}/pin`, { method: "POST" });
+  },
+
+  unpinMessage(messageId) {
+    return this.request(`/messages/${messageId}/pin`, { method: "DELETE" });
+  },
+
   toggleReaction(messageId, emoji) {
     return this.request(`/messages/${messageId}/reactions`, {
       method: "POST",
@@ -217,8 +243,8 @@ const api = {
     return `${API_BASE_URL}/attachments/${attachmentId}`;
   },
 
-  avatarUrl(userId) {
-    return `${API_BASE_URL}/users/${userId}/avatar`;
+  avatarUrl(userId, version = null) {
+    return `${API_BASE_URL}/users/${userId}/avatar${version ? `?v=${version}` : ""}`;
   },
 
   // ---------- Người dùng ----------

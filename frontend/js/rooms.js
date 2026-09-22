@@ -2,6 +2,8 @@ let currentRoom = null;
 let roomsCache = [];
 let membersCache = [];
 let membersPanelOpen = false;
+let roomSearchQuery = "";
+let roomSearchTimer = null;
 
 // ---------- Danh sách phòng ----------
 
@@ -16,40 +18,69 @@ async function loadRooms() {
 
 function renderRoomList() {
   const container = document.getElementById("room-list-container");
+  const visibleRooms = roomsCache.filter((room) => !roomSearchQuery || room.name.toLowerCase().includes(roomSearchQuery));
+  const countLabel = document.getElementById("room-count-label");
+  if (countLabel) countLabel.textContent = `${visibleRooms.length}/${roomsCache.length}`;
 
-  if (!roomsCache.length) {
+  if (!visibleRooms.length) {
     container.innerHTML = `<p class="text-[11px] text-slate-500 p-3 text-center leading-relaxed">
       Chưa có phòng nào.<br />Bấm dấu + để tạo phòng mới.
     </p>`;
     return;
   }
 
-  container.innerHTML = roomsCache
+  container.innerHTML = visibleRooms
     .map((r) => {
       const active = currentRoom && currentRoom.id === r.id;
-      const icon = r.is_private ? "🔒" : "#";
       const joined = !!r.my_role;
+      const unread = Number(r.unread_count || 0);
+      const preview = roomPreview(r);
 
       return `<button onclick="selectRoomById(${r.id})"
-        class="w-full text-left px-2.5 py-1.5 rounded-lg transition flex items-center gap-2 ${
+        class="room-list-item w-full text-left px-3 py-2.5 rounded-lg transition flex items-center gap-3 ${
           active
-            ? "bg-indigo-600 text-white"
-            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-slate-200"
+            ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-950 dark:text-indigo-100 border-l-[3px] border-indigo-600"
+            : "text-slate-700 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-slate-200 border-l-[3px] border-transparent"
         }">
-        <span class="shrink-0 text-xs ${active ? "text-white/70" : "text-slate-500 dark:text-slate-400"}">${icon}</span>
+        <span class="shrink-0 relative">${renderRoomAvatar(r, 48)}${r.theme_color ? `<i class="absolute -left-1 top-1 w-2 h-2 rounded-full border border-white dark:border-slate-900" style="background:${escapeHtml(r.theme_color)}"></i>` : ""}</span>
         <span class="min-w-0 flex-1">
-          <span class="block text-sm truncate ${active ? "font-semibold" : ""}">${escapeHtml(r.name)}</span>
+          <span class="flex items-center gap-1.5"><span class="block text-sm truncate ${active || unread ? "font-bold" : "font-semibold"}">${r.is_private ? "🔒 " : ""}${escapeHtml(r.name)}</span>${unread ? `<span class="shrink-0 min-w-5 px-1.5 py-0.5 rounded-full bg-indigo-500 text-white text-[10px] text-center">${unread > 99 ? "99+" : unread}</span>` : ""}</span>
+          <span class="block text-[11px] truncate ${active ? "text-indigo-700 dark:text-indigo-300" : "text-slate-500 dark:text-slate-400"}">${escapeHtml(preview)}</span>
         </span>
-        ${
-          !joined
-            ? `<span class="shrink-0 text-[9px] px-1 py-0.5 rounded ${
-                active ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
-              }">chưa vào</span>`
-            : ""
-        }
+        <span class="shrink-0 self-start text-[10px] ${active ? "text-indigo-700 dark:text-indigo-300" : "text-slate-400 dark:text-slate-500"}">${formatRoomTime(r.last_message?.created_at)}</span>
       </button>`;
     })
     .join("");
+}
+
+function roomPreview(room) {
+  const last = room.last_message;
+  if (!last) return "Chưa có tin nhắn";
+  const sender = last.sender_name || "Ai đó";
+  if (last.is_deleted) return `${sender}: Tin nhắn đã được thu hồi`;
+  if (last.type === "FILE" && last.attachment_filename) return `${sender}: 📎 ${last.attachment_filename}`;
+  return `${sender}: ${last.content || "📷 Hình ảnh"}`;
+}
+
+function onRoomSearchInput(event) {
+  roomSearchQuery = event.target.value.trim().toLowerCase();
+  renderRoomList();
+  clearTimeout(roomSearchTimer);
+  const suggestions = document.getElementById("room-search-suggestions");
+  if (!event.target.value.trim()) {
+    suggestions?.classList.add("hidden");
+    return;
+  }
+  roomSearchTimer = setTimeout(async () => {
+    try {
+      const users = await api.searchUsers(event.target.value.trim());
+      if (!users.length || !suggestions) return suggestions?.classList.add("hidden");
+      suggestions.innerHTML = users.slice(0, 5).map((user) => `<button type="button" onclick="openUserProfile(${user.id})" class="w-full flex items-center gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-left">${renderAvatar(user, 28)}<span class="min-w-0"><span class="block text-xs font-semibold truncate">${escapeHtml(user.full_name)}</span><span class="block text-[10px] text-slate-500 truncate">@${escapeHtml(user.username)}</span></span></button>`).join("");
+      suggestions.classList.remove("hidden");
+    } catch {
+      suggestions?.classList.add("hidden");
+    }
+  }, 300);
 }
 
 function selectRoomById(roomId) {
@@ -64,6 +95,7 @@ async function selectRoom(room) {
   }
 
   currentRoom = room;
+  room.unread_count = 0;
   typingTimers = {};
   renderTypingIndicator();
   renderRoomList();
@@ -87,8 +119,10 @@ async function selectRoom(room) {
   realtime.subscribe(room.id);
 
   await loadMessages();
+  await loadPinnedMessages();
   await hydrateSecureMedia();
   await loadMembers();
+  renderPinnedMessages();
 
   const input = document.getElementById("input-message");
   input.disabled = false;
@@ -103,6 +137,8 @@ function updateRoomHeader() {
   const icon = currentRoom.is_private ? "🔒" : "#";
 
   document.getElementById("active-room-name").textContent = `${icon} ${currentRoom.name}`;
+  const roomAvatar = document.getElementById("active-room-avatar");
+  if (roomAvatar) roomAvatar.innerHTML = renderRoomAvatar(currentRoom, 40);
 
   const parts = [];
   if (currentRoom.description) parts.push(currentRoom.description);
@@ -192,6 +228,15 @@ function openRoomSettingsModal() {
   openModal(`
     <div class="p-5">
       <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100 mb-4">Cài đặt phòng</h3>
+      <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+        ${renderRoomAvatar(currentRoom, 52)}
+        <div class="min-w-0 flex-1">
+          <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Ảnh đại diện phòng</div>
+          <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">JPEG, PNG, GIF hoặc WEBP · tối đa 5MB</div>
+          <button type="button" onclick="document.getElementById('room-avatar-input').click()" class="mt-2 px-2.5 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-white dark:hover:bg-slate-700">Đổi ảnh</button>
+          <input id="room-avatar-input" type="file" accept="image/*" class="hidden" onchange="onRoomAvatarSelected(event)" />
+        </div>
+      </div>
       <form onsubmit="onUpdateRoom(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Tên phòng</label>
@@ -216,6 +261,22 @@ function openRoomSettingsModal() {
       </form>
     </div>
   `);
+}
+
+async function onRoomAvatarSelected(event) {
+  const file = event.target.files[0];
+  if (!file || !currentRoom) return;
+  try {
+    const updated = await api.uploadRoomAvatar(currentRoom.id, file);
+    currentRoom = { ...currentRoom, ...updated };
+    roomAvatarVersions[currentRoom.id] = Date.now();
+    await loadRooms();
+    updateRoomHeader();
+    openRoomSettingsModal();
+    toast("Đã cập nhật avatar phòng", "success");
+  } catch (err) {
+    toast(err.status === 403 ? "Không có quyền" : err.message, "error");
+  }
 }
 
 async function onUpdateRoom(event) {
@@ -267,6 +328,8 @@ function resetChatArea() {
   if (currentRoom) realtime.unsubscribe(currentRoom.id);
   currentRoom = null;
   messagesCache = [];
+  pinnedMessagesCache = [];
+  document.getElementById("pinned-panel")?.classList.add("hidden");
 
   document.getElementById("active-room-name").textContent = "Chưa chọn phòng nào";
   document.getElementById("active-room-desc").textContent =
@@ -283,6 +346,22 @@ function resetChatArea() {
   document.getElementById("members-panel").classList.add("hidden");
   membersPanelOpen = false;
   clearPendingFile();
+}
+
+function updateRoomSummaryFromMessage(message, incrementUnread = false) {
+  const room = roomsCache.find((item) => item.id === message.room_id);
+  if (!room) return;
+  room.last_message = {
+    id: message.id,
+    content: message.content || "",
+    sender_name: message.sender_name || message.sender?.full_name || "Ai đó",
+    created_at: message.created_at,
+    type: message.type || message.message_type,
+    is_deleted: message.is_deleted,
+    attachment_filename: message.attachment?.filename || null,
+  };
+  if (incrementUnread) room.unread_count = Number(room.unread_count || 0) + 1;
+  renderRoomList();
 }
 
 // ---------- Thành viên ----------

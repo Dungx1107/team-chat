@@ -75,6 +75,13 @@ const AVATAR_COLORS = [
   "bg-indigo-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500",
   "bg-sky-500", "bg-violet-500", "bg-teal-500", "bg-orange-500",
 ];
+const avatarVersions = {};
+const roomAvatarVersions = {};
+const ROOM_AVATAR_COLORS = [
+  ["#4f46e5", "#7c3aed"], ["#8b5cf6", "#db2777"], ["#db2777", "#e11d48"],
+  ["#e11d48", "#f59e0b"], ["#f59e0b", "#10b981"], ["#10b981", "#06b6d4"],
+  ["#06b6d4", "#2563eb"], ["#2563eb", "#4f46e5"],
+];
 
 function avatarColor(userId) {
   return AVATAR_COLORS[Math.abs(Number(userId) || 0) % AVATAR_COLORS.length];
@@ -113,7 +120,7 @@ function renderAvatar(user, size = 36, opts = {}) {
   // ảnh lỗi thì chỉ cần ẩn thẻ <img>, lớp dưới lộ ra -- không phải dựng lại DOM
   // bằng chuỗi HTML lồng nhau trong thuộc tính onerror.
   const imgLayer = hasAvatar
-    ? `<img src="${escapeHtml(api.avatarUrl(id))}" alt=""
+    ? `<img src="${escapeHtml(api.avatarUrl(id, avatarVersions[id]))}" alt=""
            style="width:${px};height:${px};position:absolute;inset:0"
            class="rounded-full object-cover"
            onerror="this.style.display='none'" />`
@@ -131,6 +138,30 @@ function renderInitialAvatar(id, fullName, username, size, fontSize) {
     class="${avatarColor(id)} rounded-full flex items-center justify-center text-white font-bold shrink-0">
     ${escapeHtml(initialsOf(fullName, username))}
   </span>`;
+}
+
+function renderRoomAvatar(room, size = 48) {
+  const roomId = Number(room.id) || 0;
+  const initials = initialsOf(room.name, "#").slice(0, 2);
+  if (room.avatar_url) {
+    return `<span class="room-avatar-wrap" style="width:${size}px;height:${size}px"><img src="${escapeHtml(api.roomAvatarUrl(roomId, roomAvatarVersions[roomId]))}" alt="" class="w-full h-full rounded-xl object-cover" onerror="this.style.display='none'" /></span>`;
+  }
+  const colors = ROOM_AVATAR_COLORS[Math.abs(roomId) % ROOM_AVATAR_COLORS.length];
+  return `<span class="room-avatar-wrap rounded-xl flex items-center justify-center text-white font-bold shadow-sm" style="width:${size}px;height:${size}px;background:linear-gradient(135deg, ${colors[0]}, ${colors[1]})">${escapeHtml(initials)}</span>`;
+}
+
+function formatRoomTime(iso) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (minutes < 1) return "Vừa xong";
+  if (minutes < 60) return `${minutes} phút`;
+  const today = new Date();
+  if (date.toDateString() === today.toDateString()) return formatTime(iso);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return "Hôm qua";
+  return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
 }
 
 // ---------- Nhãn vai trò ----------

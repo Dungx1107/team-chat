@@ -34,6 +34,7 @@ class ConnectionManager(IEventPublisher):
         self._room_users: Dict[int, Set[int]] = defaultdict(set)
         # socket -> user_id, để dọn dẹp khi ngắt kết nối
         self._socket_user: Dict[WebSocket, int] = {}
+        self._typing: Dict[int, Dict[int, datetime]] = defaultdict(dict)
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._lock = asyncio.Lock()
 
@@ -50,6 +51,7 @@ class ConnectionManager(IEventPublisher):
             self._socket_user[websocket] = user_id
 
     async def disconnect(self, websocket: WebSocket) -> None:
+        offline_rooms = []
         async with self._lock:
             user_id = self._socket_user.pop(websocket, None)
             if user_id is None:
@@ -58,16 +60,36 @@ class ConnectionManager(IEventPublisher):
             if not self._user_sockets[user_id]:
                 del self._user_sockets[user_id]
                 # Người này không còn kết nối nào -> rời mọi phòng đang theo dõi
-                for members in self._room_users.values():
+                for room_id, members in self._room_users.items():
+                    if user_id in members:
+                        offline_rooms.append(room_id)
                     members.discard(user_id)
+                for users in self._typing.values():
+                    users.pop(user_id, None)
+        for room_id in offline_rooms:
+            await self.broadcast_room_async(room_id, "user.offline", {"user_id": user_id})
 
     async def subscribe(self, user_id: int, room_id: int) -> None:
         async with self._lock:
             self._room_users[room_id].add(user_id)
+        await self.broadcast_room_async(room_id, "user.online", {"user_id": user_id})
 
     async def unsubscribe(self, user_id: int, room_id: int) -> None:
         async with self._lock:
             self._room_users[room_id].discard(user_id)
+            self._typing[room_id].pop(user_id, None)
+
+    async def update_typing(self, user_id: int, room_id: int, is_typing: bool) -> None:
+        now = datetime.utcnow()
+        async with self._lock:
+            typing_users = self._typing[room_id]
+            for stale_user, timestamp in list(typing_users.items()):
+                if (now - timestamp).total_seconds() > 5:
+                    typing_users.pop(stale_user, None)
+            if is_typing:
+                typing_users[user_id] = now
+            else:
+                typing_users.pop(user_id, None)
 
     def is_online(self, user_id: int) -> bool:
         return user_id in self._user_sockets
@@ -93,9 +115,9 @@ class ConnectionManager(IEventPublisher):
                 continue
             await self._send_to_user(uid, message)
 
-    async def broadcast_room_async(self, room_id: int, event: str, payload: Dict[str, Any]) -> None:
+    async def broadcast_room_async(self, room_id: int, event: str, payload: Dict[str, Any], exclude_user: Optional[int] = None) -> None:
         message = json.dumps({"event": event, "data": payload}, default=_json_default, ensure_ascii=False)
-        await self._broadcast_room(room_id, message)
+        await self._broadcast_room(room_id, message, exclude_user=exclude_user)
 
     # ---------- Cài đặt IEventPublisher (gọi được từ code đồng bộ) ----------
 
@@ -120,6 +142,15 @@ class ConnectionManager(IEventPublisher):
     def publish_to_user(self, user_id: int, event: str, payload: Dict[str, Any]) -> None:
         message = json.dumps({"event": event, "data": payload}, default=_json_default, ensure_ascii=False)
         self._dispatch(self._send_to_user(user_id, message))
+
+    def publish_to_user_rooms(self, user_id: int, event: str, payload: Dict[str, Any]) -> None:
+        message = json.dumps({"event": event, "data": payload}, default=_json_default, ensure_ascii=False)
+        rooms = [room_id for room_id, users in self._room_users.items() if user_id in users]
+        self._dispatch(self._broadcast_rooms(rooms, message))
+
+    async def _broadcast_rooms(self, room_ids, message: str) -> None:
+        for room_id in room_ids:
+            await self._broadcast_room(room_id, message)
 
 
 # Một instance dùng chung cho toàn ứng dụng

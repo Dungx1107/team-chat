@@ -1,4 +1,5 @@
 from typing import List
+import mimetypes
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from app.api.schemas import (
@@ -132,8 +133,14 @@ def get_user_avatar(
     if not user.avatar_url or not file_storage.exists(user.avatar_url):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chưa có ảnh đại diện")
 
+    # Đoán MIME type cụ thể từ đuôi file (image/png, image/jpeg, ...)
+    # KHÔNG dùng "image/*" vì Firefox sẽ chặn vì OpaqueResponseBlocking.
+    mime_type, _ = mimetypes.guess_type(user.avatar_url)
+    if not mime_type:
+        mime_type = "application/octet-stream"
+
     return StreamingResponse(
         file_storage.open_stream(user.avatar_url),
-        media_type="image/*",
+        media_type=mime_type,  # ← ĐỔI TỪ "image/*" SANG mime_type CỤ THỂ
         headers={"Cache-Control": "public, max-age=300"},
     )

@@ -3,6 +3,8 @@ let messagesCache = [];
 let pendingFile = null;
 let typingTimers = {};
 let lastTypingSent = 0;
+let typingStopTimer = null;
+let pinnedMessagesCache = [];
 
 const EMOJI_CHOICES = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
 
@@ -19,6 +21,57 @@ async function loadMessages() {
       ${escapeHtml(err.message)}
     </div>`;
   }
+}
+
+async function loadPinnedMessages() {
+  const panel = document.getElementById("pinned-panel");
+  if (!currentRoom || !panel) return;
+  try {
+    pinnedMessagesCache = await api.getPinnedMessages(currentRoom.id);
+    renderPinnedMessages();
+  } catch (err) {
+    pinnedMessagesCache = [];
+    renderPinnedMessages();
+    if (err.status !== 403 && err.status !== 404) console.error("Lỗi tải tin ghim:", err);
+  }
+}
+
+function renderPinnedMessages() {
+  const panel = document.getElementById("pinned-panel");
+  const list = document.getElementById("pinned-list");
+  const count = document.getElementById("pinned-count");
+  if (!panel || !list || !count) return;
+  count.textContent = pinnedMessagesCache.length;
+  panel.classList.toggle("hidden", !currentRoom);
+  if (!pinnedMessagesCache.length) {
+    list.innerHTML = `<div class="text-[11px] text-amber-700/70 dark:text-amber-300/70 px-1 py-1">Chưa có tin nhắn nào được ghim</div>`;
+    return;
+  }
+  list.innerHTML = pinnedMessagesCache.map((message) => {
+    const pinner = (membersCache || []).find((member) => Number(member.user_id) === Number(message.pinned_by));
+    const pinnerName = pinner?.full_name || (message.pinned_by ? `Người dùng #${message.pinned_by}` : "Thành viên");
+    const preview = message.is_deleted ? "Tin nhắn đã được thu hồi" : (message.content || (message.attachment ? `📎 ${message.attachment.filename}` : "Tin nhắn"));
+    return `<button type="button" onclick="scrollToMessage(${message.id})" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-amber-100 dark:hover:bg-amber-900/30 transition">
+      <span class="shrink-0">${renderAvatar(pinner || { id: message.pinned_by, full_name: pinnerName }, 24)}</span>
+      <span class="min-w-0 flex-1"><span class="block text-[10px] text-amber-800 dark:text-amber-300 truncate">${escapeHtml(pinnerName)} · ${formatTime(message.pinned_at)}</span><span class="block text-xs text-slate-700 dark:text-slate-200 line-clamp-2">${escapeHtml(preview)}</span></span>
+    </button>`;
+  }).join("");
+}
+
+function togglePinnedPanel() {
+  const list = document.getElementById("pinned-list");
+  const icon = document.getElementById("pinned-toggle-icon");
+  if (!list || !icon) return;
+  list.classList.toggle("hidden");
+  icon.textContent = list.classList.contains("hidden") ? "⌄" : "⌃";
+}
+
+function scrollToMessage(messageId) {
+  const row = document.querySelector(`[data-msg-id="${messageId}"]`);
+  if (!row) return;
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+  row.classList.add("message-highlight");
+  setTimeout(() => row.classList.remove("message-highlight"), 1600);
 }
 
 function renderMessages(keepScroll = false) {
@@ -83,12 +136,13 @@ function renderMessageRow(m, myId, grouped) {
         ${isMe ? "" : `<span class="font-semibold text-sm text-slate-900 dark:text-slate-100">${escapeHtml(senderName)}</span>`}
         ${isMe ? "" : m.username ? `<span class="text-[11px] text-slate-400 dark:text-slate-500">@${escapeHtml(m.username)}</span>` : ""}
         <span class="text-[10px] text-slate-400 dark:text-slate-500">${formatTime(m.created_at)}</span>
-        ${m.edited_at ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 italic">(đã sửa)</span>` : ""}
+        ${m.edited_at ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 italic">(đã chỉnh sửa)</span>` : ""}
       </div>`;
 
   const bubble = m.is_deleted
-    ? `<div class="text-xs text-slate-400 dark:text-slate-500 italic py-1">Tin nhắn đã bị xóa</div>`
-    : `<div class="${isMe ? "bubble-me" : "bubble-other"} rounded-2xl ${isMe ? "rounded-br-sm" : "rounded-bl-sm"} px-3 py-1.5">
+    ? `<div class="text-xs text-slate-400 dark:text-slate-500 italic py-1">Tin nhắn đã được thu hồi</div>`
+    : `<div class="${isMe ? "bubble-me" : "bubble-other"} rounded-2xl ${isMe ? "rounded-br-sm" : "rounded-bl-sm"} px-3 py-1.5 relative">
+      ${m.pinned ? `<span class="absolute -top-2 ${isMe ? "left-2" : "right-2"} text-xs" title="Đã ghim${m.pinned_by ? ` bởi người dùng #${m.pinned_by}` : ""}">📌</span>` : ""}
         ${renderMessageBody(m)}
       </div>`;
   const reactions = m.is_deleted ? "" : renderReactions(m, myId, isMe);
@@ -182,6 +236,8 @@ function renderMessageActions(m, isMe) {
       (e) => `<button onclick="onToggleReaction(${m.id}, '${e}')"
         class="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-sm" title="Thả ${e}">${e}</button>`
     ).join("")}
+      ${isMe ? `<button onclick="onEditMessage(${m.id})" title="Chỉnh sửa" class="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-xs">✎</button>` : ""}
+        ${currentRoom && ["OWNER", "ADMIN"].includes(currentRoom.my_role) ? `<button onclick="onTogglePin(${m.id}, ${m.pinned ? "true" : "false"})" title="${m.pinned ? "Bỏ ghim" : "Ghim tin nhắn"}" class="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-xs">📌 <span class="sr-only">${m.pinned ? "Bỏ ghim" : "Ghim tin nhắn"}</span></button>` : ""}
     ${
       canDelete
         ? `<span class="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5"></span>
@@ -240,6 +296,12 @@ function onMessageKeyDown(event) {
   }
 }
 
+function onMessageBlur() {
+  if (!currentRoom) return;
+  clearTimeout(typingStopTimer);
+  realtime.stopTyping(currentRoom.id);
+}
+
 async function onSendMessageSubmit(event) {
   event.preventDefault();
   if (!currentRoom) return;
@@ -258,6 +320,7 @@ async function onSendMessageSubmit(event) {
   sendBtn.disabled = true;
   try {
     await api.sendMessage(currentRoom.id, content);
+    realtime.stopTyping(currentRoom.id);
     input.value = "";
     autoGrow(input);
     // Không tự nạp lại: sự kiện WebSocket sẽ đẩy tin nhắn về
@@ -352,6 +415,57 @@ async function onDeleteMessage(messageId) {
   }
 }
 
+async function onEditMessage(messageId) {
+  const message = messagesCache.find((item) => item.id === messageId);
+  if (!message) return;
+  const input = document.getElementById("input-message");
+  input.value = message.content;
+  input.focus();
+  input.form.onsubmit = async (event) => {
+    event.preventDefault();
+    try {
+      await api.editMessage(messageId, input.value.trim());
+      input.value = "";
+      input.form.onsubmit = onSendMessageSubmit;
+    } catch (err) {
+      toast("Không chỉnh sửa được: " + err.message, "error");
+    }
+  };
+}
+
+async function onTogglePin(messageId, pinned) {
+  const message = messagesCache.find((item) => item.id === messageId);
+  if (!message) return;
+  const previous = { pinned: message.pinned, pinned_at: message.pinned_at, pinned_by: message.pinned_by };
+  message.pinned = !pinned;
+  message.pinned_at = message.pinned ? new Date().toISOString() : null;
+  message.pinned_by = message.pinned ? Number(api.getCurrentUser()?.id) : null;
+  updatePinnedCache(message);
+  renderMessages(true);
+  try {
+    const result = await (pinned ? api.unpinMessage(messageId) : api.pinMessage(messageId));
+    Object.assign(message, result);
+    updatePinnedCache(message);
+    renderMessages(true);
+    toast(pinned ? "Đã bỏ ghim" : "Đã ghim tin nhắn", "success");
+  } catch (err) {
+    Object.assign(message, previous);
+    updatePinnedCache(message);
+    renderMessages(true);
+    if (err.status === 403) {
+      toast("Không có quyền", "error");
+      return;
+    }
+    toast("Không cập nhật ghim: " + err.message, "error");
+  }
+}
+
+function updatePinnedCache(message) {
+  pinnedMessagesCache = pinnedMessagesCache.filter((item) => item.id !== message.id);
+  if (message.pinned) pinnedMessagesCache.unshift(message);
+  renderPinnedMessages();
+}
+
 // ---------- Đang soạn tin ----------
 
 function notifyTyping() {
@@ -361,6 +475,8 @@ function notifyTyping() {
   if (now - lastTypingSent < 2000) return;
   lastTypingSent = now;
   realtime.sendTyping(currentRoom.id);
+  clearTimeout(typingStopTimer);
+  typingStopTimer = setTimeout(() => realtime.stopTyping(currentRoom.id), 3000);
 }
 
 function showTyping(userId) {

@@ -6,6 +6,8 @@ function renderMyAvatarBar(user) {
     34,
     { onDark: true }
   );
+  const sidebarAvatar = document.getElementById("my-avatar-sidebar");
+  if (sidebarAvatar) sidebarAvatar.innerHTML = renderAvatar({ ...user, is_online: true }, 28);
   document.getElementById("user-display-name").textContent = user.full_name;
   document.getElementById("user-display-status").textContent =
     user.status || `@${user.username}`;

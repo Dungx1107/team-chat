@@ -21,6 +21,12 @@ class Message:
         avatar_url: Optional[str] = None,
         attachment: Optional["Attachment"] = None,
         reactions: Optional[List["Reaction"]] = None,
+        reply_to_id: Optional[int] = None,
+        forwarded_from_id: Optional[int] = None,
+        pinned: bool = False,
+        pinned_at: Optional[datetime] = None,
+        pinned_by: Optional[int] = None,
+        deleted_at: Optional[datetime] = None,
     ):
         # Tin nhắn dạng TEXT bắt buộc có nội dung; dạng FILE thì content là chú thích tùy chọn
         if message_type == self.TYPE_TEXT and (not content or len(content.strip()) == 0):
@@ -37,6 +43,12 @@ class Message:
         self.created_at = created_at or datetime.utcnow()
         self.edited_at = edited_at
         self.is_deleted = is_deleted
+        self.reply_to_id = reply_to_id
+        self.forwarded_from_id = forwarded_from_id
+        self.pinned = pinned
+        self.pinned_at = pinned_at
+        self.pinned_by = pinned_by
+        self.deleted_at = deleted_at
 
         # Dữ liệu bổ trợ cho tầng hiển thị
         self.sender_name = sender_name

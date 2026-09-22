@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 from app.domain.interfaces import (
@@ -54,6 +55,12 @@ class MessageRepository(IMessageRepository):
         entity.created_at = model.created_at
         entity.edited_at = model.edited_at
         entity.is_deleted = model.is_deleted
+        entity.reply_to_id = model.reply_to_id
+        entity.forwarded_from_id = model.forwarded_from_id
+        entity.pinned = model.pinned
+        entity.pinned_at = model.pinned_at
+        entity.pinned_by = model.pinned_by
+        entity.deleted_at = model.deleted_at
         entity.sender_name = f"{user.last_name} {user.first_name}".strip() if user else None
         entity.username = user.username if user else None
         entity.avatar_url = user.avatar_url if user else None
@@ -69,6 +76,12 @@ class MessageRepository(IMessageRepository):
             message_type=message.message_type,
             attachment_id=message.attachment_id,
             created_at=message.created_at,
+            reply_to_id=message.reply_to_id,
+            forwarded_from_id=message.forwarded_from_id,
+            pinned=message.pinned,
+            pinned_at=message.pinned_at,
+            pinned_by=message.pinned_by,
+            deleted_at=message.deleted_at,
         )
         self.db.add(model)
         self.db.commit()
@@ -109,6 +122,30 @@ class MessageRepository(IMessageRepository):
         )
         return [self._to_entity(m) for m in models]
 
+    def get_pinned_by_room_id(self, room_id: int) -> List[Message]:
+        models = (
+            self.db.query(MessageModel)
+            .options(
+                joinedload(MessageModel.sender),
+                joinedload(MessageModel.attachment),
+                joinedload(MessageModel.reactions),
+            )
+            .filter(MessageModel.room_id == room_id, MessageModel.pinned.is_(True))
+            .order_by(MessageModel.pinned_at.desc(), MessageModel.id.desc())
+            .all()
+        )
+        return [self._to_entity(model) for model in models]
+
+    def set_pinned(self, message_id: int, pinned: bool, user_id: Optional[int]) -> Optional[Message]:
+        model = self.db.query(MessageModel).filter(MessageModel.id == message_id).first()
+        if not model:
+            return None
+        model.pinned = pinned
+        model.pinned_at = datetime.utcnow() if pinned else None
+        model.pinned_by = user_id if pinned else None
+        self.db.commit()
+        return self.get_by_id(message_id)
+
     def update(self, message: Message) -> Message:
         model = self.db.query(MessageModel).filter(MessageModel.id == message.id).first()
         if not model:
@@ -116,6 +153,10 @@ class MessageRepository(IMessageRepository):
         model.content = message.content
         model.edited_at = message.edited_at
         model.is_deleted = message.is_deleted
+        model.deleted_at = message.deleted_at
+        model.pinned = message.pinned
+        model.pinned_at = message.pinned_at
+        model.pinned_by = message.pinned_by
         self.db.commit()
         return self.get_by_id(model.id)
 
@@ -125,6 +166,7 @@ class MessageRepository(IMessageRepository):
             return False
         model.is_deleted = True
         model.content = ""
+        model.deleted_at = datetime.utcnow()
         self.db.commit()
         return True
 
@@ -150,6 +192,13 @@ class AttachmentRepository(IAttachmentRepository):
     def get_by_id(self, attachment_id: int) -> Optional[Attachment]:
         model = self.db.query(AttachmentModel).filter(AttachmentModel.id == attachment_id).first()
         return _attachment_to_entity(model)
+
+    def get_message_room_id(self, attachment_id: int) -> Optional[int]:
+        return (
+            self.db.query(MessageModel.room_id)
+            .filter(MessageModel.attachment_id == attachment_id)
+            .scalar()
+        )
 
 
 class ReactionRepository(IReactionRepository):

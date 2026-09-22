@@ -35,7 +35,11 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# 1. CORS
+
+# 1. Xác thực tập trung
+app.add_middleware(AuthenticationMiddleware)
+
+# 2. CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -44,9 +48,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
 )
-
-# 2. Xác thực tập trung
-app.add_middleware(AuthenticationMiddleware)
 
 # 3. Routers
 app.include_router(auth_router, prefix="/api")
@@ -65,6 +66,7 @@ async def on_startup():
     """
     connection_manager.bind_loop(asyncio.get_running_loop())
     logging.info("Team Chat API đã sẵn sàng, realtime đang bật")
+    logging.info("CORS origins cho phép: %s", settings.cors_origin_list)
 
 
 @app.get("/health", tags=["Health"])

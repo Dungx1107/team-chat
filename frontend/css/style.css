@@ -15,6 +15,20 @@ html.dark {
   color-scheme: dark;
 }
 
+#sidebar {
+  background-color: #f1f5f9;
+}
+html.dark #sidebar {
+  background-color: #020617;
+}
+
+.room-avatar-wrap {
+  display: inline-flex;
+  flex-shrink: 0;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
 /* Nền màn hình đăng nhập */
 .auth-bg {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
@@ -61,6 +75,12 @@ html.dark {
 }
 .animate-in {
   animation: slide-in 0.16s ease-out;
+}
+
+.message-highlight {
+  background-color: rgba(245, 158, 11, 0.22);
+  outline: 2px solid rgba(245, 158, 11, 0.45);
+  transition: background-color 0.2s ease, outline-color 0.2s ease;
 }
 
 /* Thông báo nổi */

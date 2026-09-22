@@ -51,6 +51,7 @@ def get_room_service(db: Session = Depends(get_db)) -> RoomService:
         room_repo=RoomRepository(db),
         user_repo=UserRepository(db),
         event_publisher=connection_manager,
+        file_storage=file_storage,
     )
 
 
@@ -66,4 +67,4 @@ def get_message_service(db: Session = Depends(get_db)) -> MessageService:
 
 
 def get_user_service(db: Session = Depends(get_db)) -> UserService:
-    return UserService(UserRepository(db), file_storage=file_storage)
+    return UserService(UserRepository(db), file_storage=file_storage, event_publisher=connection_manager)

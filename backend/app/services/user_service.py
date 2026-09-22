@@ -1,5 +1,5 @@
 from typing import BinaryIO, List, Optional
-from app.domain.interfaces import IUserRepository, IFileStorage
+from app.domain.interfaces import IUserRepository, IFileStorage, IEventPublisher
 from app.domain.models import User
 
 
@@ -14,9 +14,10 @@ class UserService:
     )
     MAX_AVATAR_BYTES = 5 * 1024 * 1024  # 5MB
 
-    def __init__(self, user_repo: IUserRepository, file_storage: Optional[IFileStorage] = None):
+    def __init__(self, user_repo: IUserRepository, file_storage: Optional[IFileStorage] = None, event_publisher: Optional[IEventPublisher] = None):
         self.user_repo = user_repo
         self.file_storage = file_storage
+        self.events = event_publisher
 
     def get_profile(self, user_id: int) -> User:
         user = self.user_repo.get_by_id(user_id)
@@ -35,7 +36,9 @@ class UserService:
         user = self.get_profile(user_id)
         # Toàn bộ luật kiểm tra nằm trong entity User
         user.update_profile(first_name=first_name, last_name=last_name, bio=bio, status=status)
-        return self.user_repo.update(user)
+        updated = self.user_repo.update(user)
+        self._publish_updated(updated)
+        return updated
 
     def update_avatar(
         self,
@@ -64,7 +67,18 @@ class UserService:
         if old_avatar and old_avatar != stored_name:
             self.file_storage.delete(old_avatar)
 
+        self._publish_updated(updated)
         return updated
+
+    def _publish_updated(self, user: User) -> None:
+        if self.events:
+            self.events.publish_to_user_rooms(user.id, "user.updated", {"user": {
+                "id": user.id,
+                "full_name": user.full_name,
+                "avatar_url": user.avatar_url,
+                "bio": user.bio,
+                "status": user.status,
+            }})
 
     def search_users(self, keyword: str, limit: int = 20) -> List[User]:
         if not keyword or not keyword.strip():

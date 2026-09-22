@@ -19,6 +19,7 @@ from app.api.schemas.message import (
     AttachmentResponse,
     ReactionSummary,
     ReactionRequest,
+    MessageEditRequest,
 )
 from app.api.schemas.user import (
     ProfileResponse,
@@ -43,6 +44,7 @@ __all__ = [
     "AttachmentResponse",
     "ReactionSummary",
     "ReactionRequest",
+    "MessageEditRequest",
     "ProfileResponse",
     "PublicProfileResponse",
     "ProfileUpdateRequest",

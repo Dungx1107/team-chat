@@ -3,7 +3,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from app.domain.interfaces import IRoomRepository
 from app.domain.models import Room, RoomMember, User
-from app.infra.db.models import RoomModel, RoomMemberModel, UserModel
+from app.infra.db.models import RoomModel, RoomMemberModel, UserModel, MessageModel, AttachmentModel
 
 class RoomRepository(IRoomRepository):
     def __init__(self, db: Session):
@@ -20,6 +20,7 @@ class RoomRepository(IRoomRepository):
             description=model.description,
             is_private=model.is_private,
             owner_id=model.owner_id,
+            avatar_url=model.avatar_url,
             created_at=model.created_at,
         )
 
@@ -57,6 +58,7 @@ class RoomRepository(IRoomRepository):
             description=room.description,
             is_private=room.is_private,
             owner_id=room.owner_id,
+            avatar_url=room.avatar_url,
             created_at=room.created_at,
         )
         self.db.add(model)
@@ -75,6 +77,7 @@ class RoomRepository(IRoomRepository):
         model.name = room.name
         model.description = room.description
         model.is_private = room.is_private
+        model.avatar_url = room.avatar_url
         self.db.commit()
         self.db.refresh(model)
         return self._to_room_entity(model)
@@ -180,3 +183,25 @@ class RoomRepository(IRoomRepository):
             .filter(RoomMemberModel.room_id == room_id)
             .scalar()
         ) or 0
+
+    def get_last_message_summary(self, room_id: int) -> Optional[dict]:
+        row = (
+            self.db.query(MessageModel, UserModel, AttachmentModel)
+            .join(UserModel, UserModel.id == MessageModel.user_id)
+            .outerjoin(AttachmentModel, AttachmentModel.id == MessageModel.attachment_id)
+            .filter(MessageModel.room_id == room_id)
+            .order_by(MessageModel.created_at.desc(), MessageModel.id.desc())
+            .first()
+        )
+        if not row:
+            return None
+        message, user, attachment = row
+        return {
+            "id": message.id,
+            "content": "" if message.is_deleted else message.content,
+            "sender_name": f"{user.last_name} {user.first_name}".strip(),
+            "created_at": message.created_at,
+            "type": message.message_type,
+            "is_deleted": message.is_deleted,
+            "attachment_filename": attachment.filename if attachment else None,
+        }

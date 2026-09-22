@@ -122,6 +122,9 @@ function registerRealtimeHandlers() {
   registerRealtimeHandlers.done = true;
 
   realtime.on("message.created", async (data) => {
+    const message = data.message || data;
+    data = message;
+    updateRoomSummaryFromMessage(data, !currentRoom || data.room_id !== currentRoom.id);
     if (!currentRoom || data.room_id !== currentRoom.id) {
       // Tin nhắn ở phòng khác: chỉ báo nhẹ, không cắt ngang
       const room = roomsCache.find((r) => r.id === data.room_id);
@@ -134,7 +137,7 @@ function registerRealtimeHandlers() {
 
     if (messagesCache.some((m) => m.id === data.id)) return;
     messagesCache.push(data);
-    renderMessages();
+    renderMessages(true);
     await hydrateSecureMedia();
 
     // Người vừa gửi thì thôi báo "đang soạn tin"
@@ -144,7 +147,7 @@ function registerRealtimeHandlers() {
 
   realtime.on("message.deleted", (data) => {
     if (!currentRoom || data.room_id !== currentRoom.id) return;
-    const msg = messagesCache.find((m) => m.id === data.id);
+    const msg = messagesCache.find((m) => m.id === data.message_id || m.id === data.id);
     if (msg) {
       msg.is_deleted = true;
       msg.content = "";
@@ -152,14 +155,67 @@ function registerRealtimeHandlers() {
     }
   });
 
-  realtime.on("reaction.updated", (data) => {
+  realtime.on("message.reaction", (data) => {
     if (!currentRoom || data.room_id !== currentRoom.id) return;
     applyReactionUpdate(data);
   });
 
-  realtime.on("user.typing", (data) => {
+  realtime.on("typing.start", (data) => {
     if (!currentRoom || data.room_id !== currentRoom.id) return;
     showTyping(data.user_id);
+  });
+
+  realtime.on("typing.stop", (data) => {
+    delete typingTimers[data.user_id];
+    renderTypingIndicator();
+  });
+
+  realtime.on("message.updated", (data) => {
+    const updated = data.message || data;
+    const index = messagesCache.findIndex((m) => m.id === updated.id);
+    if (index < 0) return;
+    messagesCache[index] = updated;
+    renderMessages(true);
+  });
+
+  realtime.on("message.pinned", (data) => {
+    if (!currentRoom || data.room_id !== currentRoom.id) return;
+    const incoming = data.message || {};
+    const msg = messagesCache.find((m) => m.id === data.message_id);
+    if (msg) {
+      Object.assign(msg, incoming, {
+        pinned: data.pinned,
+        pinned_at: data.pinned_at,
+        pinned_by: data.pinned_by,
+      });
+      updatePinnedCache(msg);
+    } else if (data.pinned && incoming.id) {
+      updatePinnedCache({ ...incoming, pinned: true, pinned_at: data.pinned_at, pinned_by: data.pinned_by });
+    } else {
+      pinnedMessagesCache = pinnedMessagesCache.filter((item) => item.id !== data.message_id);
+      renderPinnedMessages();
+    }
+    renderMessages(true);
+  });
+
+  realtime.on("user.updated", (data) => {
+    const user = data.user || data;
+    avatarVersions[user.id] = Date.now();
+    const current = api.getCurrentUser();
+    if (current && Number(current.id) === Number(user.id)) {
+      api.updateCurrentUser({ ...current, ...user });
+      renderMyAvatarBar({ ...current, ...user });
+    }
+    if (currentRoom) {
+      messagesCache.forEach((message) => {
+        if (Number(message.user_id) === Number(user.id)) {
+          message.avatar_url = user.avatar_url;
+          message.sender_name = user.full_name;
+        }
+      });
+      renderMessages(true);
+      if (membersPanelOpen) renderMembers();
+    }
   });
 
   realtime.on("room.member_joined", async (data) => {
@@ -213,6 +269,22 @@ function registerRealtimeHandlers() {
       currentRoom = { ...currentRoom, ...data };
       updateRoomHeader();
     }
+  });
+
+  realtime.on("room.summary_updated", (data) => {
+    if (data.last_message) updateRoomSummaryFromMessage(data.last_message, false);
+  });
+
+  realtime.on("room.avatar_updated", (data) => {
+    const room = roomsCache.find((item) => item.id === data.room_id);
+    if (!room) return;
+    room.avatar_url = data.avatar_url;
+    roomAvatarVersions[room.id] = Date.now();
+    if (currentRoom && currentRoom.id === room.id) {
+      currentRoom.avatar_url = data.avatar_url;
+      updateRoomHeader();
+    }
+    renderRoomList();
   });
 
   realtime.on("room.deleted", async (data) => {

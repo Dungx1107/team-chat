@@ -177,7 +177,10 @@ Quyền thành viên theo thứ tự: `OWNER > ADMIN > MEMBER`. Phòng công kha
 | `POST` | `/api/rooms/{room_id}/messages` | Gửi tin nhắn văn bản |
 | `POST` | `/api/rooms/{room_id}/messages/upload` | Gửi tin nhắn kèm file |
 | `GET` | `/api/rooms/{room_id}/messages` | Lấy lịch sử tin nhắn |
-| `DELETE` | `/api/messages/{message_id}` | Xóa mềm tin nhắn |
+| `PATCH` | `/api/messages/{message_id}` | Chỉnh sửa tin nhắn của mình |
+| `DELETE` | `/api/messages/{message_id}` | Thu hồi tin nhắn |
+| `POST` | `/api/messages/{message_id}/pin` | Ghim tin nhắn (OWNER/ADMIN) |
+| `DELETE` | `/api/messages/{message_id}/pin` | Bỏ ghim tin nhắn (OWNER/ADMIN) |
 | `POST` | `/api/messages/{message_id}/reactions` | Toggle reaction |
 | `GET` | `/api/attachments/{attachment_id}` | Stream hoặc tải file |
 
@@ -217,7 +220,8 @@ Các action client gửi:
 ```json
 {"action":"subscribe","room_id":1}
 {"action":"unsubscribe","room_id":1}
-{"action":"typing","room_id":1}
+{"action":"typing.start","room_id":1}
+{"action":"typing.stop","room_id":1}
 {"action":"ping"}
 ```
 
@@ -225,9 +229,9 @@ Các event server phát:
 
 - `connected`
 - `message.created`
-- `message.deleted`
-- `reaction.updated`
-- `user.typing`
+- `message.updated`, `message.deleted`, `message.reaction`, `message.pinned`
+- `user.updated`, `user.online`, `user.offline`
+- `typing.start`, `typing.stop`
 - `room.member_joined`
 - `room.member_left`
 - `room.role_changed`
@@ -236,6 +240,13 @@ Các event server phát:
 - `error`
 
 `ConnectionManager` lưu kết nối, subscription và trạng thái online trong memory của process backend hiện tại.
+
+Khi thay đổi schema database trong Pha 1 (không dùng Alembic), reset volume rồi dựng lại:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
 
 ## 4. Xác thực và bảo mật
 

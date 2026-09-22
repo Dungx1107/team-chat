@@ -55,3 +55,7 @@ class IRoomRepository(ABC):
     @abstractmethod
     def count_members(self, room_id: int) -> int:
         pass
+
+    @abstractmethod
+    def get_last_message_summary(self, room_id: int) -> Optional[dict]:
+        pass

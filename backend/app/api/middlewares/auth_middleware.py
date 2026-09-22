@@ -20,6 +20,7 @@ PUBLIC_PATHS = (
 # không gửi kèm được header Authorization.
 PUBLIC_PATTERNS = (
     re.compile(r"^/api/users/\d+/avatar/?$"),
+    re.compile(r"^/api/rooms/\d+/avatar/?$"),
 )
 
 
@@ -36,6 +37,10 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         return any(p.match(path) for p in PUBLIC_PATTERNS)
 
     async def dispatch(self, request: Request, call_next):
+        # WebSocket không đi qua HTTP middleware
+        if request.scope["type"] == "websocket":
+            return await call_next(request)
+
         # Trình duyệt gửi preflight OPTIONS trước request thật, cho qua ngay
         if request.method == "OPTIONS":
             return await call_next(request)

@@ -6,6 +6,7 @@ from app.api.schemas import (
     MessageResponse,
     AttachmentResponse,
     ReactionRequest,
+    MessageEditRequest,
 )
 from app.api.dependencies import get_message_service, get_current_user_id, file_storage
 from app.services.message_service import MessageService
@@ -33,6 +34,12 @@ def _to_response(msg, svc: MessageService) -> MessageResponse:
         created_at=msg.created_at,
         edited_at=msg.edited_at,
         is_deleted=msg.is_deleted,
+        reply_to_id=getattr(msg, "reply_to_id", None),
+        forwarded_from_id=getattr(msg, "forwarded_from_id", None),
+        pinned=getattr(msg, "pinned", False),
+        pinned_at=getattr(msg, "pinned_at", None),
+        pinned_by=getattr(msg, "pinned_by", None),
+        deleted_at=getattr(msg, "deleted_at", None),
         sender_name=msg.sender_name,
         username=msg.username,
         avatar_url=msg.avatar_url,
@@ -56,7 +63,8 @@ def send_message(
         msg = msg_service.send_message(
             room_id=room_id,
             user_id=current_user_id,
-            content=body.content
+            content=body.content,
+            reply_to_id=body.reply_to_id,
         )
         return _to_response(msg, msg_service)
     except ValueError as e:
@@ -116,6 +124,21 @@ def get_messages(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
 
+@router.get("/rooms/{room_id}/pinned-messages", response_model=List[MessageResponse])
+def get_pinned_messages(
+    room_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    msg_service: MessageService = Depends(get_message_service),
+):
+    try:
+        messages = msg_service.get_pinned_messages(room_id, current_user_id)
+        return [_to_response(message, msg_service) for message in messages]
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+
 @router.delete("/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_message(
     message_id: int,
@@ -125,6 +148,49 @@ def delete_message(
     """Xóa mềm: tự xóa tin của mình, hoặc ADMIN/OWNER xóa tin người khác."""
     try:
         msg_service.delete_message(message_id, current_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+
+@router.patch("/messages/{message_id}", response_model=MessageResponse)
+def edit_message(
+    message_id: int,
+    body: MessageEditRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    msg_service: MessageService = Depends(get_message_service),
+):
+    try:
+        return _to_response(msg_service.edit_message(message_id, current_user_id, body.content), msg_service)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+
+@router.post("/messages/{message_id}/pin", response_model=MessageResponse)
+def pin_message(
+    message_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    msg_service: MessageService = Depends(get_message_service),
+):
+    try:
+        return _to_response(msg_service.pin_message(message_id, current_user_id), msg_service)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+
+@router.delete("/messages/{message_id}/pin", response_model=MessageResponse)
+def unpin_message(
+    message_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    msg_service: MessageService = Depends(get_message_service),
+):
+    try:
+        return _to_response(msg_service.unpin_message(message_id, current_user_id), msg_service)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except PermissionError as e:

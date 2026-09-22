@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 class MessageCreateRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=4000)
+    reply_to_id: Optional[int] = None
 
 class AttachmentResponse(BaseModel):
     id: int
@@ -26,6 +27,12 @@ class MessageResponse(BaseModel):
     created_at: datetime
     edited_at: Optional[datetime] = None
     is_deleted: bool = False
+    reply_to_id: Optional[int] = None
+    forwarded_from_id: Optional[int] = None
+    pinned: bool = False
+    pinned_at: Optional[datetime] = None
+    pinned_by: Optional[int] = None
+    deleted_at: Optional[datetime] = None
     sender_name: Optional[str] = None
     username: Optional[str] = None
     avatar_url: Optional[str] = None
@@ -37,3 +44,6 @@ class MessageResponse(BaseModel):
 
 class ReactionRequest(BaseModel):
     emoji: str = Field(..., min_length=1, max_length=16)
+
+class MessageEditRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=4000)

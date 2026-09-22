@@ -1,5 +1,5 @@
-from typing import List, Optional, Tuple
-from app.domain.interfaces import IRoomRepository, IUserRepository, IEventPublisher
+from typing import BinaryIO, List, Optional, Tuple
+from app.domain.interfaces import IRoomRepository, IUserRepository, IEventPublisher, IFileStorage
 from app.domain.interfaces.event_publisher import NullEventPublisher
 from app.domain.models import Room, RoomMember, User
 
@@ -16,10 +16,12 @@ class RoomService:
         room_repo: IRoomRepository,
         user_repo: Optional[IUserRepository] = None,
         event_publisher: Optional[IEventPublisher] = None,
+        file_storage: Optional[IFileStorage] = None,
     ):
         self.room_repo = room_repo
         self.user_repo = user_repo
         self.events = event_publisher or NullEventPublisher()
+        self.file_storage = file_storage
 
     # ---------- Kiểm tra quyền dùng chung ----------
 
@@ -221,6 +223,29 @@ class RoomService:
         if not self.can_view_room(room, user_id):
             raise PermissionError("Đây là phòng riêng tư, bạn không có quyền xem")
         return self.room_repo.list_members(room_id)
+
+    def update_avatar(self, room_id: int, user_id: int, file_obj: BinaryIO, filename: str, content_type: str) -> Room:
+        if not self.file_storage:
+            raise ValueError("Chức năng tải ảnh chưa được cấu hình")
+        if content_type not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+            raise ValueError("Avatar phòng chỉ chấp nhận JPEG, PNG, GIF hoặc WEBP")
+        room = self._get_room_or_fail(room_id)
+        member = self.require_membership(room_id, user_id)
+        if not member.can_update_room():
+            raise PermissionError("Chỉ OWNER hoặc ADMIN mới được đổi avatar phòng")
+        old_avatar = room.avatar_url
+        stored_name, size_bytes = self.file_storage.save(file_obj, filename)
+        if size_bytes > 5 * 1024 * 1024:
+            self.file_storage.delete(stored_name)
+            raise ValueError("Avatar phòng không được vượt quá 5MB")
+        room.avatar_url = stored_name
+        updated = self.room_repo.update(room)
+        if old_avatar and old_avatar != stored_name:
+            self.file_storage.delete(old_avatar)
+        self.events.publish_to_room(room_id, "room.avatar_updated", {
+            "room_id": room_id, "avatar_url": updated.avatar_url,
+        })
+        return updated
 
     # ---------- Tiện ích nội bộ ----------
 
