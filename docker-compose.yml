@@ -39,6 +39,26 @@ services:
       # tách khỏi mã nguồn và khỏi dữ liệu Postgres
       - uploads:/app/uploads
 
+  # Cổng vào duy nhất qua HTTPS: phục vụ giao diện, chuyển /api và /ws về backend.
+  # Cần HTTPS vì trình duyệt chỉ cho dùng micro/camera trên kết nối bảo mật.
+  web:
+    build:
+      context: ./deploy/nginx
+    container_name: teamchat_web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # IP LAN của máy chạy server, để chứng chỉ khớp khi vào từ thiết bị khác
+      CERT_IPS: ${CERT_IPS:-}
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - certs:/etc/nginx/certs
+
 volumes:
   pgdata:
   uploads:
+  certs:
