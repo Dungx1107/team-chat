@@ -37,6 +37,37 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function syncThemeIcons() {
+  const isDark = document.documentElement.classList.contains("dark");
+  const icon = isDark ? "☀️" : "🌙";
+  const authIcon = document.getElementById("theme-icon-auth");
+  const chatIcon = document.getElementById("theme-icon-chat");
+  if (authIcon) authIcon.textContent = icon;
+  if (chatIcon) chatIcon.textContent = icon;
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle("dark");
+  localStorage.setItem("theme", isDark ? "dark" : "light");
+  syncThemeIcons();
+}
+
+const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+colorScheme.addEventListener("change", (event) => {
+  if (localStorage.getItem("theme") !== null) return;
+  document.documentElement.classList.toggle("dark", event.matches);
+  syncThemeIcons();
+});
+
+function toggleSidebar() {
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("sidebar-overlay");
+  if (!sidebar || !overlay) return;
+  sidebar.classList.toggle("-translate-x-full");
+  sidebar.classList.toggle("open");
+  overlay.classList.toggle("hidden");
+}
+
 // ---------- Avatar ----------
 
 // Màu nền suy ra từ id để mỗi người có một màu ổn định
@@ -105,9 +136,9 @@ function renderInitialAvatar(id, fullName, username, size, fontSize) {
 // ---------- Nhãn vai trò ----------
 
 const ROLE_LABELS = {
-  OWNER: { text: "Chủ phòng", cls: "bg-amber-100 text-amber-700" },
-  ADMIN: { text: "Quản trị", cls: "bg-indigo-100 text-indigo-700" },
-  MEMBER: { text: "Thành viên", cls: "bg-slate-100 text-slate-500" },
+  OWNER: { text: "Chủ phòng", cls: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300" },
+  ADMIN: { text: "Quản trị", cls: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300" },
+  MEMBER: { text: "Thành viên", cls: "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400" },
 };
 
 function roleBadge(role) {
@@ -119,7 +150,7 @@ function roleBadge(role) {
 
 function toast(message, type = "info") {
   const colors = {
-    info: "bg-slate-800 text-white",
+    info: "bg-slate-800 dark:bg-slate-700 text-white",
     success: "bg-emerald-600 text-white",
     error: "bg-red-600 text-white",
   };
@@ -139,7 +170,7 @@ function toast(message, type = "info") {
 function openModal(html) {
   const root = document.getElementById("modal-root");
   root.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto scroll-thin">
+    <div class="bg-white dark:bg-slate-900 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto scroll-thin">
       ${html}
     </div>
   </div>`;

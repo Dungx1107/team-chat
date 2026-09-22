@@ -32,16 +32,18 @@ function renderRoomList() {
 
       return `<button onclick="selectRoomById(${r.id})"
         class="w-full text-left px-2.5 py-1.5 rounded-lg transition flex items-center gap-2 ${
-          active ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+          active
+            ? "bg-indigo-600 text-white"
+            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-slate-200"
         }">
-        <span class="shrink-0 text-xs ${active ? "text-white/70" : "text-slate-500"}">${icon}</span>
+        <span class="shrink-0 text-xs ${active ? "text-white/70" : "text-slate-500 dark:text-slate-400"}">${icon}</span>
         <span class="min-w-0 flex-1">
           <span class="block text-sm truncate ${active ? "font-semibold" : ""}">${escapeHtml(r.name)}</span>
         </span>
         ${
           !joined
             ? `<span class="shrink-0 text-[9px] px-1 py-0.5 rounded ${
-                active ? "bg-white/20" : "bg-slate-700 text-slate-400"
+                active ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
               }">chưa vào</span>`
             : ""
         }
@@ -131,32 +133,32 @@ function toggleEl(id, show) {
 function openCreateRoomModal() {
   openModal(`
     <div class="p-5">
-      <h3 class="font-bold text-lg text-slate-900 mb-4">Tạo phòng mới</h3>
+      <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100 mb-4">Tạo phòng mới</h3>
       <form onsubmit="onCreateRoom(event)" class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1.5">Tên phòng</label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Tên phòng</label>
           <input id="new-room-name" required maxlength="150" autofocus
-                 class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                 class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                  placeholder="ví dụ: Thảo luận đồ án" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1.5">Mô tả <span class="font-normal text-slate-400">(tùy chọn)</span></label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Mô tả <span class="font-normal text-slate-400 dark:text-slate-500">(tùy chọn)</span></label>
           <input id="new-room-desc" maxlength="300"
-                 class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                 class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                  placeholder="Phòng này dùng để làm gì?" />
         </div>
-        <label class="flex items-start gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+        <label class="flex items-start gap-2.5 p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
           <input type="checkbox" id="new-room-private" class="mt-0.5" />
           <span>
-            <span class="block text-sm font-medium text-slate-800">🔒 Phòng riêng tư</span>
-            <span class="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+            <span class="block text-sm font-medium text-slate-800 dark:text-slate-200">🔒 Phòng riêng tư</span>
+            <span class="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
               Chỉ người được mời mới thấy và vào được phòng này.
             </span>
           </span>
         </label>
         <div class="flex gap-2 pt-1">
           <button type="button" onclick="closeModal()"
-                  class="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50">Hủy</button>
+                  class="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800">Hủy</button>
           <button type="submit"
                   class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold">Tạo phòng</button>
         </div>
@@ -189,25 +191,25 @@ function openRoomSettingsModal() {
   if (!currentRoom) return;
   openModal(`
     <div class="p-5">
-      <h3 class="font-bold text-lg text-slate-900 mb-4">Cài đặt phòng</h3>
+      <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100 mb-4">Cài đặt phòng</h3>
       <form onsubmit="onUpdateRoom(event)" class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1.5">Tên phòng</label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Tên phòng</label>
           <input id="edit-room-name" required maxlength="150" value="${escapeHtml(currentRoom.name)}"
-                 class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                 class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1.5">Mô tả</label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Mô tả</label>
           <input id="edit-room-desc" maxlength="300" value="${escapeHtml(currentRoom.description || "")}"
-                 class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                 class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
-        <div class="text-[11px] text-slate-500 bg-slate-50 rounded-lg p-3 leading-relaxed">
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 leading-relaxed">
           Loại phòng: <strong>${currentRoom.is_private ? "Riêng tư 🔒" : "Công khai #"}</strong><br />
           Không thể đổi loại phòng sau khi đã tạo.
         </div>
         <div class="flex gap-2">
           <button type="button" onclick="closeModal()"
-                  class="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50">Hủy</button>
+                  class="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800">Hủy</button>
           <button type="submit"
                   class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold">Lưu</button>
         </div>
@@ -270,7 +272,7 @@ function resetChatArea() {
   document.getElementById("active-room-desc").textContent =
     "Chọn một phòng ở danh sách bên trái để bắt đầu trò chuyện";
   document.getElementById("messages-scroll-area").innerHTML =
-    `<div class="text-center text-slate-400 text-xs mt-16">Chọn một phòng để xem tin nhắn</div>`;
+    `<div class="text-center text-slate-400 dark:text-slate-500 text-xs mt-16">Chọn một phòng để xem tin nhắn</div>`;
 
   ["btn-delete-room", "btn-leave-room", "btn-room-settings", "btn-toggle-members", "btn-add-member"]
     .forEach((id) => toggleEl(id, false));
@@ -315,12 +317,12 @@ function renderMembers() {
       const isSelf = m.user_id === myId;
       const canActOn = canManage && !isSelf && m.role !== "OWNER";
 
-      return `<div class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-slate-50 group">
+      return `<div class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 group">
         <div class="shrink-0">${renderAvatar(m, 32)}</div>
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5">
-            <span class="text-xs font-medium text-slate-800 truncate">${escapeHtml(m.full_name)}</span>
-            ${isSelf ? `<span class="text-[10px] text-slate-400">(bạn)</span>` : ""}
+            <span class="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">${escapeHtml(m.full_name)}</span>
+            ${isSelf ? `<span class="text-[10px] text-slate-400 dark:text-slate-500">(bạn)</span>` : ""}
           </div>
           <div class="flex items-center gap-1.5 mt-0.5">
             ${roleBadge(m.role)}
@@ -330,7 +332,7 @@ function renderMembers() {
         ${
           canActOn
             ? `<button onclick="openMemberActions(${m.user_id})"
-                 class="shrink-0 opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-500 transition">⋯</button>`
+                 class="shrink-0 opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition">⋯</button>`
             : ""
         }
       </div>`;
@@ -348,8 +350,8 @@ function openMemberActions(userId) {
       <div class="flex items-center gap-3 mb-4">
         ${renderAvatar(member, 44)}
         <div class="min-w-0">
-          <div class="font-bold text-slate-900 truncate">${escapeHtml(member.full_name)}</div>
-          <div class="text-xs text-slate-500">@${escapeHtml(member.username)}</div>
+          <div class="font-bold text-slate-900 dark:text-slate-100 truncate">${escapeHtml(member.full_name)}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">@${escapeHtml(member.username)}</div>
         </div>
       </div>
 
@@ -358,21 +360,21 @@ function openMemberActions(userId) {
           isOwner
             ? member.role === "ADMIN"
               ? `<button onclick="onChangeRole(${userId}, 'MEMBER')"
-                   class="w-full text-left px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm hover:bg-slate-50">
+                   class="w-full text-left px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-800">
                    ⬇️ Giáng xuống Thành viên
                  </button>`
               : `<button onclick="onChangeRole(${userId}, 'ADMIN')"
-                   class="w-full text-left px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm hover:bg-slate-50">
+                   class="w-full text-left px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-800">
                    ⬆️ Phong làm Quản trị viên
                  </button>`
             : ""
         }
         <button onclick="onRemoveMember(${userId})"
-                class="w-full text-left px-3.5 py-2.5 border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50">
+                class="w-full text-left px-3.5 py-2.5 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:hover:bg-red-900/30">
           🚫 Xóa khỏi phòng
         </button>
         <button onclick="closeModal()"
-                class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50">
+                class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800">
           Đóng
         </button>
       </div>
@@ -410,14 +412,14 @@ async function onRemoveMember(userId) {
 function openAddMemberModal() {
   openModal(`
     <div class="p-5">
-      <h3 class="font-bold text-lg text-slate-900 mb-1">Thêm thành viên</h3>
-      <p class="text-xs text-slate-500 mb-4">Tìm theo tên, username hoặc email.</p>
+      <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100 mb-1">Thêm thành viên</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Tìm theo tên, username hoặc email.</p>
       <input id="user-search-input" oninput="onSearchUsers(this.value)" autofocus
-             class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+             class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
              placeholder="Nhập để tìm..." />
       <div id="user-search-results" class="mt-3 space-y-1 max-h-64 overflow-y-auto scroll-thin"></div>
       <button onclick="closeModal()"
-              class="w-full mt-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50">Đóng</button>
+              class="w-full mt-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800">Đóng</button>
     </div>
   `);
 }
@@ -441,18 +443,18 @@ function onSearchUsers(keyword) {
       const candidates = users.filter((u) => !existingIds.has(u.id));
 
       if (!candidates.length) {
-        box.innerHTML = `<p class="text-xs text-slate-400 text-center py-3">Không tìm thấy ai phù hợp</p>`;
+        box.innerHTML = `<p class="text-xs text-slate-400 dark:text-slate-500 text-center py-3">Không tìm thấy ai phù hợp</p>`;
         return;
       }
 
       box.innerHTML = candidates
         .map(
           (u) => `<button onclick="onAddMember(${u.id})"
-            class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-50 text-left">
+            class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-left">
             ${renderAvatar(u, 32)}
             <span class="min-w-0 flex-1">
-              <span class="block text-xs font-medium text-slate-800 truncate">${escapeHtml(u.full_name)}</span>
-              <span class="block text-[11px] text-slate-400 truncate">@${escapeHtml(u.username)}</span>
+              <span class="block text-xs font-medium text-slate-800 dark:text-slate-200 truncate">${escapeHtml(u.full_name)}</span>
+              <span class="block text-[11px] text-slate-400 dark:text-slate-500 truncate">@${escapeHtml(u.username)}</span>
             </span>
             <span class="shrink-0 text-indigo-600 text-lg leading-none">+</span>
           </button>`

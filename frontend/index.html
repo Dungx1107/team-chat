@@ -1,16 +1,39 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Team Chat</title>
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    };
+  </script>
+
+  <script>
+    // Chạy TRƯỚC khi CSS load để tránh nháy trắng khi F5
+    (function () {
+      const saved = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved === 'dark' || (!saved && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased">
 
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 antialiased transition-colors">
   <!-- ===================== MÀN HÌNH ĐĂNG NHẬP / ĐĂNG KÝ ===================== -->
-  <div id="auth-view" class="hidden min-h-screen flex items-center justify-center p-4 auth-bg">
+  <div id="auth-view" class="hidden relative min-h-screen flex items-center justify-center p-4 auth-bg">
+    <button onclick="toggleTheme()" title="Đổi giao diện sáng/tối"
+      class="absolute top-4 right-4 z-10 p-2.5 rounded-xl bg-white/15 backdrop-blur text-white hover:bg-white/25 transition">
+      <span id="theme-icon-auth">🌙</span>
+    </button>
     <div class="w-full max-w-md">
       <div class="text-center mb-6">
         <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/15 backdrop-blur mb-3">
@@ -20,14 +43,14 @@
         <p class="text-white/70 text-sm mt-1">Không gian trao đổi nội bộ của nhóm</p>
       </div>
 
-      <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div class="flex border-b border-slate-100">
+      <div class="bg-white dark:bg-slate-900 dark:text-slate-100 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex border-b border-slate-100 dark:border-slate-700">
           <button id="tab-login-btn" onclick="switchAuthTab('login')"
-                  class="flex-1 py-3 font-semibold text-indigo-600 border-b-2 border-indigo-600 text-sm">
+            class="flex-1 py-3 font-semibold text-indigo-600 border-b-2 border-indigo-600 text-sm">
             Đăng nhập
           </button>
           <button id="tab-register-btn" onclick="switchAuthTab('register')"
-                  class="flex-1 py-3 font-semibold text-slate-400 text-sm">
+            class="flex-1 py-3 font-semibold text-slate-400 dark:text-slate-500 text-sm">
             Đăng ký
           </button>
         </div>
@@ -39,21 +62,22 @@
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1.5">Email</label>
               <input id="login-email" type="email" required autocomplete="username"
-                     class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
-                     placeholder="user1@example.com" />
+                class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+                placeholder="user1@example.com" />
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1.5">Mật khẩu</label>
               <input id="login-password" type="password" required autocomplete="current-password"
-                     class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
-                     placeholder="••••••••" />
+                class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+                placeholder="••••••••" />
             </div>
             <button type="submit"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow-sm">
+              class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow-sm">
               Đăng nhập
             </button>
             <p class="text-[11px] text-slate-400 text-center pt-1">
-              Tài khoản thử: <span class="font-mono">user1@example.com</span> / <span class="font-mono">password123</span>
+              Tài khoản thử: <span class="font-mono">user1@example.com</span> / <span
+                class="font-mono">password123</span>
             </p>
           </form>
 
@@ -62,31 +86,31 @@
               <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1.5">Họ</label>
                 <input id="reg-lastname" required
-                       class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                  class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
               </div>
               <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1.5">Tên</label>
                 <input id="reg-firstname" required
-                       class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                  class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
               </div>
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1.5">Tên đăng nhập</label>
               <input id="reg-username" required minlength="3"
-                     class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1.5">Email</label>
               <input id="reg-email" type="email" required
-                     class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1.5">Mật khẩu</label>
               <input id="reg-password" type="password" required minlength="6"
-                     class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
             <button type="submit"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow-sm">
+              class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow-sm">
               Tạo tài khoản
             </button>
           </form>
@@ -99,20 +123,22 @@
   <div id="chat-view" class="hidden h-screen flex overflow-hidden">
 
     <!-- Cột trái: danh sách phòng -->
-    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0" id="sidebar">
-      <div class="h-14 px-4 flex items-center justify-between border-b border-white/10 shrink-0">
+    <aside id="sidebar" class="w-64 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0
+              fixed md:relative inset-y-0 left-0 z-40
+              -translate-x-full md:translate-x-0 transition-transform duration-200">
+      <div class="h-14 px-4 flex items-center justify-between border-b border-slate-200 dark:border-white/10 shrink-0">
         <div class="flex items-center gap-2 min-w-0">
           <span class="text-lg">💬</span>
-          <span class="font-bold text-white text-sm truncate">Team Chat</span>
+          <span class="font-bold text-slate-900 dark:text-white text-sm truncate">Team Chat</span>
         </div>
         <span id="ws-status" title="Trạng thái kết nối realtime"
-              class="w-2 h-2 rounded-full bg-slate-500 shrink-0"></span>
+          class="w-2 h-2 rounded-full bg-slate-500 shrink-0"></span>
       </div>
 
       <div class="px-3 py-2.5 flex items-center justify-between shrink-0">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Phòng chat</span>
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Phòng chat</span>
         <button onclick="openCreateRoomModal()" title="Tạo phòng mới"
-                class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 text-slate-400 hover:text-white transition text-lg leading-none">
+          class="w-5 h-5 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition text-lg leading-none">
           +
         </button>
       </div>
@@ -120,75 +146,85 @@
       <div id="room-list-container" class="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5 scroll-thin"></div>
 
       <!-- Thẻ người dùng dưới cùng -->
-      <div class="border-t border-white/10 p-2.5 shrink-0">
+      <div class="border-t border-slate-200 dark:border-white/10 p-2.5 shrink-0">
         <div class="flex items-center gap-2.5">
           <button onclick="openProfileModal()" class="shrink-0" title="Hồ sơ của tôi">
             <span id="my-avatar"></span>
           </button>
           <div class="min-w-0 flex-1 cursor-pointer" onclick="openProfileModal()">
-            <div id="user-display-name" class="text-xs font-semibold text-white truncate"></div>
-            <div id="user-display-status" class="text-[11px] text-slate-500 truncate"></div>
+            <div id="user-display-name" class="text-xs font-semibold text-slate-900 dark:text-white truncate"></div>
+            <div id="user-display-status" class="text-[11px] text-slate-500 dark:text-slate-400 truncate"></div>
           </div>
-          <button onclick="handleLogout()" title="Đăng xuất"
-                  class="shrink-0 w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-slate-400 hover:text-red-400 transition">
-            ⏻
-          </button>
+        <button onclick="handleLogout()" title="Đăng xuất"
+        class="shrink-0 w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition">
+  ⏻
+</button>
         </div>
       </div>
     </aside>
 
     <!-- Cột giữa: khung chat -->
-    <main class="flex-1 flex flex-col bg-white min-w-0">
-      <header class="h-14 px-5 flex items-center justify-between border-b border-slate-200 shrink-0">
+    <main class="flex-1 flex flex-col bg-white dark:bg-slate-900 min-w-0">
+      <header
+        class="h-14 px-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 shrink-0">
         <div class="min-w-0">
-          <h2 id="active-room-name" class="font-bold text-slate-900 text-sm truncate">Chưa chọn phòng nào</h2>
-          <p id="active-room-desc" class="text-[11px] text-slate-500 truncate">
+
+          <h2 id="active-room-name" class="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">Chưa chọn
+            phòng nào</h2>
+          <p id="active-room-desc" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
             Chọn một phòng ở danh sách bên trái để bắt đầu trò chuyện
           </p>
+
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
+          <button id="btn-toggle-sidebar" onclick="toggleSidebar()" title="Mở danh sách phòng"
+            class="md:hidden mr-1 px-2.5 py-1.5 text-sm rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition">
+            ☰
+          </button>
+          <button onclick="toggleTheme()" title="Đổi giao diện sáng/tối"
+            class="px-2.5 py-1.5 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition">
+            <span id="theme-icon-chat">🌙</span>
+          </button>
           <button id="btn-toggle-members" onclick="toggleMembersPanel()" title="Thành viên"
-                  class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-slate-100 text-slate-600 transition">
+            class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition">
             👥 <span id="member-count-badge">0</span>
           </button>
           <button id="btn-room-settings" onclick="openRoomSettingsModal()" title="Cài đặt phòng"
-                  class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-slate-100 text-slate-600 transition">
+            class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition">
             ⚙️
           </button>
           <button id="btn-leave-room" onclick="onLeaveCurrentRoom()" title="Rời phòng"
-                  class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-amber-50 text-amber-600 transition">
+            class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/30 text-amber-600 dark:text-amber-400 transition">
             Rời phòng
           </button>
           <button id="btn-delete-room" onclick="onDeleteCurrentRoom()" title="Xóa phòng"
-                  class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-red-50 text-red-600 transition">
+            class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition">
             Xóa phòng
           </button>
         </div>
       </header>
 
-      <div id="messages-scroll-area" class="flex-1 overflow-y-auto px-5 py-4 space-y-0.5 bg-slate-50 scroll-thin">
+      <div id="messages-scroll-area"
+        class="flex-1 overflow-y-auto px-5 py-4 space-y-0.5 bg-slate-50 dark:bg-slate-900 scroll-thin">
         <div class="text-center text-slate-400 text-xs mt-16">
           Chọn một phòng để xem tin nhắn
         </div>
       </div>
 
-      <div id="typing-indicator" class="px-5 h-5 text-[11px] text-slate-400 italic shrink-0"></div>
-
-      <div class="px-4 pb-4 pt-1 shrink-0">
+      <div id="typing-indicator" class="px-5 h-5 text-[11px] text-slate-400 dark:text-slate-500 italic shrink-0"></div>
+      <div class="px-4 pb-4 pt-1 shrink-0 border-t border-slate-200 dark:border-slate-700">
         <div id="upload-preview" class="hidden mb-2"></div>
-        <form onsubmit="onSendMessageSubmit(event)" class="flex items-end gap-2">
-          <button type="button" onclick="document.getElementById('file-input').click()"
-                  id="btn-attach" disabled title="Đính kèm tệp"
-                  class="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-500 transition disabled:opacity-40 disabled:cursor-not-allowed">
-            📎
-          </button>
+        <form onsubmit="onSendMessageSubmit(event)" class="flex items-end gap-2 w-full">
+          <button type="button" onclick="document.getElementById('file-input').click()" id="btn-attach" disabled
+            title="Đính kèm tệp"
+            class="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >📎</button>
           <input type="file" id="file-input" class="hidden" onchange="onFileSelected(event)" />
-          <textarea id="input-message" rows="1" disabled
-                    onkeydown="onMessageKeyDown(event)" oninput="autoGrow(this); notifyTyping()"
-                    placeholder="Nhập tin nhắn..."
-                    class="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm resize-none outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:bg-slate-50 max-h-32 scroll-thin"></textarea>
+          <textarea id="input-message" rows="1" disabled onkeydown="onMessageKeyDown(event)"
+            oninput="autoGrow(this); notifyTyping()" placeholder="Nhập tin nhắn..."
+            class="flex-1 min-w-0 px-4 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none outline-none transition disabled:bg-slate-50 dark:disabled:bg-slate-800/50 max-h-32 scroll-thin"></textarea>
           <button type="submit" id="btn-send-message" disabled
-                  class="shrink-0 w-10 h-10 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed">
+            class="shrink-0 w-10 h-10 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed">
             ➤
           </button>
         </form>
@@ -196,18 +232,20 @@
     </main>
 
     <!-- Cột phải: thành viên -->
-    <aside id="members-panel" class="hidden w-60 bg-white border-l border-slate-200 flex-col shrink-0">
-      <div class="h-14 px-4 flex items-center justify-between border-b border-slate-200 shrink-0">
-        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Thành viên</span>
+
+    <aside id="members-panel"
+      class="hidden w-60 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 flex-col shrink-0">
+      <div class="h-14 px-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 shrink-0">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Thành viên</span>
         <button id="btn-add-member" onclick="openAddMemberModal()" title="Thêm thành viên"
-                class="hidden w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-500 text-lg leading-none">
-          +
-        </button>
+          class="hidden w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 text-lg leading-none">
+          + </button>
       </div>
       <div id="members-list" class="flex-1 overflow-y-auto p-2 space-y-0.5 scroll-thin"></div>
     </aside>
   </div>
-
+  <!-- Lớp phủ mờ khi mở sidebar trên mobile -->
+  <div id="sidebar-overlay" onclick="toggleSidebar()" class="hidden fixed inset-0 bg-black/50 z-30 md:hidden"></div>
   <!-- ===================== CÁC HỘP THOẠI ===================== -->
   <div id="modal-root"></div>
   <div id="toast-root" class="fixed bottom-5 right-5 z-50 space-y-2"></div>
@@ -220,4 +258,5 @@
   <script src="js/messages.js"></script>
   <script src="js/app.js"></script>
 </body>
+
 </html>

@@ -3,8 +3,8 @@
 function showAlert(msg, isSuccess = false) {
   const box = document.getElementById("auth-alert");
   box.className = isSuccess
-    ? "mb-4 p-3 rounded-lg text-sm bg-emerald-50 text-emerald-700 border border-emerald-200"
-    : "mb-4 p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200";
+    ? "mb-4 p-3 rounded-lg text-sm bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+    : "mb-4 p-3 rounded-lg text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800";
   box.textContent = msg;
 }
 
@@ -231,6 +231,7 @@ function registerRealtimeHandlers() {
 // ---------- Khởi động ----------
 
 document.addEventListener("DOMContentLoaded", async () => {
+  syncThemeIcons();
   if (api.getToken() && api.getCurrentUser()) {
     await enterChat();
   } else {

@@ -15,7 +15,7 @@ async function loadMessages() {
     renderMessages();
   } catch (err) {
     const area = document.getElementById("messages-scroll-area");
-    area.innerHTML = `<div class="text-center text-slate-400 text-xs mt-16">
+    area.innerHTML = `<div class="text-center text-slate-400 dark:text-slate-500 text-xs mt-16">
       ${escapeHtml(err.message)}
     </div>`;
   }
@@ -27,7 +27,7 @@ function renderMessages(keepScroll = false) {
     container.scrollHeight - container.scrollTop - container.clientHeight < 80;
 
   if (!messagesCache.length) {
-    container.innerHTML = `<div class="text-center text-slate-400 text-xs mt-16">
+    container.innerHTML = `<div class="text-center text-slate-400 dark:text-slate-500 text-xs mt-16">
       Chưa có tin nhắn nào. Hãy gửi tin nhắn đầu tiên!
     </div>`;
     return;
@@ -44,9 +44,9 @@ function renderMessages(keepScroll = false) {
     const dateLabel = formatDateLabel(m.created_at);
     if (dateLabel !== lastDate) {
       html += `<div class="flex items-center gap-3 py-3">
-        <div class="flex-1 h-px bg-slate-200"></div>
-        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">${escapeHtml(dateLabel)}</span>
-        <div class="flex-1 h-px bg-slate-200"></div>
+        <div class="flex-1 h-px bg-slate-200 dark:bg-slate-700"></div>
+        <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">${escapeHtml(dateLabel)}</span>
+        <div class="flex-1 h-px bg-slate-200 dark:bg-slate-700"></div>
       </div>`;
       lastDate = dateLabel;
       lastSender = null;
@@ -67,17 +67,9 @@ function renderMessages(keepScroll = false) {
 
 function renderMessageRow(m, myId, grouped) {
   const isMe = myId !== null && Number(m.user_id) === myId;
-
-  if (m.is_deleted) {
-    return `<div class="msg-row flex gap-3 px-2 py-1 rounded-lg" data-msg-id="${m.id}">
-      <div class="w-9 shrink-0"></div>
-      <div class="text-xs text-slate-400 italic py-1">Tin nhắn đã bị xóa</div>
-    </div>`;
-  }
-
   const senderName = m.sender_name || (m.username ? `@${m.username}` : `Người dùng #${m.user_id}`);
   const avatarHtml = grouped
-    ? `<div class="w-9 shrink-0 text-[10px] text-slate-400 text-right pr-1 pt-1 opacity-0 group-hover:opacity-100"></div>`
+    ? `<div class="w-9 shrink-0 text-[10px] text-slate-400 dark:text-slate-500 pt-1 opacity-0 group-hover:opacity-100"></div>`
     : `<div class="w-9 shrink-0 pt-0.5">${renderAvatar({
         id: m.user_id,
         avatar_url: m.avatar_url,
@@ -87,21 +79,29 @@ function renderMessageRow(m, myId, grouped) {
 
   const header = grouped
     ? ""
-    : `<div class="flex items-baseline gap-2 mb-0.5">
-        <span class="font-semibold text-sm text-slate-900">${escapeHtml(senderName)}</span>
-        ${m.username ? `<span class="text-[11px] text-slate-400">@${escapeHtml(m.username)}</span>` : ""}
-        <span class="text-[10px] text-slate-400">${formatTime(m.created_at)}</span>
-        ${m.edited_at ? `<span class="text-[10px] text-slate-400 italic">(đã sửa)</span>` : ""}
+    : `<div class="flex items-baseline gap-2 mb-0.5 ${isMe ? "justify-end" : ""}">
+        ${isMe ? "" : `<span class="font-semibold text-sm text-slate-900 dark:text-slate-100">${escapeHtml(senderName)}</span>`}
+        ${isMe ? "" : m.username ? `<span class="text-[11px] text-slate-400 dark:text-slate-500">@${escapeHtml(m.username)}</span>` : ""}
+        <span class="text-[10px] text-slate-400 dark:text-slate-500">${formatTime(m.created_at)}</span>
+        ${m.edited_at ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 italic">(đã sửa)</span>` : ""}
       </div>`;
 
-  return `<div class="msg-row group flex gap-3 px-2 py-0.5 rounded-lg relative animate-in" data-msg-id="${m.id}">
-    ${avatarHtml}
-    <div class="min-w-0 flex-1">
+  const bubble = m.is_deleted
+    ? `<div class="text-xs text-slate-400 dark:text-slate-500 italic py-1">Tin nhắn đã bị xóa</div>`
+    : `<div class="${isMe ? "bubble-me" : "bubble-other"} rounded-2xl ${isMe ? "rounded-br-sm" : "rounded-bl-sm"} px-3 py-1.5">
+        ${renderMessageBody(m)}
+      </div>`;
+  const reactions = m.is_deleted ? "" : renderReactions(m, myId, isMe);
+  const actions = m.is_deleted ? "" : renderMessageActions(m, isMe);
+  const content = `<div class="msg-bubble-wrap relative flex flex-col ${isMe ? "items-end" : "items-start"}">
       ${header}
-      ${renderMessageBody(m)}
-      ${renderReactions(m, myId)}
-    </div>
-    ${renderMessageActions(m, isMe)}
+      ${bubble}
+      ${reactions}
+      ${actions}
+    </div>`;
+
+  return `<div class="msg-row group flex ${isMe ? "justify-end" : "justify-start"} gap-2 px-2 py-0.5 rounded-lg relative animate-in" data-msg-id="${m.id}">
+    ${isMe ? content + avatarHtml : avatarHtml + content}
   </div>`;
 }
 
@@ -109,7 +109,7 @@ function renderMessageBody(m) {
   let body = "";
 
   if (m.content) {
-    body += `<div class="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(m.content)}</div>`;
+    body += `<div class="text-sm leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(m.content)}</div>`;
   }
 
   if (m.attachment) {
@@ -127,7 +127,7 @@ function renderAttachment(att) {
   if (att.kind === "IMAGE") {
     return `<div class="mt-1.5">
       <img data-secure-src="${escapeHtml(url)}" alt="${safeName}"
-           class="msg-image rounded-lg border border-slate-200 bg-slate-100"
+           class="msg-image rounded-lg max-w-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800"
            onclick="openImageViewer(this.src)" />
     </div>`;
   }
@@ -135,29 +135,29 @@ function renderAttachment(att) {
   if (att.kind === "VIDEO") {
     return `<div class="mt-1.5">
       <video data-secure-src="${escapeHtml(url)}" controls
-             class="rounded-lg border border-slate-200 max-w-sm bg-black"></video>
+             class="rounded-lg border border-slate-200 dark:border-slate-700 max-w-full bg-black"></video>
     </div>`;
   }
 
   if (att.kind === "AUDIO") {
     return `<div class="mt-1.5">
-      <audio data-secure-src="${escapeHtml(url)}" controls class="max-w-sm"></audio>
+      <audio data-secure-src="${escapeHtml(url)}" controls class="max-w-full"></audio>
     </div>`;
   }
 
   return `<div class="mt-1.5">
     <button onclick="downloadAttachment(${att.id}, '${safeName.replace(/'/g, "\\'")}')"
-            class="flex items-center gap-2.5 px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition text-left max-w-xs w-full">
+            class="flex items-center gap-2.5 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left max-w-full w-full">
       <span class="text-xl shrink-0">📄</span>
       <span class="min-w-0">
-        <span class="block text-xs font-medium text-slate-800 truncate">${safeName}</span>
-        <span class="block text-[10px] text-slate-400">${size} · Bấm để tải về</span>
+        <span class="block text-xs font-medium text-slate-800 dark:text-slate-200 truncate">${safeName}</span>
+        <span class="block text-[10px] text-slate-400 dark:text-slate-500">${size} · Bấm để tải về</span>
       </span>
     </button>
   </div>`;
 }
 
-function renderReactions(m, myId) {
+function renderReactions(m, myId, isMe) {
   if (!m.reactions || !m.reactions.length) return "";
   const chips = m.reactions
     .map((r) => {
@@ -165,26 +165,28 @@ function renderReactions(m, myId) {
       return `<button onclick="onToggleReaction(${m.id}, '${r.emoji}')"
         class="px-1.5 py-0.5 rounded-full text-[11px] border transition ${
           mine
-            ? "bg-indigo-50 border-indigo-300 text-indigo-700"
-            : "bg-white border-slate-200 hover:border-slate-300 text-slate-600"
+            ? "bg-indigo-50 dark:bg-indigo-900/40 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300"
+            : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-300"
         }">${r.emoji} ${r.count}</button>`;
     })
     .join("");
-  return `<div class="flex flex-wrap gap-1 mt-1">${chips}</div>`;
+  // return `<div class="flex flex-wrap gap-1 mt-1 ${isMe ? "justify-end" : "justify-start"}">${chips}</div>`;
+  // return `<div class="flex flex-wrap gap-1 -mt-1 justify-end">${chips}</div>`;
+  return `<div class="flex flex-wrap gap-1 -mt-0.5 justify-end">${chips}</div>`;
 }
 
 function renderMessageActions(m, isMe) {
   const canDelete = isMe || (currentRoom && ["OWNER", "ADMIN"].includes(currentRoom.my_role));
-  return `<div class="msg-actions absolute right-2 -top-3 flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg shadow-sm px-1 py-0.5">
+  return `<div class="msg-actions absolute ${isMe ? "right-full mr-1" : "left-full ml-1"} top-0 z-20 flex items-center gap-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm px-1 py-0.5">
     ${EMOJI_CHOICES.map(
       (e) => `<button onclick="onToggleReaction(${m.id}, '${e}')"
-        class="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-sm" title="Thả ${e}">${e}</button>`
+        class="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-sm" title="Thả ${e}">${e}</button>`
     ).join("")}
     ${
       canDelete
-        ? `<span class="w-px h-4 bg-slate-200 mx-0.5"></span>
+        ? `<span class="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5"></span>
            <button onclick="onDeleteMessage(${m.id})" title="Xóa tin nhắn"
-             class="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-red-500 text-xs">🗑</button>`
+             class="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500 text-xs">🗑</button>`
         : ""
     }
   </div>`;
@@ -206,7 +208,7 @@ async function hydrateSecureMedia() {
         document
           .createRange()
           .createContextualFragment(
-            `<div class="text-xs text-slate-400 italic mt-1.5">Không tải được tệp đính kèm</div>`
+            `<div class="text-xs text-slate-400 dark:text-slate-500 italic mt-1.5">Không tải được tệp đính kèm</div>`
           )
       );
     }
@@ -282,14 +284,14 @@ function onFileSelected(event) {
   pendingFile = file;
   const preview = document.getElementById("upload-preview");
   preview.classList.remove("hidden");
-  preview.innerHTML = `<div class="flex items-center gap-2.5 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+  preview.innerHTML = `<div class="flex items-center gap-2.5 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-lg">
     <span class="text-lg">${file.type.startsWith("image/") ? "🖼️" : "📄"}</span>
     <span class="min-w-0 flex-1">
-      <span class="block text-xs font-medium text-slate-800 truncate">${escapeHtml(file.name)}</span>
-      <span class="block text-[10px] text-slate-500">${formatFileSize(file.size)}</span>
+      <span class="block text-xs font-medium text-slate-800 dark:text-slate-200 truncate">${escapeHtml(file.name)}</span>
+      <span class="block text-[10px] text-slate-500 dark:text-slate-400">${formatFileSize(file.size)}</span>
     </span>
     <button type="button" onclick="clearPendingFile()"
-            class="w-6 h-6 flex items-center justify-center rounded hover:bg-indigo-100 text-slate-500">✕</button>
+            class="w-6 h-6 flex items-center justify-center rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-slate-500">✕</button>
   </div>`;
   document.getElementById("input-message").focus();
 }
@@ -305,7 +307,7 @@ function clearPendingFile() {
 async function sendPendingFile(caption) {
   const file = pendingFile;
   const preview = document.getElementById("upload-preview");
-  preview.innerHTML = `<div class="px-3 py-2 bg-slate-100 rounded-lg text-xs text-slate-500">
+  preview.innerHTML = `<div class="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs text-slate-500 dark:text-slate-400">
     Đang tải lên ${escapeHtml(file.name)}...
   </div>`;
 
