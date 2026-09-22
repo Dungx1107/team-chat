@@ -30,10 +30,15 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      UPLOAD_DIR: /app/uploads
     ports:
       - "${PORT:-8000}:8000"
     volumes:
       - ./backend:/app
+      # Tệp đính kèm và ảnh đại diện nằm ở volume riêng,
+      # tách khỏi mã nguồn và khỏi dữ liệu Postgres
+      - uploads:/app/uploads
 
 volumes:
   pgdata:
+  uploads:

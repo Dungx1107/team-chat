@@ -5,8 +5,26 @@ from app.api.schemas.auth import (
     UserResponse,
     TokenResponse,
 )
-from app.api.schemas.room import RoomCreateRequest, RoomResponse
-from app.api.schemas.message import MessageCreateRequest, MessageResponse
+from app.api.schemas.room import (
+    RoomCreateRequest,
+    RoomUpdateRequest,
+    RoomResponse,
+    MemberResponse,
+    AddMemberRequest,
+    ChangeRoleRequest,
+)
+from app.api.schemas.message import (
+    MessageCreateRequest,
+    MessageResponse,
+    AttachmentResponse,
+    ReactionSummary,
+    ReactionRequest,
+)
+from app.api.schemas.user import (
+    ProfileResponse,
+    PublicProfileResponse,
+    ProfileUpdateRequest,
+)
 
 __all__ = [
     "RegisterRequest",
@@ -15,7 +33,17 @@ __all__ = [
     "UserResponse",
     "TokenResponse",
     "RoomCreateRequest",
+    "RoomUpdateRequest",
     "RoomResponse",
+    "MemberResponse",
+    "AddMemberRequest",
+    "ChangeRoleRequest",
     "MessageCreateRequest",
     "MessageResponse",
+    "AttachmentResponse",
+    "ReactionSummary",
+    "ReactionRequest",
+    "ProfileResponse",
+    "PublicProfileResponse",
+    "ProfileUpdateRequest",
 ]

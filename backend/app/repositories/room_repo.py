@@ -1,12 +1,15 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from app.domain.interfaces import IRoomRepository
-from app.domain.models import Room, RoomMember
-from app.infra.db.models import RoomModel, RoomMemberModel
+from app.domain.models import Room, RoomMember, User
+from app.infra.db.models import RoomModel, RoomMemberModel, UserModel
 
 class RoomRepository(IRoomRepository):
     def __init__(self, db: Session):
         self.db = db
+
+    # ---------- Ánh xạ Model <-> Entity ----------
 
     def _to_room_entity(self, model: Optional[RoomModel]) -> Optional[Room]:
         if not model:
@@ -14,6 +17,8 @@ class RoomRepository(IRoomRepository):
         return Room(
             id=model.id,
             name=model.name,
+            description=model.description,
+            is_private=model.is_private,
             owner_id=model.owner_id,
             created_at=model.created_at,
         )
@@ -29,9 +34,28 @@ class RoomRepository(IRoomRepository):
             joined_at=model.joined_at,
         )
 
+    def _to_user_entity(self, model: UserModel) -> User:
+        return User(
+            id=model.id,
+            email=model.email,
+            username=model.username,
+            password_hash=model.password_hash,
+            first_name=model.first_name,
+            last_name=model.last_name,
+            is_active=model.is_active,
+            avatar_url=model.avatar_url,
+            bio=model.bio,
+            status=model.status,
+            created_at=model.created_at,
+        )
+
+    # ---------- Phòng ----------
+
     def create(self, room: Room) -> Room:
         model = RoomModel(
             name=room.name,
+            description=room.description,
+            is_private=room.is_private,
             owner_id=room.owner_id,
             created_at=room.created_at,
         )
@@ -44,8 +68,51 @@ class RoomRepository(IRoomRepository):
         model = self.db.query(RoomModel).filter(RoomModel.id == room_id).first()
         return self._to_room_entity(model)
 
+    def update(self, room: Room) -> Room:
+        model = self.db.query(RoomModel).filter(RoomModel.id == room.id).first()
+        if not model:
+            raise ValueError("Phòng chat không tồn tại")
+        model.name = room.name
+        model.description = room.description
+        model.is_private = room.is_private
+        self.db.commit()
+        self.db.refresh(model)
+        return self._to_room_entity(model)
+
     def list_all(self, limit: int = 50, offset: int = 0) -> List[Room]:
-        models = self.db.query(RoomModel).order_by(RoomModel.created_at.desc()).offset(offset).limit(limit).all()
+        models = (
+            self.db.query(RoomModel)
+            .filter(RoomModel.is_private.is_(False))
+            .order_by(RoomModel.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return [self._to_room_entity(m) for m in models]
+
+    def list_visible_to_user(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Room]:
+        """Phòng công khai, cộng thêm phòng riêng tư mà người này là thành viên.
+
+        Dùng outer join thay vì subquery lồng để tránh N+1 khi số phòng lớn.
+        """
+        models = (
+            self.db.query(RoomModel)
+            .outerjoin(
+                RoomMemberModel,
+                (RoomMemberModel.room_id == RoomModel.id)
+                & (RoomMemberModel.user_id == user_id),
+            )
+            .filter(
+                or_(
+                    RoomModel.is_private.is_(False),
+                    RoomMemberModel.id.isnot(None),
+                )
+            )
+            .order_by(RoomModel.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
         return [self._to_room_entity(m) for m in models]
 
     def delete(self, room_id: int) -> bool:
@@ -55,6 +122,8 @@ class RoomRepository(IRoomRepository):
         self.db.delete(model)
         self.db.commit()
         return True
+
+    # ---------- Thành viên ----------
 
     def add_member(self, member: RoomMember) -> RoomMember:
         model = RoomMemberModel(
@@ -74,3 +143,40 @@ class RoomRepository(IRoomRepository):
             RoomMemberModel.user_id == user_id
         ).first()
         return self._to_member_entity(model)
+
+    def list_members(self, room_id: int) -> List[Tuple[RoomMember, User]]:
+        rows = (
+            self.db.query(RoomMemberModel, UserModel)
+            .join(UserModel, UserModel.id == RoomMemberModel.user_id)
+            .filter(RoomMemberModel.room_id == room_id)
+            .order_by(RoomMemberModel.role.asc(), UserModel.username.asc())
+            .all()
+        )
+        return [(self._to_member_entity(m), self._to_user_entity(u)) for m, u in rows]
+
+    def update_member_role(self, room_id: int, user_id: int, role: str) -> Optional[RoomMember]:
+        model = self.db.query(RoomMemberModel).filter(
+            RoomMemberModel.room_id == room_id,
+            RoomMemberModel.user_id == user_id
+        ).first()
+        if not model:
+            return None
+        model.role = role
+        self.db.commit()
+        self.db.refresh(model)
+        return self._to_member_entity(model)
+
+    def remove_member(self, room_id: int, user_id: int) -> bool:
+        deleted = self.db.query(RoomMemberModel).filter(
+            RoomMemberModel.room_id == room_id,
+            RoomMemberModel.user_id == user_id
+        ).delete(synchronize_session=False)
+        self.db.commit()
+        return deleted > 0
+
+    def count_members(self, room_id: int) -> int:
+        return (
+            self.db.query(func.count(RoomMemberModel.id))
+            .filter(RoomMemberModel.room_id == room_id)
+            .scalar()
+        ) or 0

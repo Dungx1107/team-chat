@@ -1,74 +1,77 @@
-from fastapi import FastAPI, Request
+import asyncio
+import logging
+from pathlib import Path
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse, Response
+
 from app.config import settings
 from app.infra.db.session import engine, Base
-import app.infra.db.models
+import app.infra.db.models  # noqa: F401  -- nạp bảng vào metadata
 
-from app.api.routers import auth_router, rooms_router, messages_router
-from app.infra.security.jwt import decode_access_token
+from app.api.middlewares.auth_middleware import AuthenticationMiddleware
+from app.api.routers import (
+    auth_router,
+    rooms_router,
+    messages_router,
+    users_router,
+    ws_router,
+)
+from app.infra.realtime.connection_manager import connection_manager
+
+logging.basicConfig(level=logging.INFO)
 
 Base.metadata.create_all(bind=engine)
 
+# Thư mục lưu tệp tải lên, gắn với Docker volume
+Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
+    description="API dịch vụ chat nội bộ: phòng công khai/riêng tư, phân quyền, tệp đính kèm, biểu cảm và realtime qua WebSocket.",
+    version="2.0.0",
     openapi_url="/api/openapi.json",
-    docs_url="/docs"
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
-# 1. Khai báo CORS Middleware
+# 1. CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
-PUBLIC_PATHS = [
-    "/docs",
-    "/api/openapi.json",
-    "/health",
-    "/api/auth/login",
-    "/api/auth/register",
-    "/api/auth/refresh",
-]
+# 2. Xác thực tập trung
+app.add_middleware(AuthenticationMiddleware)
 
-# 2. Xử lý xác thực
-@app.middleware("http")
-async def auth_middleware(request: Request, call_next):
-    # Cho qua ngay lập tức mọi request OPTIONS của trình duyệt
-    if request.method == "OPTIONS":
-        return await call_next(request)
-
-    path = request.url.path
-    if any(path.startswith(p) for p in PUBLIC_PATHS):
-        return await call_next(request)
-
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return JSONResponse(
-            status_code=401,
-            content={"detail": "Yêu cầu đăng nhập (Thiếu Bearer Token)"}
-        )
-
-    token = auth_header.split(" ")[1]
-    payload = decode_access_token(token)
-
-    if not payload or "sub" not in payload:
-        return JSONResponse(
-            status_code=401,
-            content={"detail": "Token không hợp lệ hoặc đã hết hạn"}
-        )
-
-    request.state.user_id = int(payload["sub"])
-    return await call_next(request)
-
-# 3. Đăng ký Routers
+# 3. Routers
 app.include_router(auth_router, prefix="/api")
 app.include_router(rooms_router, prefix="/api")
 app.include_router(messages_router, prefix="/api")
+app.include_router(users_router, prefix="/api")
+app.include_router(ws_router)  # /ws không nằm dưới /api
 
-@app.get("/health")
+
+@app.on_event("startup")
+async def on_startup():
+    """Gắn event loop chính cho bộ phát sự kiện.
+
+    Các endpoint đồng bộ chạy trong threadpool nên không tự có event loop;
+    ConnectionManager cần tham chiếu này để đẩy sự kiện WebSocket ra ngoài.
+    """
+    connection_manager.bind_loop(asyncio.get_running_loop())
+    logging.info("Team Chat API đã sẵn sàng, realtime đang bật")
+
+
+@app.get("/health", tags=["Health"])
 def health_check():
-    return {"status": "ok", "service": "team-chat-api"}
+    return {
+        "status": "ok",
+        "service": "team-chat-api",
+        "version": "2.0.0",
+        "online_users": len(connection_manager.online_user_ids()),
+    }
