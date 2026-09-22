@@ -114,6 +114,15 @@ Khởi động HTTP Server:
 ```bash
 python3 -m http.server 3000 --bind 0.0.0.0
 ```
+`http.server` của Python đã bật `allow_reuse_address`, nên socket ở trạng thái
+`TIME_WAIT` có thể được dùng lại sau khi server dừng. Nếu vẫn gặp
+`OSError: [Errno 98] Address already in use`, một tiến trình HTTP Server cũ
+đang còn chạy và phải dừng trước khi khởi động lại:
+
+```bash
+ss -ltnp | grep ':3000'
+kill <PID>
+```
 
 Nếu xuất hiện:
 
