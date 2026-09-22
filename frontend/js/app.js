@@ -77,6 +77,7 @@ window.addEventListener("session-expired", () => {
 });
 
 function handleLogout() {
+  if (callUI.isBusy()) callUI.hangup();
   realtime.disconnect();
   resetChatArea();
   roomsCache = [];

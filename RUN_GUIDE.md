@@ -17,6 +17,35 @@ Hệ thống gồm các thành phần chính:
 
 ---
 
+## Cách chạy nhanh qua HTTPS (có gọi thoại/video)
+
+Từ khi có tính năng gọi, hệ thống có thêm service `web` (nginx). Service này phục vụ giao diện qua **HTTPS** và chuyển `/api`, `/ws` về backend. HTTPS là bắt buộc vì trình duyệt chỉ cho dùng micro/camera trên kết nối bảo mật hoặc trên `localhost`.
+
+1. Điền IP LAN của máy chạy server vào `.env` (xem bằng `ipconfig`) để chứng chỉ khớp khi truy cập từ thiết bị khác:
+
+   ```
+   CERT_IPS=192.168.8.73
+   ```
+
+2. Khởi động toàn bộ hệ thống bằng một lệnh (không cần mở thêm terminal cho frontend):
+
+   ```bash
+   docker compose up -d --build
+   docker compose exec backend python seed_users.py
+   ```
+
+3. Truy cập:
+   - Trên máy chạy server: `https://localhost`
+   - Từ điện thoại/máy khác cùng Wi-Fi: `https://<IP_MÁY_CHẠY_SERVER>`
+
+Lần đầu vào, trình duyệt sẽ cảnh báo *"Kết nối không riêng tư"* vì đây là chứng chỉ tự ký. Chọn **Nâng cao → Tiếp tục** (mỗi thiết bị chỉ phải làm một lần). Chứng chỉ được lưu trong volume `certs` nên khởi động lại không phải chấp nhận lại. Nếu đổi IP thì sửa `CERT_IPS` rồi chạy `docker compose down && docker volume rm team-chat_certs && docker compose up -d` để sinh chứng chỉ mới.
+
+**Gọi thoại/video:** mở một phòng, bấm 👥 để mở danh sách thành viên, rồi bấm 📞 (thoại) hoặc 🎥 (video) cạnh tên một người **đang online**. Người nhận có 30 giây để nghe máy, sau đó cuộc gọi tính là nhỡ. Hai thiết bị phải cùng mạng LAN; gọi qua Internet cần thêm máy chủ TURN.
+
+Cách chạy cũ (`python -m http.server 3000` + backend cổng 8000) vẫn dùng được cho chat thông thường, nhưng chỉ gọi được khi mở bằng `localhost`.
+
+---
+
 ## MỤC LỤC
 
 1. [Tài khoản dùng thử](#1-tài-khoản-dùng-thử)

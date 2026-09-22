@@ -409,6 +409,18 @@ function renderMembers() {
           </div>
         </div>
         ${
+          !isSelf
+            ? `<div class="shrink-0 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition">
+                 <button onclick="callUI.startCall(${m.user_id}, 'AUDIO')" ${m.is_online ? "" : "disabled"}
+                   title="${m.is_online ? "Gọi thoại" : "Người này đang offline"}"
+                   class="w-6 h-6 flex items-center justify-center rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-sm disabled:opacity-30 disabled:cursor-not-allowed">📞</button>
+                 <button onclick="callUI.startCall(${m.user_id}, 'VIDEO')" ${m.is_online ? "" : "disabled"}
+                   title="${m.is_online ? "Gọi video" : "Người này đang offline"}"
+                   class="w-6 h-6 flex items-center justify-center rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-sm disabled:opacity-30 disabled:cursor-not-allowed">🎥</button>
+               </div>`
+            : ""
+        }
+        ${
           canActOn
             ? `<button onclick="openMemberActions(${m.user_id})"
                  class="shrink-0 opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition">⋯</button>`
