@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     # Danh sách origin được phép gọi API; "*" chỉ dùng khi phát triển
     CORS_ORIGINS: str = "*"
 
+    # Máy chủ STUN giúp hai trình duyệt tìm đường kết nối trực tiếp khi gọi.
+    # Trong cùng mạng LAN không cần STUN; để trống thì chỉ dùng địa chỉ nội bộ.
+    ICE_SERVERS: str = "stun:stun.l.google.com:19302"
+
+    @property
+    def ice_server_list(self) -> list:
+        urls = [u.strip() for u in self.ICE_SERVERS.split(",") if u.strip()]
+        return [{"urls": u} for u in urls]
+
     class Config:
         env_file = ".env"
         extra = "ignore"

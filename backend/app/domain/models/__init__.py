@@ -3,6 +3,7 @@ from app.domain.models.refresh_token import RefreshToken
 from app.domain.models.room import Room
 from app.domain.models.room_member import RoomMember
 from app.domain.models.message import Message, Attachment, Reaction
+from app.domain.models.call import Call, CallParticipant
 
 __all__ = [
     "User",
@@ -12,4 +13,6 @@ __all__ = [
     "Message",
     "Attachment",
     "Reaction",
+    "Call",
+    "CallParticipant",
 ]
