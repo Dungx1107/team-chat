@@ -1,568 +1,141 @@
-# HƯỚNG DẪN VẬN HÀNH HỆ THỐNG TEAM CHAT
+# HƯỚNG DẪN CHẠY HỆ THỐNG TEAM CHAT
 
-Tài liệu này hướng dẫn toàn bộ quy trình vận hành hệ thống **Team Chat**, từ khởi động Docker, khởi tạo dữ liệu mẫu, chạy Frontend đến kiểm thử chức năng chat trên một hoặc nhiều thiết bị trong cùng mạng LAN/Wi-Fi.
-
-## Kiến trúc triển khai
-
-Hệ thống gồm các thành phần chính:
-
-| Thành phần | Cách triển khai    | Mục đích                               |
-| ---------- | ------------------ | -------------------------------------- |
-| Backend    | Docker Container   | Xử lý API, xác thực và logic nghiệp vụ |
-| PostgreSQL | Docker Container   | Lưu trữ dữ liệu hệ thống               |
-| Frontend   | Python HTTP Server | Phục vụ giao diện Web                  |
-| Client     | Trình duyệt Web    | Đăng nhập và sử dụng hệ thống          |
-
-Để kiểm thử nhiều thiết bị, Frontend được bind vào `0.0.0.0`, cho phép các thiết bị khác trong cùng mạng LAN/Wi-Fi truy cập thông qua địa chỉ IP nội bộ của máy chủ.
-
----
-
-## Cách chạy nhanh qua HTTPS (có gọi thoại/video)
-
-Từ khi có tính năng gọi, hệ thống có thêm service `web` (nginx). Service này phục vụ giao diện qua **HTTPS** và chuyển `/api`, `/ws` về backend. HTTPS là bắt buộc vì trình duyệt chỉ cho dùng micro/camera trên kết nối bảo mật hoặc trên `localhost`.
-
-1. Điền IP LAN của máy chạy server vào `.env` (xem bằng `ipconfig`) để chứng chỉ khớp khi truy cập từ thiết bị khác:
-
-   ```
-   CERT_IPS=192.168.8.73
-   ```
-
-2. Khởi động toàn bộ hệ thống bằng một lệnh (không cần mở thêm terminal cho frontend):
-
-   ```bash
-   docker compose up -d --build
-   docker compose exec backend python seed_users.py
-   ```
-
-3. Truy cập:
-   - Trên máy chạy server: `https://localhost`
-   - Từ điện thoại/máy khác cùng Wi-Fi: `https://<IP_MÁY_CHẠY_SERVER>`
-
-Lần đầu vào, trình duyệt sẽ cảnh báo *"Kết nối không riêng tư"* vì đây là chứng chỉ tự ký. Chọn **Nâng cao → Tiếp tục** (mỗi thiết bị chỉ phải làm một lần). Chứng chỉ được lưu trong volume `certs` nên khởi động lại không phải chấp nhận lại. Nếu đổi IP thì sửa `CERT_IPS` rồi chạy `docker compose down && docker volume rm team-chat_certs && docker compose up -d` để sinh chứng chỉ mới.
-
-**Gọi thoại/video:** mở một phòng, bấm 👥 để mở danh sách thành viên, rồi bấm 📞 (thoại) hoặc 🎥 (video) cạnh tên một người **đang online**. Người nhận có 30 giây để nghe máy, sau đó cuộc gọi tính là nhỡ. Hai thiết bị phải cùng mạng LAN; gọi qua Internet cần thêm máy chủ TURN.
-
-Cách chạy cũ (`python -m http.server 3000` + backend cổng 8000) vẫn dùng được cho chat thông thường, nhưng chỉ gọi được khi mở bằng `localhost`.
+Tài liệu dành cho thành viên trong nhóm: clone về là chạy được, không cần biết trước gì về dự án.
 
 ---
 
 ## MỤC LỤC
 
-1. [Tài khoản dùng thử](#1-tài-khoản-dùng-thử)
-2. [Chạy hệ thống trên Ubuntu/Linux](#2-chạy-hệ-thống-trên-ubuntulinux)
-3. [Chạy hệ thống trên Windows](#3-chạy-hệ-thống-trên-windows)
-4. [Kiểm thử chat trên nhiều thiết bị](#4-kiểm-thử-chat-trên-nhiều-thiết-bị)
-5. [Lệnh bảo trì và xử lý lỗi](#5-lệnh-bảo-trì-và-xử-lý-lỗi)
-6. [Quy trình chạy nhanh](#6-quy-trình-chạy-nhanh)
-7. [Checklist trước khi demo](#7-checklist-trước-khi-demo)
+1. [Chạy lần đầu](#1-chạy-lần-đầu)
+2. [Tài khoản dùng thử](#2-tài-khoản-dùng-thử)
+3. [Các lần sau](#3-các-lần-sau)
+4. [Thử từng tính năng](#4-thử-từng-tính-năng)
+5. [Thử trên điện thoại và máy khác](#5-thử-trên-điện-thoại-và-máy-khác)
+6. [Lệnh bảo trì](#6-lệnh-bảo-trì)
+7. [Xử lý sự cố](#7-xử-lý-sự-cố)
+8. [Checklist trước khi demo](#8-checklist-trước-khi-demo)
+9. [Phụ lục: chạy không cần nginx](#9-phụ-lục-chạy-không-cần-nginx)
 
 ---
 
-# 1. TÀI KHOẢN DÙNG THỬ
+# 1. CHẠY LẦN ĐẦU
 
-Hệ thống được cấu hình sẵn 3 tài khoản phục vụ việc kiểm thử.
+## Cần cài sẵn
 
-**Mật khẩu chung:** `password123`
+Chỉ cần **Docker Desktop**. Không cần cài Python, Node hay PostgreSQL — mọi thứ chạy trong container.
 
-| Họ và tên        | Username | Email đăng nhập     | Mật khẩu      | Quyền                         |
-| ---------------- | -------- | ------------------- | ------------- | ----------------------------- |
-| Nguyễn Xuân Dũng | `dungx`  | `user1@example.com` | `password123` | Chủ phòng `# Phòng Kiến Trúc` |
-| Trần Văn Nam     | `namtv`  | `user2@example.com` | `password123` | Thành viên                    |
-| Lê Hoàng Anh     | `anhlh`  | `user3@example.com` | `password123` | Thành viên                    |
+Trên Windows, Docker Desktop đòi hỏi **WSL2**. Nếu chưa có, mở PowerShell **quyền Administrator**:
 
-> **Lưu ý:** Đây là tài khoản phục vụ mục đích demo/kiểm thử.
-
----
-
-# 2. CHẠY HỆ THỐNG TRÊN UBUNTU/LINUX
-
-## Bước 1: Khởi động Docker
-
-Mở **Terminal 1** và di chuyển vào thư mục project:
-
-```bash
-cd ~/Workspace/VNU-UET/nam4/hk1/kien-truc-phan-mem/team-chat
+```powershell
+wsl --install
 ```
 
-Khởi động toàn bộ Docker services:
+rồi khởi động lại máy.
+
+## Bước 1: Lấy mã nguồn
 
 ```bash
-docker compose up -d
+git clone https://github.com/Dungx1107/team-chat.git
+cd team-chat
 ```
 
-Kiểm tra trạng thái:
+## Bước 2: Tạo file `.env`
+
+**Đây là bước hay bị quên nhất.** File `.env` chứa mật khẩu nên không được đẩy lên Git, mỗi người phải tự tạo. Thiếu nó thì `docker compose` báo lỗi biến rỗng.
+
+Windows (PowerShell):
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Linux/macOS:
+
+```bash
+cp .env.example .env
+```
+
+Sau đó mở `.env` và sửa **hai dòng**:
+
+```ini
+POSTGRES_PASSWORD=dat-mot-mat-khau-bat-ky
+DATABASE_URL=postgresql://postgres:dat-mot-mat-khau-bat-ky@db:5432/teamchat_db
+```
+
+Mật khẩu ở hai dòng phải **giống hệt nhau**. Nên sửa thêm `JWT_SECRET_KEY` thành một chuỗi ngẫu nhiên dài trên 32 ký tự.
+
+## Bước 3: Khởi động
+
+Mở Docker Desktop trước, chờ icon cá voi ở khay hệ thống ngừng nhấp nháy. Rồi:
+
+```bash
+docker compose up -d --build
+```
+
+Lần đầu mất khoảng 2–5 phút vì phải tải image và build. Kiểm tra:
 
 ```bash
 docker compose ps
 ```
 
-Backend và PostgreSQL cần ở trạng thái đang chạy.
+Cả ba service `db`, `backend`, `web` phải ở trạng thái `Up`, riêng `db` phải `(healthy)`.
 
-Nếu project có cấu hình `healthcheck`, hãy chờ đến khi các service chuyển sang trạng thái `healthy`.
-
----
-
-## Bước 2: Nạp dữ liệu tài khoản mẫu
-
-Vẫn trong **Terminal 1**, chạy:
+## Bước 4: Nạp dữ liệu mẫu
 
 ```bash
 docker compose exec backend python seed_users.py
 ```
 
-Lệnh này tạo các tài khoản dùng thử trong database.
+Lệnh này tạo 4 tài khoản, một phòng công khai và một phòng riêng tư.
 
-Kiểm tra dữ liệu:
+## Bước 5: Mở trình duyệt
 
-```bash
-docker compose exec db psql -U postgres -d teamchat_db -c "SELECT id, email, username FROM users;"
+```
+https://localhost
 ```
 
-Kết quả cần có 3 tài khoản:
+Lần đầu trình duyệt báo **"Kết nối của bạn không phải là kết nối riêng tư"**. Đây là bình thường: hệ thống dùng chứng chỉ tự ký. Bấm **Nâng cao → Tiếp tục truy cập localhost**. Mỗi thiết bị chỉ phải làm một lần.
 
-```text
-user1@example.com
-user2@example.com
-user3@example.com
-```
+> **Vì sao phải HTTPS?** Trình duyệt chỉ cho phép dùng micro và camera trên kết nối bảo mật. Không có HTTPS thì tính năng gọi điện không chạy.
 
 ---
 
-## Bước 3: Khởi động Frontend
+# 2. TÀI KHOẢN DÙNG THỬ
 
-Mở **Terminal 2**.
+Mật khẩu chung: **`password123`**
 
-Di chuyển vào thư mục Frontend:
+| Email | Tên | Vai trò trong `# Phòng Kiến Trúc` |
+| --- | --- | --- |
+| `user1@example.com` | Nguyễn Xuân Dũng | **Chủ phòng** — đủ mọi quyền |
+| `user2@example.com` | Trần Văn Nam | **Quản trị viên** — xóa tin người khác, thêm/xóa thành viên |
+| `user3@example.com` | Lê Hoàng Anh | Thành viên thường |
+| `user4@example.com` | Phạm Phương Mai | **Chưa vào phòng nào** — để thử mời thành viên |
 
-```bash
-cd ~/Workspace/VNU-UET/nam4/hk1/kien-truc-phan-mem/team-chat/frontend
-```
-
-Khởi động HTTP Server:
-
-```bash
-python3 -m http.server 3000 --bind 0.0.0.0
-```
-`http.server` của Python đã bật `allow_reuse_address`, nên socket ở trạng thái
-`TIME_WAIT` có thể được dùng lại sau khi server dừng. Nếu vẫn gặp
-`OSError: [Errno 98] Address already in use`, một tiến trình HTTP Server cũ
-đang còn chạy và phải dừng trước khi khởi động lại:
-
-```bash
-ss -ltnp | grep ':3000'
-kill <PID>
-```
-
-Nếu xuất hiện:
-
-```text
-Serving HTTP on 0.0.0.0 port 3000
-```
-
-thì Frontend đã sẵn sàng.
-
-> **Lưu ý:** Giữ Terminal 2 mở trong suốt quá trình kiểm thử. Đóng Terminal sẽ dừng HTTP Server.
+Ngoài ra có phòng riêng tư `🔒 Nhóm Trưởng`, chỉ `user1` và `user2` nhìn thấy.
 
 ---
 
-# 3. CHẠY HỆ THỐNG TRÊN WINDOWS
+# 3. CÁC LẦN SAU
 
-## Bước 1: Khởi động Docker Desktop
-
-Mở **Docker Desktop** từ Start Menu.
-
-Chờ Docker Engine khởi động hoàn toàn.
-
-Sau đó mở **PowerShell** hoặc **Windows Terminal**.
-
-Kiểm tra Docker:
-
-```powershell
-docker --version
-```
-
-Kiểm tra Docker Compose:
-
-```powershell
-docker compose version
-```
-
-Nếu Docker Desktop gặp lỗi liên quan đến WSL 2, mở PowerShell với quyền Administrator và chạy:
-
-```powershell
-wsl --update
-```
-
-Sau đó khởi động lại máy nếu Windows yêu cầu.
-
----
-
-## Bước 2: Khởi động Docker Services
-
-Mở **PowerShell 1**.
-
-Di chuyển vào thư mục project:
-
-```powershell
-cd <ĐƯỜNG_DẪN>\team-chat
-```
-
-Ví dụ:
-
-```powershell
-cd D:\Workspace\team-chat
-```
-
-Khởi động Docker:
-
-```powershell
+```bash
+# 1. Mở Docker Desktop, chờ khởi động xong
+# 2. Chạy:
+cd <thư-mục-team-chat>
 docker compose up -d
 ```
 
-Kiểm tra trạng thái:
+Rồi vào `https://localhost`. **Không cần seed lại**, dữ liệu nằm trong Docker volume.
 
-```powershell
-docker compose ps
-```
+Docker Desktop không tự bật cùng Windows, nên phải mở thủ công trước.
 
----
-
-## Bước 3: Nạp dữ liệu tài khoản mẫu
-
-Vẫn trong **PowerShell 1**, chạy:
-
-```powershell
-docker compose exec backend python seed_users.py
-```
-
-Kiểm tra database:
-
-```powershell
-docker compose exec db psql -U postgres -d teamchat_db -c "SELECT id, email, username FROM users;"
-```
-
-Kết quả cần có:
-
-```text
-user1@example.com
-user2@example.com
-user3@example.com
-```
-
----
-
-## Bước 4: Khởi động Frontend
-
-Mở **PowerShell 2**.
-
-Di chuyển vào thư mục Frontend:
-
-```powershell
-cd <ĐƯỜNG_DẪN>\team-chat\frontend
-```
-
-Ví dụ:
-
-```powershell
-cd D:\Workspace\team-chat\frontend
-```
-
-Khởi động HTTP Server:
-
-```powershell
-python -m http.server 3000 --bind 0.0.0.0
-```
-
-Nếu xuất hiện:
-
-```text
-Serving HTTP on 0.0.0.0 port 3000
-```
-
-thì Frontend đã sẵn sàng.
-
-Nếu Windows Firewall hiển thị cảnh báo, cho phép Python truy cập mạng **Private Network** nếu muốn các thiết bị khác trong cùng mạng LAN truy cập Frontend.
-
-> **Lưu ý:** Giữ PowerShell 2 mở trong suốt quá trình kiểm thử.
-
----
-
-# 4. KIỂM THỬ CHAT TRÊN NHIỀU THIẾT BỊ
-
-## 4.1. Kiểm thử trên cùng một máy
-
-Có thể sử dụng:
-
-* Hai cửa sổ trình duyệt khác nhau.
-* Hoặc một cửa sổ bình thường và một cửa sổ ẩn danh.
-
-### Trình duyệt 1
-
-Truy cập:
-
-```text
-http://localhost:3000
-```
-
-Đăng nhập bằng:
-
-```text
-Email:    user1@example.com
-Password: password123
-```
-
-### Trình duyệt 2
-
-Mở cửa sổ ẩn danh:
-
-```text
-Ctrl + Shift + N
-```
-
-Truy cập:
-
-```text
-http://localhost:3000
-```
-
-Đăng nhập bằng:
-
-```text
-Email:    user2@example.com
-Password: password123
-```
-
-### Kiểm tra chức năng chat
-
-Trên cả hai cửa sổ:
-
-1. Mở phòng `# Phòng Kiến Trúc`.
-2. Từ tài khoản `user1@example.com`, gửi một tin nhắn.
-3. Kiểm tra tài khoản `user2@example.com` có nhận được tin nhắn.
-4. Từ tài khoản `user2@example.com`, gửi phản hồi.
-5. Kiểm tra tài khoản `user1@example.com` có nhận được tin nhắn.
-
-Nếu tin nhắn được gửi và nhận giữa hai tài khoản, chức năng chat cơ bản hoạt động.
-
----
-
-## 4.2. Kiểm thử giữa hai máy tính
-
-Hai máy tính phải kết nối vào **cùng một mạng LAN/Wi-Fi**.
-
-### Bước 1: Xác định địa chỉ IP của máy chủ
-
-Máy chủ là máy đang chạy:
-
-```text
-Python HTTP Server
-```
-
-### Ubuntu/Linux
-
-Chạy:
+## Khi kéo code mới về
 
 ```bash
-hostname -I
+git pull
+docker compose up -d --build
 ```
 
-Ví dụ:
-
-```text
-192.168.1.25
-```
-
-Có thể lấy địa chỉ IP đầu tiên bằng:
-
-```bash
-hostname -I | awk '{print $1}'
-```
-
-### Windows
-
-Chạy:
-
-```powershell
-ipconfig
-```
-
-Tìm dòng:
-
-```text
-IPv4 Address
-```
-
-Ví dụ:
-
-```text
-IPv4 Address. . . . . . . . . . . : 192.168.1.25
-```
-
----
-
-### Bước 2: Truy cập từ máy thứ hai
-
-Trên máy tính thứ hai, mở trình duyệt và truy cập:
-
-```text
-http://<IP_MÁY_CHẠY_SERVER>:3000
-```
-
-Ví dụ:
-
-```text
-http://192.168.1.25:3000
-```
-
-Đăng nhập bằng tài khoản khác:
-
-```text
-Email:    user3@example.com
-Password: password123
-```
-
-Sau đó mở phòng:
-
-```text
-# Phòng Kiến Trúc
-```
-
-và gửi tin nhắn.
-
-Máy chủ có thể đăng nhập bằng:
-
-```text
-user1@example.com
-```
-
-hoặc:
-
-```text
-user2@example.com
-```
-
-để kiểm tra quá trình trao đổi tin nhắn giữa hai máy.
-
----
-
-## 4.3. Kiểm thử bằng điện thoại
-
-Điện thoại phải kết nối vào **cùng mạng Wi-Fi** với máy đang chạy Frontend Server.
-
-Trên điện thoại, mở trình duyệt và truy cập:
-
-```text
-http://<IP_MÁY_CHẠY_SERVER>:3000
-```
-
-Ví dụ:
-
-```text
-http://192.168.1.25:3000
-```
-
-Đăng nhập:
-
-```text
-Email:    user3@example.com
-Password: password123
-```
-
-Mở phòng:
-
-```text
-# Phòng Kiến Trúc
-```
-
-Gửi tin nhắn từ điện thoại.
-
-Trên máy tính, kiểm tra xem tin nhắn có xuất hiện hay không.
-
-Sau đó gửi một tin nhắn từ máy tính và kiểm tra trên điện thoại.
-
-Nếu hai thiết bị có thể gửi và nhận tin nhắn, kết nối giữa các client đang hoạt động.
-
----
-
-# 5. LỆNH BẢO TRÌ VÀ XỬ LÝ LỖI
-
-## 5.1. Xem log Backend
-
-Theo dõi log Backend theo thời gian thực:
-
-```bash
-docker compose logs -f backend
-```
-
-Nhấn:
-
-```text
-Ctrl + C
-```
-
-để thoát.
-
----
-
-## 5.2. Xem log toàn bộ hệ thống
-
-```bash
-docker compose logs -f
-```
-
-Lệnh này hữu ích khi cần kiểm tra đồng thời Backend và Database.
-
----
-
-## 5.3. Khởi động lại Backend
-
-Nếu Backend gặp lỗi:
-
-```bash
-docker compose restart backend
-```
-
-Sau đó kiểm tra:
-
-```bash
-docker compose ps
-```
-
----
-
-## 5.4. Dừng hệ thống
-
-Dừng toàn bộ Docker services:
-
-```bash
-docker compose down
-```
-
-Lệnh này dừng và xóa các containers nhưng **không xóa Docker volumes**.
-
----
-
-## 5.5. Khởi động lại hệ thống
-
-Khởi động lại Docker services:
-
-```bash
-docker compose up -d
-```
-
-Kiểm tra:
-
-```bash
-docker compose ps
-```
-
----
-
-## 5.6. Reset hoàn toàn Database
-
-> **CẢNH BÁO:** Lệnh `docker compose down -v` sẽ xóa các Docker volumes liên quan. Dữ liệu hiện có trong database có thể bị mất.
-
-Thực hiện:
+Nếu người khác vừa thêm **cột mới vào database**, backend sẽ báo lỗi kiểu `column ... does not exist`. Dự án dùng `create_all()` — chỉ tạo bảng chưa có, không tự thêm cột vào bảng đã tồn tại. Cách xử lý nhanh nhất:
 
 ```bash
 docker compose down -v
@@ -570,146 +143,258 @@ docker compose up -d
 docker compose exec backend python seed_users.py
 ```
 
-Kiểm tra lại database:
-
-```bash
-docker compose exec db psql -U postgres -d teamchat_db -c "SELECT id, email, username FROM users;"
-```
+> ⚠️ `down -v` xóa sạch tin nhắn và tệp đã tải lên. Hiện chỉ là dữ liệu thử nên không sao.
 
 ---
 
-# 6. QUY TRÌNH CHẠY NHANH
+# 4. THỬ TỪNG TÍNH NĂNG
 
-Nếu hệ thống đã được cài đặt đầy đủ, quy trình chạy hằng ngày chỉ gồm hai Terminal.
+Muốn thấy realtime thì phải mở **nhiều cửa sổ** và đăng nhập tài khoản khác nhau:
 
-## Terminal 1: Backend + Database
+- Cửa sổ thường + cửa sổ ẩn danh (`Ctrl + Shift + N`)
+- Hoặc dùng thêm một trình duyệt khác
 
-Di chuyển vào thư mục project:
+## Chat
 
-```bash
-cd <ĐƯỜNG_DẪN>\team-chat
+| Thử gì | Cách làm |
+| --- | --- |
+| Tin nhắn realtime | Gõ ở cửa sổ này, cửa sổ kia hiện ngay, không cần F5 |
+| Đang soạn tin | Gõ mà chưa gửi, bên kia thấy "đang soạn tin..." |
+| Biểu cảm | Rê chuột lên tin nhắn, chọn emoji. Bấm lại để gỡ |
+| Gửi tệp | Nút 📎. Ảnh và video hiện ngay trong khung chat, tối đa 25MB |
+| Trả lời, ghim, sửa, xóa | Các nút hiện khi rê chuột lên tin nhắn |
+
+## Phân quyền
+
+Đăng nhập `user2` (quản trị viên) rồi thử **xóa phòng** — bị chặn, chỉ chủ phòng mới xóa được.
+
+Đăng nhập `user1` (chủ phòng), mở panel **👥**, bấm `⋯` cạnh tên ai đó để phong quản trị hoặc xóa khỏi phòng.
+
+## Phòng riêng tư
+
+Đăng nhập `user4` — sẽ **không thấy** phòng `🔒 Nhóm Trưởng` trong danh sách. Từ `user1` mời `user4` vào phòng đó, phòng sẽ hiện ra ngay ở cửa sổ của `user4`.
+
+## Gọi 1-1
+
+1. Mở panel **👥**
+2. Rê chuột lên tên một người **đang online**
+3. Bấm **📞** (thoại) hoặc **🎥** (video)
+4. Cửa sổ kia đổ chuông, bấm nút xanh để nghe
+
+Người nhận có 30 giây để nghe, quá thì tính là cuộc gọi nhỡ.
+
+## Gọi nhóm
+
+1. Bấm **🎥 Gọi nhóm** trên thanh tiêu đề phòng
+2. Các cửa sổ khác hiện dải xanh *"Cuộc gọi nhóm đang diễn ra"* kèm nút **Tham gia**
+3. Lưới video tự giãn theo số người
+4. Một người rời đi thì những người còn lại vẫn nói chuyện tiếp
+
+Tối đa **6 người** (mô hình mesh: mỗi máy nối trực tiếp tới từng người còn lại).
+
+> **Lưu ý về camera:** máy thường chỉ có một webcam. Nhiều tab trong **cùng một trình duyệt** dùng chung được, nhưng **hai trình duyệt khác nhau** thì cái mở sau báo lỗi `Device in use`. Khi đó app tự chuyển người đó sang chế độ chỉ có tiếng — cuộc gọi vẫn chạy. Nhớ tắt Zoom, Teams hoặc tab nào đang dùng camera.
+
+## Tài liệu API
+
+```
+https://localhost/docs
 ```
 
-Khởi động Docker:
+Giao diện Swagger, bấm "Try it out" để gọi thử API ngay trên trình duyệt.
+
+---
+
+# 5. THỬ TRÊN ĐIỆN THOẠI VÀ MÁY KHÁC
+
+Tất cả thiết bị phải **cùng một mạng Wi-Fi** với máy chạy server. Không có Wi-Fi chung thì bật điểm phát sóng trên điện thoại rồi cho laptop kết nối vào.
+
+## Bước 1: Lấy IP của máy chạy server
+
+Windows:
+
+```powershell
+ipconfig
+```
+
+Tìm dòng `IPv4 Address` của card Wi-Fi, ví dụ `192.168.1.18`. Bỏ qua các IP `192.168.56.x` (card ảo VirtualBox).
+
+Linux/macOS:
 
 ```bash
+hostname -I | awk '{print $1}'
+```
+
+## Bước 2: Ghi IP vào `.env`
+
+```ini
+CERT_IPS=192.168.1.18
+```
+
+Rồi tạo lại chứng chỉ cho khớp IP mới:
+
+```bash
+docker compose down
+docker volume rm team-chat_certs
 docker compose up -d
 ```
 
-Nếu cần nạp lại dữ liệu mẫu:
+> Tên volume lấy theo tên thư mục dự án. Nếu bạn clone vào thư mục tên khác, chạy `docker volume ls` để xem tên đúng (dạng `<tên-thư-mục>_certs`).
+
+Bỏ qua bước này vẫn vào được, chỉ là trình duyệt cảnh báo thêm một dòng "tên không khớp".
+
+## Bước 3: Truy cập từ thiết bị khác
+
+```
+https://192.168.1.18
+```
+
+Bấm **Nâng cao → Tiếp tục**. Trên iPhone, Safari hiện "Chi tiết → Truy cập trang web này".
+
+## Không gọi được qua Internet
+
+Hiện tại chỉ gọi được trong cùng mạng LAN. Gọi qua Internet cần thêm máy chủ **TURN** và một tunnel để đưa server ra ngoài — chưa làm.
+
+---
+
+# 6. LỆNH BẢO TRÌ
+
+| Việc | Lệnh |
+| --- | --- |
+| Xem trạng thái | `docker compose ps` |
+| Xem log backend | `docker compose logs -f backend` |
+| Xem log tất cả | `docker compose logs -f` |
+| Khởi động lại backend | `docker compose restart backend` |
+| Dừng (giữ dữ liệu) | `docker compose down` |
+| Bật lại | `docker compose up -d` |
+| Build lại sau khi sửa code | `docker compose up -d --build` |
+| Xem dữ liệu trong DB | `docker compose exec db psql -U postgres -d teamchat_db` |
+
+Sửa code Python trong `backend/` thì chỉ cần `docker compose restart backend`, không phải build lại (thư mục được mount vào container).
+
+Sửa file trong `frontend/` thì **không cần làm gì cả** — chỉ cần `Ctrl + F5` trên trình duyệt.
+
+## Reset toàn bộ dữ liệu
 
 ```bash
+docker compose down -v
+docker compose up -d
 docker compose exec backend python seed_users.py
 ```
 
-## Terminal 2: Frontend
+---
 
-Di chuyển vào thư mục Frontend:
+# 7. XỬ LÝ SỰ CỐ
 
-```bash
-cd <ĐƯỜNG_DẪN>\team-chat\frontend
-```
+## `docker compose` báo lỗi 500 hoặc "daemon is not running"
 
-### Ubuntu/Linux
-
-```bash
-python3 -m http.server 3000 --bind 0.0.0.0
-```
-
-### Windows
+Mở Docker Desktop và chờ khởi động xong. Nếu đã mở mà vẫn lỗi, nhiều khả năng **tính năng ảo hóa của Windows bị tắt** (do bản cập nhật Windows hoặc phần mềm chống gian lận của game). Kiểm tra:
 
 ```powershell
+wsl -d docker-desktop -e echo ok
+```
+
+Báo `HCS_E_SERVICE_NOT_AVAILABLE` thì mở PowerShell **quyền Administrator**:
+
+```powershell
+dism /online /enable-feature /featurename:VirtualMachinePlatform /all
+dism /online /enable-feature /featurename:HypervisorPlatform /all
+```
+
+Rồi **Restart** máy (chọn Restart chứ không phải Shut down).
+
+## Trang không mở được / cổng 443 bị chiếm
+
+Kiểm tra:
+
+```powershell
+Get-NetTCPConnection -LocalPort 443 -State Listen
+```
+
+Bị chiếm thì đổi cổng trong `.env`:
+
+```ini
+HTTPS_PORT=8443
+HTTP_PORT=8080
+```
+
+rồi `docker compose up -d`, và vào `https://localhost:8443`.
+
+## Bấm gửi tin nhắn mà không có gì xảy ra
+
+Phiên đăng nhập đã hết hạn. Tải lại trang bằng `Ctrl + F5` rồi đăng nhập lại.
+
+## Backend báo `column ... does not exist`
+
+Có người thêm cột mới vào database. Xem lại [mục 3](#khi-kéo-code-mới-về).
+
+## Không bật được camera khi gọi
+
+Xem lưu ý ở [mục 4](#gọi-nhóm). Tắt các ứng dụng khác đang dùng camera, hoặc dùng cùng một trình duyệt cho các cửa sổ test.
+
+## Giao diện cũ, không thấy tính năng mới
+
+Trình duyệt dùng lại file JS trong cache. Nhấn `Ctrl + F5` (Windows) hoặc `Cmd + Shift + R` (macOS).
+
+---
+
+# 8. CHECKLIST TRƯỚC KHI DEMO
+
+**Chuẩn bị**
+
+- [ ] Docker Desktop đang chạy
+- [ ] `docker compose ps` — cả ba service `Up`, `db` là `healthy`
+- [ ] Đã seed dữ liệu, đăng nhập được `user1@example.com`
+- [ ] Đã bấm "Tiếp tục" qua cảnh báo chứng chỉ trên **mọi** máy sẽ dùng để demo
+- [ ] Tắt Zoom, Teams, và các tab đang chiếm camera
+
+**Thử trước khi lên demo**
+
+- [ ] Gửi tin nhắn giữa hai cửa sổ, tin hiện ngay không cần F5
+- [ ] Gửi một ảnh, ảnh hiện trong khung chat
+- [ ] Thả biểu cảm, cửa sổ kia thấy ngay
+- [ ] Gọi 1-1: đổ chuông, nghe máy, thấy hình và nghe tiếng
+- [ ] Gọi nhóm: người thứ ba bấm Tham gia, lưới thành 3 ô
+- [ ] Mở `https://localhost/docs` xem Swagger có lên không
+
+**Nếu demo nhiều thiết bị**
+
+- [ ] Tất cả cùng một Wi-Fi
+- [ ] `CERT_IPS` trong `.env` khớp IP hiện tại
+- [ ] Điện thoại vào được `https://<IP>` và đăng nhập được
+
+---
+
+# 9. PHỤ LỤC: CHẠY KHÔNG CẦN NGINX
+
+Cách cũ, giữ lại để tham khảo. Cần cài sẵn Python trên máy.
+
+```bash
+# Cửa sổ 1 - backend + database
+docker compose up -d db backend
+
+# Cửa sổ 2 - frontend, phải giữ mở
+cd frontend
 python -m http.server 3000 --bind 0.0.0.0
 ```
 
-## Truy cập hệ thống
+Rồi vào `http://localhost:3000`.
 
-### Trên chính máy chạy server
+> **Cách này không gọi điện được** khi truy cập bằng địa chỉ IP, vì chạy trên HTTP nên trình duyệt chặn micro và camera. Vào bằng `localhost` thì gọi được, vì trình duyệt coi `localhost` là an toàn.
 
-```text
-http://localhost:3000
-```
-
-### Trên máy tính hoặc điện thoại khác
-
-```text
-http://<IP_MÁY_CHẠY_SERVER>:3000
-```
-
-Ví dụ:
-
-```text
-http://192.168.1.25:3000
-```
+Frontend tự nhận biết: chạy ở cổng 3000 thì gọi thẳng backend ở cổng 8000, chạy sau nginx thì dùng chung địa chỉ với trang.
 
 ---
 
-# 7. CHECKLIST TRƯỚC KHI DEMO
+# TÓM TẮT
 
-## Docker
+Chạy lần đầu:
 
-* [ ] Docker Engine/Docker Desktop đang chạy.
-* [ ] `docker compose up -d` thực hiện thành công.
-* [ ] Backend đang hoạt động.
-* [ ] PostgreSQL đang hoạt động.
-
-## Database
-
-* [ ] Đã chạy `seed_users.py`.
-* [ ] Database có đủ 3 tài khoản thử nghiệm.
-* [ ] Có thể đăng nhập bằng các tài khoản mẫu.
-
-## Frontend
-
-* [ ] Frontend Server đang chạy.
-* [ ] Port `3000` đang được sử dụng.
-* [ ] Có thể truy cập `http://localhost:3000`.
-* [ ] Server được bind vào `0.0.0.0` khi cần test nhiều thiết bị.
-
-## Kiểm thử nhiều thiết bị
-
-* [ ] Máy chủ và client cùng mạng LAN/Wi-Fi.
-* [ ] Đã xác định đúng IP nội bộ của máy chủ.
-* [ ] Client có thể truy cập `http://<IP_MÁY_CHẠY_SERVER>:3000`.
-* [ ] Hai tài khoản có thể đăng nhập.
-* [ ] Hai tài khoản có thể truy cập `# Phòng Kiến Trúc`.
-* [ ] Tin nhắn có thể gửi từ client này sang client khác.
-* [ ] Tin nhắn có thể nhận theo chiều ngược lại.
-
----
-
-# KẾT LUẬN
-
-Để hệ thống Team Chat hoạt động đầy đủ, cần duy trì **hai nhóm thành phần**:
-
-1. **Docker Compose**
-
-   * Backend
-   * PostgreSQL Database
-
-2. **Python HTTP Server**
-
-   * Phục vụ Frontend trên port `3000`.
-
-Khi kiểm thử trên nhiều thiết bị, Frontend phải được chạy với:
-
-```text
---bind 0.0.0.0
+```bash
+git clone https://github.com/Dungx1107/team-chat.git
+cd team-chat
+cp .env.example .env          # rồi sửa POSTGRES_PASSWORD và DATABASE_URL
+docker compose up -d --build
+docker compose exec backend python seed_users.py
 ```
 
-Thiết bị khác trong cùng mạng LAN/Wi-Fi không truy cập bằng `localhost`, mà phải sử dụng địa chỉ IP nội bộ của máy chạy server:
-
-```text
-http://<IP_MÁY_CHẠY_SERVER>:3000
-```
-
-Ví dụ:
-
-```text
-http://192.168.1.25:3000
-```
-
-Đây là quy trình chuẩn để khởi động, kiểm thử và xử lý các lỗi cơ bản của hệ thống Team Chat.
-
-```
-```
+Các lần sau: mở Docker Desktop → `docker compose up -d` → vào `https://localhost`.
