@@ -118,6 +118,7 @@ async function selectRoom(room) {
 
   realtime.subscribe(room.id);
 
+  callUI.refreshRoomCall();
   await loadMessages();
   await loadPinnedMessages();
   await hydrateSecureMedia();
@@ -150,6 +151,7 @@ function updateRoomHeader() {
   const canManage = ["OWNER", "ADMIN"].includes(currentRoom.my_role);
 
   document.getElementById("btn-toggle-members").classList.remove("hidden");
+  toggleEl("btn-group-call", !!currentRoom.my_role);
   document.getElementById("member-count-badge").textContent = currentRoom.member_count ?? 0;
 
   toggleEl("btn-room-settings", canManage);
@@ -337,8 +339,9 @@ function resetChatArea() {
   document.getElementById("messages-scroll-area").innerHTML =
     `<div class="text-center text-slate-400 dark:text-slate-500 text-xs mt-16">Chọn một phòng để xem tin nhắn</div>`;
 
-  ["btn-delete-room", "btn-leave-room", "btn-room-settings", "btn-toggle-members", "btn-add-member"]
+  ["btn-delete-room", "btn-leave-room", "btn-room-settings", "btn-toggle-members", "btn-add-member", "btn-group-call"]
     .forEach((id) => toggleEl(id, false));
+  callUI.updateRoomCallBanner(null);
 
   document.getElementById("input-message").disabled = true;
   document.getElementById("btn-send-message").disabled = true;

@@ -153,6 +153,8 @@ class CallModel(Base):
     room_id = Column(Integer, ForeignKey("rooms.id", ondelete="SET NULL"), nullable=True, index=True)
     initiator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     kind = Column(String(10), nullable=False, default="VIDEO")
+    # DIRECT = gọi 1-1 có đổ chuông; GROUP = gọi nhóm trong phòng, ai vào cũng được
+    mode = Column(String(10), nullable=False, default="DIRECT", index=True)
     status = Column(String(20), nullable=False, default="RINGING", index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     answered_at = Column(DateTime, nullable=True)

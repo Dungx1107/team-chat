@@ -195,6 +195,10 @@
             class="px-2.5 py-1.5 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition">
             <span id="theme-icon-chat">🌙</span>
           </button>
+          <button id="btn-group-call" onclick="callUI.startGroupCall('VIDEO')" title="Bắt đầu cuộc gọi nhóm"
+            class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 transition">
+            🎥 Gọi nhóm
+          </button>
           <button id="btn-toggle-members" onclick="toggleMembersPanel()" title="Thành viên"
             class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition">
             👥 <span id="member-count-badge">0</span>
@@ -221,6 +225,8 @@
         </button>
         <div id="pinned-list" class="max-h-28 overflow-y-auto px-4 pb-2 space-y-1 scroll-thin"></div>
       </section>
+
+      <div id="room-call-banner" class="hidden shrink-0"></div>
 
       <div id="messages-scroll-area"
         class="flex-1 overflow-y-auto px-5 py-4 space-y-0.5 bg-slate-50 dark:bg-slate-900 scroll-thin">

@@ -24,5 +24,10 @@ class ICallRepository(ABC):
         pass
 
     @abstractmethod
+    def find_active_group_call(self, room_id: int) -> Optional[Call]:
+        """Cuộc gọi nhóm đang diễn ra của một phòng, nếu có."""
+        pass
+
+    @abstractmethod
     def list_by_user(self, user_id: int, limit: int = 30) -> List[Call]:
         pass

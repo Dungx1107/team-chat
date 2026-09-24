@@ -47,6 +47,15 @@ class Call:
     KIND_VIDEO = "VIDEO"
     VALID_KINDS = (KIND_AUDIO, KIND_VIDEO)
 
+    MODE_DIRECT = "DIRECT"   # gọi 1-1, có đổ chuông
+    MODE_GROUP = "GROUP"     # gọi nhóm trong phòng, ai muốn vào thì vào
+    VALID_MODES = (MODE_DIRECT, MODE_GROUP)
+
+    # Gọi nhóm hiện dùng mô hình mesh: mỗi người nối trực tiếp tới từng người
+    # còn lại, nên số kết nối tăng theo bình phương. Giới hạn 6 người để máy
+    # yếu vẫn chịu được; muốn đông hơn phải chuyển sang máy chủ media (SFU).
+    MAX_GROUP_PARTICIPANTS = 6
+
     STATUS_RINGING = "RINGING"
     STATUS_ACTIVE = "ACTIVE"
     STATUS_ENDED = "ENDED"
@@ -60,6 +69,7 @@ class Call:
         self,
         initiator_id: int,
         kind: str = KIND_VIDEO,
+        mode: str = MODE_DIRECT,
         room_id: Optional[int] = None,
         status: str = STATUS_RINGING,
         id: Optional[int] = None,
@@ -70,7 +80,10 @@ class Call:
     ):
         if kind not in self.VALID_KINDS:
             raise ValueError(f"Loại cuộc gọi không hợp lệ: {kind}")
+        if mode not in self.VALID_MODES:
+            raise ValueError(f"Kiểu cuộc gọi không hợp lệ: {mode}")
         self.id = id
+        self.mode = mode
         self.room_id = room_id
         self.initiator_id = initiator_id
         self.kind = kind
@@ -84,6 +97,13 @@ class Call:
 
     def is_open(self) -> bool:
         return self.status in self.OPEN_STATUSES
+
+    def is_group(self) -> bool:
+        return self.mode == self.MODE_GROUP
+
+    def active_participant_ids(self) -> List[int]:
+        """Những người đang thực sự ở trong cuộc gọi (đã vào và chưa rời)."""
+        return [p.user_id for p in self.participants if p.state == CallParticipant.STATE_JOINED]
 
     def participant_ids(self) -> List[int]:
         return [p.user_id for p in self.participants]
@@ -121,6 +141,55 @@ class Call:
         participant.joined_at = now
         self.status = self.STATUS_ACTIVE
         self.answered_at = now
+
+    # ---------- Gọi nhóm ----------
+
+    def join(self, user_id: int) -> CallParticipant:
+        """Tham gia cuộc gọi nhóm đang diễn ra."""
+        if not self.is_group():
+            raise ValueError("Chỉ cuộc gọi nhóm mới tham gia được")
+        if self.status != self.STATUS_ACTIVE:
+            raise ValueError("Cuộc gọi đã kết thúc")
+
+        participant = self.get_participant(user_id)
+        if participant and participant.state == CallParticipant.STATE_JOINED:
+            return participant  # đã ở trong rồi, gọi lại cũng không sao
+
+        if len(self.active_participant_ids()) >= self.MAX_GROUP_PARTICIPANTS:
+            raise RuntimeError(
+                f"Cuộc gọi đã đủ {self.MAX_GROUP_PARTICIPANTS} người"
+            )
+
+        now = datetime.utcnow()
+        if participant:
+            # Người từng rời đi quay lại
+            participant.state = CallParticipant.STATE_JOINED
+            participant.joined_at = now
+            participant.left_at = None
+        else:
+            participant = CallParticipant(
+                call_id=self.id,
+                user_id=user_id,
+                state=CallParticipant.STATE_JOINED,
+                joined_at=now,
+            )
+            self.participants.append(participant)
+        return participant
+
+    def leave(self, user_id: int) -> bool:
+        """Rời cuộc gọi nhóm. Người cuối cùng rời đi thì cuộc gọi kết thúc."""
+        participant = self.get_participant(user_id)
+        if not participant or participant.state != CallParticipant.STATE_JOINED:
+            return False
+
+        participant.state = CallParticipant.STATE_LEFT
+        participant.left_at = datetime.utcnow()
+
+        if not self.active_participant_ids():
+            self._close(self.STATUS_ENDED)
+        return True
+
+    # ---------- Gọi 1-1 ----------
 
     def decline(self, user_id: int) -> None:
         if self.status != self.STATUS_RINGING:

@@ -10,7 +10,7 @@ from app.api.schemas import (
     AddMemberRequest,
     ChangeRoleRequest,
 )
-from app.api.dependencies import get_room_service, get_current_user_id, file_storage
+from app.api.dependencies import get_room_service, get_current_user_id, get_call_service, file_storage
 from app.services.room_service import RoomService
 from app.infra.realtime.connection_manager import connection_manager
 
@@ -162,6 +162,20 @@ def get_room_avatar(room_id: int, room_service: RoomService = Depends(get_room_s
 
 
 # ---------- Thành viên và phân quyền ----------
+
+@router.get("/{room_id}/active-call")
+def get_active_group_call(
+    room_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    call_service=Depends(get_call_service),
+):
+    """Phòng này có cuộc gọi nhóm đang diễn ra không, để hiện nút Tham gia."""
+    try:
+        call = call_service.get_active_group_call(room_id, current_user_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    return call_service.to_payload(call) if call else None
+
 
 @router.post("/{room_id}/join", response_model=MemberResponse, status_code=status.HTTP_201_CREATED)
 def join_room(

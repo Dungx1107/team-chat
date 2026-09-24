@@ -2,6 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.schemas.call import (
     CallStartRequest,
+    GroupCallStartRequest,
     CallEndRequest,
     CallResponse,
     IceConfigResponse,
@@ -9,6 +10,7 @@ from app.api.schemas.call import (
 from app.api.dependencies import get_call_service, get_current_user_id
 from app.config import settings
 from app.services.call_service import CallService
+from app.domain.models import Call
 
 router = APIRouter(prefix="/calls", tags=["Calls"])
 
@@ -34,6 +36,7 @@ def get_call_config(current_user_id: int = Depends(get_current_user_id)):
     return IceConfigResponse(
         ice_servers=settings.ice_server_list,
         ring_timeout_seconds=RING_TIMEOUT_SECONDS,
+        max_group_participants=Call.MAX_GROUP_PARTICIPANTS,
     )
 
 
@@ -45,6 +48,42 @@ def start_call(
 ):
     """Bắt đầu gọi 1-1 cho một thành viên cùng phòng. Người nhận nhận sự kiện call.incoming."""
     call = _handle(lambda: svc.start_call(current_user_id, body.callee_id, body.room_id, body.kind))
+    return svc.to_payload(call)
+
+
+@router.post("/group", response_model=CallResponse, status_code=status.HTTP_201_CREATED)
+def start_group_call(
+    body: GroupCallStartRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    svc: CallService = Depends(get_call_service),
+):
+    """Mở cuộc gọi nhóm trong phòng. Không đổ chuông; cả phòng nhận call.room_started.
+
+    Nếu phòng đã có cuộc gọi nhóm đang diễn ra thì tham gia luôn cuộc gọi đó.
+    """
+    call = _handle(lambda: svc.start_group_call(current_user_id, body.room_id, body.kind))
+    return svc.to_payload(call)
+
+
+@router.post("/{call_id}/join", response_model=CallResponse)
+def join_call(
+    call_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    svc: CallService = Depends(get_call_service),
+):
+    """Tham gia cuộc gọi nhóm đang diễn ra."""
+    call = _handle(lambda: svc.join_call(call_id, current_user_id))
+    return svc.to_payload(call)
+
+
+@router.post("/{call_id}/leave", response_model=CallResponse)
+def leave_call(
+    call_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    svc: CallService = Depends(get_call_service),
+):
+    """Rời cuộc gọi nhóm. Người cuối cùng rời đi thì cuộc gọi kết thúc."""
+    call = _handle(lambda: svc.leave_call(call_id, current_user_id))
     return svc.to_payload(call)
 
 

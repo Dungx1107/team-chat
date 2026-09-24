@@ -62,6 +62,7 @@ class CallService:
             "id": call.id,
             "room_id": call.room_id,
             "kind": call.kind,
+            "mode": call.mode,
             "status": call.status,
             "initiator_id": call.initiator_id,
             "created_at": call.created_at,
@@ -72,6 +73,7 @@ class CallService:
                 {**self._user_brief(p.user_id), "state": p.state}
                 for p in call.participants
             ],
+            "active_participant_ids": call.active_participant_ids(),
         }
 
     def _notify(self, call: Call, event: str, exclude: Optional[int] = None) -> None:
@@ -118,6 +120,96 @@ class CallService:
         self.events.publish_to_user(callee_id, "call.incoming", self.to_payload(created))
         return created
 
+    # ---------- Gọi nhóm ----------
+
+    def start_group_call(self, user_id: int, room_id: int, kind: str) -> Call:
+        """Mở cuộc gọi nhóm trong phòng.
+
+        Khác gọi 1-1: không đổ chuông cho ai cả. Cuộc gọi vào trạng thái ACTIVE
+        ngay, những người trong phòng thấy thông báo và tự quyết định có vào hay không.
+        """
+        if not self.room_repo.get_by_id(room_id):
+            raise ValueError("Phòng chat không tồn tại")
+        if not self.room_repo.get_member(room_id, user_id):
+            raise PermissionError("Bạn không phải thành viên của phòng này")
+
+        # Phòng đã có cuộc gọi nhóm thì vào luôn cái đó, không mở cái thứ hai
+        existing = self.call_repo.find_active_group_call(room_id)
+        if existing:
+            return self.join_call(existing.id, user_id)
+
+        if self.call_repo.find_open_call_of_user(user_id):
+            raise RuntimeError("Bạn đang ở trong một cuộc gọi khác")
+
+        call = Call(
+            initiator_id=user_id,
+            kind=kind,
+            mode=Call.MODE_GROUP,
+            room_id=room_id,
+            status=Call.STATUS_ACTIVE,
+            participants=[
+                CallParticipant(call_id=None, user_id=user_id, state=CallParticipant.STATE_JOINED)
+            ],
+        )
+        created = self.call_repo.create(call)
+
+        # Báo cho cả phòng biết có cuộc gọi để hiện nút "Tham gia"
+        self.events.publish_to_room(room_id, "call.room_started", self.to_payload(created))
+        return created
+
+    def join_call(self, call_id: int, user_id: int) -> Call:
+        call = self._get_call_or_fail(call_id)
+        if call.room_id and not self.room_repo.get_member(call.room_id, user_id):
+            raise PermissionError("Bạn không phải thành viên của phòng này")
+
+        # Đang bận ở cuộc gọi khác thì không vào được
+        other = self.call_repo.find_open_call_of_user(user_id)
+        if other and other.id != call.id:
+            raise RuntimeError("Bạn đang ở trong một cuộc gọi khác")
+
+        already_in = user_id in call.active_participant_ids()
+        call.join(user_id)  # entity kiểm tra kiểu cuộc gọi, trạng thái và sức chứa
+        saved = self.call_repo.save(call)
+
+        if not already_in:
+            # Những người đang ở trong sẽ chủ động gọi tới người mới
+            payload = {
+                "call_id": saved.id,
+                "user": self._user_brief(user_id),
+                "call": self.to_payload(saved),
+            }
+            for uid in saved.active_participant_ids():
+                if uid != user_id:
+                    self.events.publish_to_user(uid, "call.participant_joined", payload)
+            if saved.room_id:
+                self.events.publish_to_room(saved.room_id, "call.room_updated", self.to_payload(saved))
+        return saved
+
+    def leave_call(self, call_id: int, user_id: int) -> Call:
+        call = self._get_call_or_fail(call_id)
+        if not call.has_participant(user_id):
+            raise PermissionError("Bạn không nằm trong cuộc gọi này")
+
+        left = call.leave(user_id)
+        saved = self.call_repo.save(call)
+        if not left:
+            return saved
+
+        payload = {"call_id": saved.id, "user_id": user_id, "call": self.to_payload(saved)}
+        for uid in saved.active_participant_ids():
+            self.events.publish_to_user(uid, "call.participant_left", payload)
+        if saved.room_id:
+            event = "call.room_ended" if not saved.is_open() else "call.room_updated"
+            self.events.publish_to_room(saved.room_id, event, self.to_payload(saved))
+        return saved
+
+    def get_active_group_call(self, room_id: int, user_id: int) -> Optional[Call]:
+        if not self.room_repo.get_member(room_id, user_id):
+            raise PermissionError("Bạn không phải thành viên của phòng này")
+        return self.call_repo.find_active_group_call(room_id)
+
+    # ---------- Gọi 1-1 ----------
+
     def accept_call(self, call_id: int, user_id: int) -> Call:
         call = self._get_call_or_fail(call_id)
         call.accept(user_id)  # entity tự kiểm tra trạng thái và quyền
@@ -144,9 +236,16 @@ class CallService:
         return saved
 
     def end_calls_of_user(self, user_id: int) -> None:
-        """Dọn cuộc gọi dở dang khi một người mất hết kết nối (đóng tab, rớt mạng)."""
+        """Dọn cuộc gọi dở dang khi một người mất hết kết nối (đóng tab, rớt mạng).
+
+        Gọi nhóm chỉ rời một mình; những người còn lại vẫn nói chuyện tiếp.
+        """
         call = self.call_repo.find_open_call_of_user(user_id)
-        if call:
+        if not call:
+            return
+        if call.is_group():
+            self.leave_call(call.id, user_id)
+        else:
             self.end_call(call.id, user_id, missed=call.status == Call.STATUS_RINGING)
 
     def get_call(self, call_id: int, user_id: int) -> Call:

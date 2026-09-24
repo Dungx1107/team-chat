@@ -17,6 +17,7 @@ class CallRepository(ICallRepository):
             room_id=model.room_id,
             initiator_id=model.initiator_id,
             kind=model.kind,
+            mode=model.mode,
             status=model.status,
             created_at=model.created_at,
             answered_at=model.answered_at,
@@ -39,6 +40,7 @@ class CallRepository(ICallRepository):
             room_id=call.room_id,
             initiator_id=call.initiator_id,
             kind=call.kind,
+            mode=call.mode,
             status=call.status,
             created_at=call.created_at,
             answered_at=call.answered_at,
@@ -71,12 +73,23 @@ class CallRepository(ICallRepository):
         model.ended_at = call.ended_at
 
         by_user = {p.user_id: p for p in call.participants}
+        existing = {pm.user_id for pm in model.participants}
         for pm in model.participants:
             p = by_user.get(pm.user_id)
             if p:
                 pm.state = p.state
                 pm.joined_at = p.joined_at
                 pm.left_at = p.left_at
+
+        # Người mới tham gia cuộc gọi nhóm chưa có dòng trong bảng
+        for p in call.participants:
+            if p.user_id not in existing:
+                model.participants.append(CallParticipantModel(
+                    user_id=p.user_id,
+                    state=p.state,
+                    joined_at=p.joined_at,
+                    left_at=p.left_at,
+                ))
 
         self.db.commit()
         self.db.refresh(model)
@@ -89,6 +102,19 @@ class CallRepository(ICallRepository):
             .filter(
                 CallParticipantModel.user_id == user_id,
                 CallModel.status.in_(Call.OPEN_STATUSES),
+            )
+            .order_by(CallModel.created_at.desc())
+            .first()
+        )
+        return self._to_entity(model)
+
+    def find_active_group_call(self, room_id: int) -> Optional[Call]:
+        model = (
+            self.db.query(CallModel)
+            .filter(
+                CallModel.room_id == room_id,
+                CallModel.mode == Call.MODE_GROUP,
+                CallModel.status == Call.STATUS_ACTIVE,
             )
             .order_by(CallModel.created_at.desc())
             .first()

@@ -287,6 +287,25 @@ const api = {
     });
   },
 
+  startGroupCall(roomId, kind) {
+    return this.request("/calls/group", {
+      method: "POST",
+      body: JSON.stringify({ room_id: roomId, kind }),
+    });
+  },
+
+  joinCall(callId) {
+    return this.request(`/calls/${callId}/join`, { method: "POST" });
+  },
+
+  leaveCall(callId) {
+    return this.request(`/calls/${callId}/leave`, { method: "POST" });
+  },
+
+  getRoomActiveCall(roomId) {
+    return this.request(`/rooms/${roomId}/active-call`);
+  },
+
   acceptCall(callId) {
     return this.request(`/calls/${callId}/accept`, { method: "POST" });
   },
