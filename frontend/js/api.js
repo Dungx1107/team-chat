@@ -1,6 +1,13 @@
-const API_HOST = `${window.location.hostname}:8000`;
-const API_BASE_URL = `http://${API_HOST}/api`;
-const WS_URL = `ws://${API_HOST}/ws`;
+// Hai cách chạy frontend:
+//  - Qua nginx (https://<máy>/): API và WebSocket đi chung địa chỉ với trang.
+//  - Kiểu cũ bằng python -m http.server ở cổng 3000: gọi thẳng backend cổng 8000.
+const USE_SAME_ORIGIN = window.location.port !== "3000";
+const API_BASE_URL = USE_SAME_ORIGIN
+  ? `${window.location.origin}/api`
+  : `http://${window.location.hostname}:8000/api`;
+const WS_URL = USE_SAME_ORIGIN
+  ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws`
+  : `ws://${window.location.hostname}:8000/ws`;
 
 const api = {
   // ---------- Quản lý phiên ----------
@@ -265,6 +272,53 @@ const api = {
 
   searchUsers(keyword) {
     return this.request(`/users/search?q=${encodeURIComponent(keyword)}`);
+  },
+
+  // ---------- Cuộc gọi ----------
+
+  getCallConfig() {
+    return this.request("/calls/config");
+  },
+
+  startCall(calleeId, roomId, kind) {
+    return this.request("/calls", {
+      method: "POST",
+      body: JSON.stringify({ callee_id: calleeId, room_id: roomId, kind }),
+    });
+  },
+
+  startGroupCall(roomId, kind) {
+    return this.request("/calls/group", {
+      method: "POST",
+      body: JSON.stringify({ room_id: roomId, kind }),
+    });
+  },
+
+  joinCall(callId) {
+    return this.request(`/calls/${callId}/join`, { method: "POST" });
+  },
+
+  leaveCall(callId) {
+    return this.request(`/calls/${callId}/leave`, { method: "POST" });
+  },
+
+  getRoomActiveCall(roomId) {
+    return this.request(`/rooms/${roomId}/active-call`);
+  },
+
+  acceptCall(callId) {
+    return this.request(`/calls/${callId}/accept`, { method: "POST" });
+  },
+
+  declineCall(callId) {
+    return this.request(`/calls/${callId}/decline`, { method: "POST" });
+  },
+
+  endCall(callId, missed = false) {
+    return this.request(`/calls/${callId}/end`, {
+      method: "POST",
+      body: JSON.stringify({ missed }),
+    });
   },
 
   // Tệp đính kèm cần token nên không gắn thẳng vào src/href được;

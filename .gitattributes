@@ -1,0 +1,3 @@
+# Script shell chạy trong container Linux phải giữ xuống dòng kiểu LF,
+# nếu Git trên Windows đổi sang CRLF thì /bin/sh sẽ báo lỗi khó hiểu.
+*.sh text eol=lf

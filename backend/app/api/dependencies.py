@@ -22,6 +22,8 @@ from app.services.auth_service import AuthService
 from app.services.room_service import RoomService
 from app.services.message_service import MessageService
 from app.services.user_service import UserService
+from app.services.call_service import CallService
+from app.repositories.call_repo import CallRepository
 
 
 # Bộ nhớ lưu trữ dùng chung, khởi tạo một lần
@@ -68,3 +70,12 @@ def get_message_service(db: Session = Depends(get_db)) -> MessageService:
 
 def get_user_service(db: Session = Depends(get_db)) -> UserService:
     return UserService(UserRepository(db), file_storage=file_storage, event_publisher=connection_manager)
+
+
+def get_call_service(db: Session = Depends(get_db)) -> CallService:
+    return CallService(
+        call_repo=CallRepository(db),
+        room_repo=RoomRepository(db),
+        user_repo=UserRepository(db),
+        event_publisher=connection_manager,
+    )

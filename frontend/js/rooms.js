@@ -118,6 +118,7 @@ async function selectRoom(room) {
 
   realtime.subscribe(room.id);
 
+  callUI.refreshRoomCall();
   await loadMessages();
   await loadPinnedMessages();
   await hydrateSecureMedia();
@@ -150,6 +151,7 @@ function updateRoomHeader() {
   const canManage = ["OWNER", "ADMIN"].includes(currentRoom.my_role);
 
   document.getElementById("btn-toggle-members").classList.remove("hidden");
+  toggleEl("btn-group-call", !!currentRoom.my_role);
   document.getElementById("member-count-badge").textContent = currentRoom.member_count ?? 0;
 
   toggleEl("btn-room-settings", canManage);
@@ -337,8 +339,9 @@ function resetChatArea() {
   document.getElementById("messages-scroll-area").innerHTML =
     `<div class="text-center text-slate-400 dark:text-slate-500 text-xs mt-16">Chọn một phòng để xem tin nhắn</div>`;
 
-  ["btn-delete-room", "btn-leave-room", "btn-room-settings", "btn-toggle-members", "btn-add-member"]
+  ["btn-delete-room", "btn-leave-room", "btn-room-settings", "btn-toggle-members", "btn-add-member", "btn-group-call"]
     .forEach((id) => toggleEl(id, false));
+  callUI.updateRoomCallBanner(null);
 
   document.getElementById("input-message").disabled = true;
   document.getElementById("btn-send-message").disabled = true;
@@ -408,6 +411,18 @@ function renderMembers() {
             ${m.is_online ? `<span class="text-[10px] text-emerald-600">● online</span>` : ""}
           </div>
         </div>
+        ${
+          !isSelf
+            ? `<div class="shrink-0 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition">
+                 <button onclick="callUI.startCall(${m.user_id}, 'AUDIO')" ${m.is_online ? "" : "disabled"}
+                   title="${m.is_online ? "Gọi thoại" : "Người này đang offline"}"
+                   class="w-6 h-6 flex items-center justify-center rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-sm disabled:opacity-30 disabled:cursor-not-allowed">📞</button>
+                 <button onclick="callUI.startCall(${m.user_id}, 'VIDEO')" ${m.is_online ? "" : "disabled"}
+                   title="${m.is_online ? "Gọi video" : "Người này đang offline"}"
+                   class="w-6 h-6 flex items-center justify-center rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-sm disabled:opacity-30 disabled:cursor-not-allowed">🎥</button>
+               </div>`
+            : ""
+        }
         ${
           canActOn
             ? `<button onclick="openMemberActions(${m.user_id})"

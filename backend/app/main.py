@@ -16,6 +16,7 @@ from app.api.routers import (
     messages_router,
     users_router,
     ws_router,
+    calls_router,
 )
 from app.infra.realtime.connection_manager import connection_manager
 
@@ -54,6 +55,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(rooms_router, prefix="/api")
 app.include_router(messages_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
+app.include_router(calls_router, prefix="/api")
 app.include_router(ws_router)  # /ws không nằm dưới /api
 
 

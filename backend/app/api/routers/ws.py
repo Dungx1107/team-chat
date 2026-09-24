@@ -6,6 +6,8 @@ from app.infra.realtime.connection_manager import connection_manager
 from app.infra.security.jwt import decode_access_token
 from app.repositories.room_repo import RoomRepository
 from app.repositories.user_repo import UserRepository
+from app.repositories.call_repo import CallRepository
+from app.services.call_service import CallService
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,21 @@ def _can_access_room(user_id: int, room_id: int) -> bool:
         if not room.is_private:
             return True
         return repo.get_member(room_id, user_id) is not None
+    finally:
+        db.close()
+
+
+def _with_call_service(fn):
+    """Chạy một thao tác của CallService với phiên DB riêng rồi đóng lại."""
+    db = SessionLocal()
+    try:
+        svc = CallService(
+            call_repo=CallRepository(db),
+            room_repo=RoomRepository(db),
+            user_repo=UserRepository(db),
+            event_publisher=connection_manager,
+        )
+        return fn(svc)
     finally:
         db.close()
 
@@ -102,6 +119,23 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                     exclude_user=user_id,
                 )
 
+            elif action == "call.signal":
+                # Tín hiệu WebRTC (offer/answer/ice) chuyển sang người bên kia.
+                # Đi qua WebSocket vì ICE candidate sinh ra liên tục, nhiều gói nhỏ --
+                # mỗi gói một request REST thì quá nặng.
+                try:
+                    _with_call_service(lambda svc: svc.relay_signal(
+                        call_id=int(msg.get("call_id")),
+                        from_user_id=user_id,
+                        to_user_id=int(msg.get("to_user_id")),
+                        signal=msg.get("signal"),
+                    ))
+                except (ValueError, PermissionError, TypeError) as exc:
+                    await websocket.send_text(json.dumps({
+                        "event": "call.error",
+                        "data": {"call_id": msg.get("call_id"), "detail": str(exc)},
+                    }, ensure_ascii=False))
+
             elif action == "ping":
                 await websocket.send_text(json.dumps({"event": "pong", "data": {}}))
 
@@ -111,3 +145,10 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
         logger.warning("Lỗi kết nối WebSocket của user %s: %s", user_id, exc)
     finally:
         await connection_manager.disconnect(websocket)
+        # Mất kết nối cuối cùng (đóng tab, rớt mạng) thì kết thúc cuộc gọi dở dang,
+        # để người bên kia không phải ngồi chờ một cuộc gọi đã chết
+        if not connection_manager.is_online(user_id):
+            try:
+                _with_call_service(lambda svc: svc.end_calls_of_user(user_id))
+            except Exception as exc:
+                logger.warning("Không dọn được cuộc gọi của user %s: %s", user_id, exc)

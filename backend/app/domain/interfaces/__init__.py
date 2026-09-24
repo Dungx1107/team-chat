@@ -8,6 +8,7 @@ from app.domain.interfaces.message_repo import (
 )
 from app.domain.interfaces.event_publisher import IEventPublisher, NullEventPublisher
 from app.domain.interfaces.file_storage import IFileStorage
+from app.domain.interfaces.call_repo import ICallRepository
 
 __all__ = [
     "IEventPublisher",
@@ -19,4 +20,5 @@ __all__ = [
     "IMessageRepository",
     "IAttachmentRepository",
     "IReactionRepository",
+    "ICallRepository",
 ]

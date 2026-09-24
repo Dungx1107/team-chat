@@ -3,6 +3,7 @@ from app.api.routers.rooms import router as rooms_router
 from app.api.routers.messages import router as messages_router
 from app.api.routers.users import router as users_router
 from app.api.routers.ws import router as ws_router
+from app.api.routers.calls import router as calls_router
 
 __all__ = [
     "auth_router",
@@ -10,4 +11,5 @@ __all__ = [
     "messages_router",
     "users_router",
     "ws_router",
+    "calls_router",
 ]

@@ -142,3 +142,44 @@ class ReactionModel(Base):
     )
 
     message = relationship("MessageModel", back_populates="reactions")
+
+
+class CallModel(Base):
+    __tablename__ = "calls"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    # Gọi 1-1 vẫn gắn với phòng chung của hai người, để kiểm tra quyền
+    # và để sau này mở rộng thành gọi cả phòng
+    room_id = Column(Integer, ForeignKey("rooms.id", ondelete="SET NULL"), nullable=True, index=True)
+    initiator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = Column(String(10), nullable=False, default="VIDEO")
+    # DIRECT = gọi 1-1 có đổ chuông; GROUP = gọi nhóm trong phòng, ai vào cũng được
+    mode = Column(String(10), nullable=False, default="DIRECT", index=True)
+    status = Column(String(20), nullable=False, default="RINGING", index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    answered_at = Column(DateTime, nullable=True)
+    ended_at = Column(DateTime, nullable=True)
+
+    participants = relationship(
+        "CallParticipantModel",
+        back_populates="call",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class CallParticipantModel(Base):
+    __tablename__ = "call_participants"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    call_id = Column(Integer, ForeignKey("calls.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    state = Column(String(20), nullable=False, default="INVITED")
+    joined_at = Column(DateTime, nullable=True)
+    left_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("call_id", "user_id", name="uq_call_participant"),
+    )
+
+    call = relationship("CallModel", back_populates="participants")

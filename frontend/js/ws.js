@@ -144,6 +144,10 @@ const realtime = {
     this.send({ action: "typing.stop", room_id: roomId });
   },
 
+  sendCallSignal(callId, toUserId, signal) {
+    return this.send({ action: "call.signal", call_id: callId, to_user_id: toUserId, signal });
+  },
+
   disconnect() {
     this.manuallyClosed = true;
     if (this.reconnectTimer) {
