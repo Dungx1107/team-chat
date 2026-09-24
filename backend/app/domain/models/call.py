@@ -89,6 +89,10 @@ class Call:
         self.kind = kind
         self.status = status
         self.created_at = created_at or datetime.utcnow()
+        # Cuộc gọi nhóm vào ACTIVE ngay khi mở, không có bước bấm nghe máy.
+        # Không đặt mốc này thì thời lượng cuộc gọi nhóm luôn rỗng.
+        if answered_at is None and status == self.STATUS_ACTIVE:
+            answered_at = self.created_at
         self.answered_at = answered_at
         self.ended_at = ended_at
         self.participants: List[CallParticipant] = participants or []
