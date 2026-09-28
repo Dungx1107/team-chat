@@ -28,6 +28,7 @@ const callUI = {
   maxGroupParticipants: 6,
   tone: null,
   roomCall: null,      // cuộc gọi nhóm đang diễn ra ở phòng đang mở
+  paths: new Map(),    // user_id -> "direct" | "relay", đường đi của media
 
   // ---------- Tiện ích ----------
 
@@ -382,6 +383,7 @@ const callUI = {
     pc.onconnectionstatechange = () => {
       const state = pc.connectionState;
       if (state === "connected") {
+        this.detectPath(userId);
         if (!this.connectedAt) {
           this.connectedAt = Date.now();
           this.render(this.isGroup() ? "group" : "active");
@@ -430,8 +432,57 @@ const callUI = {
     peer.pc.onconnectionstatechange = null;
     try { peer.pc.close(); } catch {}
     this.peers.delete(userId);
+    this.paths.delete(userId);
     const tile = document.getElementById(`call-tile-${userId}`);
     if (tile) tile.remove();
+  },
+
+  /**
+   * Media đang đi thẳng giữa hai máy hay phải vòng qua máy chủ TURN?
+   *
+   * Đọc cặp ứng viên ICE đang được dùng: chỉ cần một đầu là "relay" thì toàn bộ
+   * âm thanh/hình ảnh đang chuyển tiếp qua TURN -- tốn băng thông của dịch vụ
+   * TURN và độ trễ cao hơn. Biết điều này rất quan trọng khi gọi qua Internet,
+   * vì nhìn bề ngoài hai trường hợp giống hệt nhau.
+   */
+  async detectPath(userId) {
+    const peer = this.peers.get(Number(userId));
+    if (!peer) return;
+    try {
+      const stats = await peer.pc.getStats();
+      let pair = null;
+      const candidates = new Map();
+      stats.forEach((r) => {
+        if (r.type === "local-candidate" || r.type === "remote-candidate") candidates.set(r.id, r);
+        if (r.type === "candidate-pair" && (r.nominated || r.state === "succeeded")) pair = r;
+      });
+      if (!pair) return;
+      const local = candidates.get(pair.localCandidateId);
+      const remote = candidates.get(pair.remoteCandidateId);
+      const isRelay = [local, remote].some((c) => c && c.candidateType === "relay");
+      this.paths.set(Number(userId), isRelay ? "relay" : "direct");
+      this.renderPath();
+    } catch {
+      // Không đọc được thống kê thì thôi, không ảnh hưởng cuộc gọi
+    }
+  },
+
+  renderPath() {
+    const el = document.getElementById("call-path");
+    if (!el || !this.paths.size) return;
+    const values = Array.from(this.paths.values());
+    const relays = values.filter((v) => v === "relay").length;
+
+    if (relays === 0) {
+      el.textContent = "Kết nối trực tiếp giữa các máy";
+      el.className = "text-[11px] text-emerald-400/80 mt-0.5";
+    } else if (relays === values.length) {
+      el.textContent = "Đang chuyển tiếp qua máy chủ trung gian (TURN)";
+      el.className = "text-[11px] text-amber-400/80 mt-0.5";
+    } else {
+      el.textContent = `${relays}/${values.length} kết nối phải đi qua máy chủ trung gian`;
+      el.className = "text-[11px] text-amber-400/80 mt-0.5";
+    }
   },
 
   async onSignal(data) {
@@ -539,6 +590,7 @@ const callUI = {
     this.call = null;
     this.role = null;
     this.connectedAt = null;
+    this.paths.clear();
     document.getElementById("call-root").innerHTML = "";
     this.refreshRoomCall();
   },
@@ -775,8 +827,9 @@ const callUI = {
           <div class="text-lg font-semibold truncate px-4">${title}</div>
           <div id="call-status" class="text-sm text-white/70 mt-1 h-5">${statusText}</div>
           <div class="text-[11px] text-white/40 mt-0.5">
-            Cuộc gọi ${this.kindLabel(this.call.kind)}${this.isGroup() ? " nhóm" : ""} · truyền thẳng giữa các máy (WebRTC)
+            Cuộc gọi ${this.kindLabel(this.call.kind)}${this.isGroup() ? " nhóm" : ""} · WebRTC
           </div>
+          <div id="call-path" class="text-[11px] text-white/40 mt-0.5"></div>
         </div>
 
         <div id="call-grid" class="flex-1 min-h-0 px-4 pb-2 overflow-y-auto scroll-thin"></div>
@@ -787,6 +840,7 @@ const callUI = {
 
     this.renderGrid(meTile, others);
     this.renderControls();
+    this.renderPath();
   },
 
   statusFallback() {
