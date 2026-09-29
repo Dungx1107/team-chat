@@ -54,9 +54,29 @@ services:
     ports:
       - "${HTTPS_PORT:-443}:443"
       - "${HTTP_PORT:-80}:80"
+      # Cổng cho tunnel, chỉ mở trên localhost để không ai trong LAN
+      # vào được bằng HTTP không mã hóa
+      - "127.0.0.1:${TUNNEL_PORT:-8080}:8080"
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
       - certs:/etc/nginx/certs
+
+  # Máy chủ TURN để thử gọi giữa hai mạng khác nhau mà không cần đăng ký dịch vụ.
+  # Không chạy mặc định. Bật bằng:  docker compose --profile turn up -d
+  #
+  # TURN_EXTERNAL_IP phải là IP LAN thật của máy, KHÔNG dùng 127.0.0.1:
+  # Chromium lặng lẽ bỏ qua máy chủ TURN đặt ở địa chỉ loopback.
+  turn:
+    image: coturn/coturn:latest
+    container_name: teamchat_turn
+    restart: unless-stopped
+    profiles: ["turn"]
+    network_mode: host
+    command: >
+      -n --lt-cred-mech --fingerprint --realm=teamchat
+      --user=${TURN_USER:-test}:${TURN_PASSWORD:-test123}
+      --listening-port=3478 --min-port=50000 --max-port=50010
+      --external-ip=${TURN_EXTERNAL_IP:-}
 
 volumes:
   pgdata:

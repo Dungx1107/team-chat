@@ -11,6 +11,7 @@ Tài liệu dành cho thành viên trong nhóm: clone về là chạy được, 
 3. [Các lần sau](#3-các-lần-sau)
 4. [Thử từng tính năng](#4-thử-từng-tính-năng)
 5. [Thử trên điện thoại và máy khác](#5-thử-trên-điện-thoại-và-máy-khác)
+5B. [Gọi qua Internet](#5b-gọi-qua-internet-khác-mạng)
 6. [Lệnh bảo trì](#6-lệnh-bảo-trì)
 7. [Xử lý sự cố](#7-xử-lý-sự-cố)
 8. [Checklist trước khi demo](#8-checklist-trước-khi-demo)
@@ -250,9 +251,100 @@ https://192.168.1.18
 
 Bấm **Nâng cao → Tiếp tục**. Trên iPhone, Safari hiện "Chi tiết → Truy cập trang web này".
 
-## Không gọi được qua Internet
+## Muốn gọi khi khác mạng
 
-Hiện tại chỉ gọi được trong cùng mạng LAN. Gọi qua Internet cần thêm máy chủ **TURN** và một tunnel để đưa server ra ngoài — chưa làm.
+Xem [mục 5B](#5b-gọi-qua-internet-khác-mạng).
+
+---
+
+# 5B. GỌI QUA INTERNET (khác mạng)
+
+Mặc định chỉ gọi được trong **cùng một mạng**. Muốn gọi khi hai người ở hai mạng
+khác nhau cần thêm hai thứ, cả hai đều nằm ngoài code.
+
+## Vì sao cần hai thứ
+
+**Tunnel** — để người ngoài vào được server đang chạy trên máy bạn.
+
+**TURN** — máy chủ trung gian chuyển tiếp âm thanh/hình ảnh. Hệ thống đã cấu hình
+sẵn STUN của Google, đủ cho phần lớn mạng gia đình. Nhưng 4G và mạng công ty,
+trường học thường chặn kết nối trực tiếp; khi đó thiếu TURN thì cuộc gọi báo
+*"Không kết nối được tới người bên kia"*.
+
+## Bước 1: Khai báo TURN
+
+Sửa `ICE_SERVERS` trong `.env`. Hai cách viết, dùng cách nào cũng được:
+
+```ini
+# Cách ngắn: các mục cách nhau bằng dấu phẩy, TURN thêm |username|password
+ICE_SERVERS=stun:stun.l.google.com:19302,turn:vidu.com:3478|user|pass
+
+# Cách JSON, khi một máy chủ có nhiều url
+ICE_SERVERS=[{"urls":["turn:vidu.com:3478","turn:vidu.com:3478?transport=tcp"],"username":"user","credential":"pass"}]
+```
+
+Lấy tài khoản TURN ở đâu: đăng ký một dịch vụ có gói miễn phí (Metered,
+Cloudflare Realtime...), hoặc tự dựng bằng coturn nếu có máy chủ IP công khai.
+
+Áp dụng thay đổi — phải dùng `up -d`, vì `restart` **không** đọc lại `.env`:
+
+```bash
+docker compose up -d backend
+```
+
+Kiểm tra cấu hình trước khi gọi thử:
+
+```bash
+docker compose exec backend python check_turn.py
+```
+
+## Bước 2: Mở tunnel
+
+```powershell
+winget install --id Cloudflare.cloudflared
+```
+
+```bash
+cloudflared tunnel --url http://localhost:8080
+```
+
+Cloudflared in ra địa chỉ dạng `https://abc-xyz.trycloudflare.com` — gửi cho ai
+cũng vào được, kèm **chứng chỉ thật** nên không còn cảnh báo bảo mật.
+
+Giữ cửa sổ này mở. Cổng 8080 là cổng HTTP nội bộ dành riêng cho tunnel, chỉ mở
+trên localhost nên người trong LAN không vào bằng HTTP không mã hóa được.
+
+## Kiểm tra cuộc gọi đang đi đường nào
+
+Trong màn hình cuộc gọi có một dòng chữ nhỏ dưới tên người gọi:
+
+| Hiện | Nghĩa là |
+| --- | --- |
+| Kết nối trực tiếp giữa các máy | Đi thẳng, không tốn băng thông TURN |
+| Đang chuyển tiếp qua máy chủ trung gian (TURN) | Không nối thẳng được, đang qua TURN |
+
+## Thử TURN tại chỗ, không cần đăng ký
+
+Dự án có sẵn một máy chủ TURN để thử. Điền **IP LAN thật** của máy vào `.env`:
+
+```ini
+TURN_EXTERNAL_IP=192.168.1.18
+ICE_SERVERS=turn:192.168.1.18:3478|test|test123
+```
+
+```bash
+docker compose --profile turn up -d
+```
+
+> ⚠️ **Không dùng `127.0.0.1` cho TURN.** Chromium lặng lẽ bỏ qua máy chủ TURN đặt
+> ở địa chỉ loopback — không báo lỗi, không gửi gói tin nào, rất khó đoán ra.
+
+## Giới hạn
+
+- Địa chỉ tunnel đổi mỗi lần chạy lại (bản miễn phí)
+- Tắt máy là tắt hệ thống
+- Thông tin đăng nhập TURN lộ ra trình duyệt, đây là bản chất của WebRTC — đừng
+  dùng tài khoản trả tiền cho bản demo công khai
 
 ---
 
