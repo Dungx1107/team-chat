@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     # Danh sách origin được phép gọi API; "*" chỉ dùng khi phát triển
     CORS_ORIGINS: str = "*"
 
+    # Quá bao lâu không nhận được gì từ một client thì coi như kết nối đã chết.
+    # Client gửi ping mỗi 30 giây, nên 90 giây cho phép lỡ 3 nhịp mới cắt --
+    # đủ rộng cho tab chạy nền bị trình duyệt làm chậm bộ đếm thời gian.
+    WS_IDLE_TIMEOUT_SECONDS: int = 90
+
     # Máy chủ giúp hai trình duyệt tìm đường kết nối khi gọi.
     #
     #   STUN chỉ giúp mỗi bên biết địa chỉ công khai của mình để nối thẳng.
