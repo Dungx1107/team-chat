@@ -13,6 +13,20 @@
  * gửi offer tới người mới vào. Người mới chỉ ngồi chờ và trả answer, nhờ vậy
  * không xảy ra cảnh hai bên cùng gửi offer cho nhau.
  */
+/**
+ * Chế độ thử TURN: mở trang với ?relay=1 thì mọi cuộc gọi bị cấm đi thẳng,
+ * buộc phải vòng qua máy chủ TURN.
+ *
+ * Dùng để kiểm chứng TURN hoạt động mà không cần hai mạng khác nhau, và để
+ * minh họa hai đường đi khác nhau khi demo. Cũng có thể coi là "chế độ riêng
+ * tư", vì đi qua TURN thì người kia không thấy địa chỉ IP của mình.
+ *
+ * Mặc định TẮT: ép relay làm mọi cuộc gọi tốn băng thông TURN và tăng độ trễ,
+ * kể cả khi hai máy ngồi cạnh nhau. Đặt trong query string chứ không lưu lại,
+ * để tải lại trang không có tham số là tự trở về bình thường.
+ */
+const FORCE_RELAY = new URLSearchParams(window.location.search).get("relay") === "1";
+
 const callUI = {
   call: null,          // dữ liệu cuộc gọi từ server
   role: null,          // "caller" | "callee" (chỉ dùng cho gọi 1-1)
@@ -29,6 +43,7 @@ const callUI = {
   tone: null,
   roomCall: null,      // cuộc gọi nhóm đang diễn ra ở phòng đang mở
   paths: new Map(),    // user_id -> "direct" | "relay", đường đi của media
+  peerMedia: new Map() ,// user_id -> { camera, mic }, trạng thái thiết bị của người kia
 
   // ---------- Tiện ích ----------
 
@@ -62,14 +77,17 @@ const callUI = {
   },
 
   async loadConfig() {
-    if (this.iceServers) return;
+    // Mảng rỗng KHÔNG tính là đã tải xong: nếu lần đầu gọi lúc chưa đăng nhập
+    // thì API trả 401, và nếu coi kết quả rỗng là hợp lệ thì sẽ không bao giờ
+    // thử lại -- cuộc gọi sau đó không có máy chủ ICE nào để dùng.
+    if (this.iceServers && this.iceServers.length) return;
     try {
       const cfg = await api.getCallConfig();
       this.iceServers = cfg.ice_servers || [];
       this.ringTimeoutSeconds = cfg.ring_timeout_seconds || 30;
       this.maxGroupParticipants = cfg.max_group_participants || 6;
     } catch {
-      this.iceServers = [];
+      this.iceServers = null;   // để lần sau tải lại
     }
   },
 
@@ -356,7 +374,10 @@ const callUI = {
     userId = Number(userId);
     if (this.peers.has(userId)) return this.peers.get(userId);
 
-    const pc = new RTCPeerConnection({ iceServers: this.iceServers || [] });
+    const pc = new RTCPeerConnection({
+      iceServers: this.iceServers || [],
+      ...(FORCE_RELAY ? { iceTransportPolicy: "relay" } : {}),
+    });
     const peer = { pc, stream: null, pendingSignals: [], pendingIce: [] };
     this.peers.set(userId, peer);
 
@@ -384,6 +405,8 @@ const callUI = {
       const state = pc.connectionState;
       if (state === "connected") {
         this.detectPath(userId);
+        // Người mới vào cần biết ngay mình đang tắt camera hay micro
+        this.broadcastMediaState(userId);
         if (!this.connectedAt) {
           this.connectedAt = Date.now();
           this.render(this.isGroup() ? "group" : "active");
@@ -423,6 +446,14 @@ const callUI = {
     return peer;
   },
 
+  /** Báo cho những người trong cuộc gọi biết mình đang bật/tắt gì. */
+  broadcastMediaState(onlyUserId = null) {
+    if (!this.call) return;
+    const signal = { type: "media", camera: this.camOn, mic: this.micOn };
+    const targets = onlyUserId !== null ? [Number(onlyUserId)] : Array.from(this.peers.keys());
+    targets.forEach((uid) => realtime.sendCallSignal(this.call.id, uid, signal));
+  },
+
   closePeer(userId) {
     userId = Number(userId);
     const peer = this.peers.get(userId);
@@ -433,6 +464,7 @@ const callUI = {
     try { peer.pc.close(); } catch {}
     this.peers.delete(userId);
     this.paths.delete(userId);
+    this.peerMedia.delete(userId);
     const tile = document.getElementById(`call-tile-${userId}`);
     if (tile) tile.remove();
   },
@@ -519,6 +551,12 @@ const callUI = {
       } else if (signal.type === "answer") {
         await pc.setRemoteDescription({ type: "answer", sdp: signal.sdp });
         await this.flushIce(peer);
+      } else if (signal.type === "media") {
+        this.peerMedia.set(Number(userId), {
+          camera: signal.camera !== false,
+          mic: signal.mic !== false,
+        });
+        this.updateTileVisibility(userId);
       } else if (signal.type === "ice" && signal.candidate) {
         if (pc.remoteDescription) {
           await pc.addIceCandidate(signal.candidate);
@@ -591,6 +629,7 @@ const callUI = {
     this.role = null;
     this.connectedAt = null;
     this.paths.clear();
+    this.peerMedia.clear();
     document.getElementById("call-root").innerHTML = "";
     this.refreshRoomCall();
   },
@@ -614,6 +653,7 @@ const callUI = {
     this.micOn = !this.micOn;
     this.localStream.getAudioTracks().forEach((t) => (t.enabled = this.micOn));
     this.renderControls();
+    this.broadcastMediaState();
   },
 
   toggleCam() {
@@ -627,6 +667,7 @@ const callUI = {
     tracks.forEach((t) => (t.enabled = this.camOn));
     this.renderControls();
     this.updateTileVisibility(this.myId());
+    this.broadcastMediaState();
   },
 
   // ---------- Âm báo ----------
@@ -713,16 +754,25 @@ const callUI = {
     const holder = document.getElementById(`call-placeholder-${userId}`);
     if (!video || !holder) return;
 
-    let hasVideo;
+    let hasVideo, micOn = true;
     if (Number(userId) === this.myId()) {
       hasVideo = this.localStream && this.localStream.getVideoTracks().some((t) => t.enabled);
+      micOn = this.micOn;
     } else {
       const peer = this.peers.get(Number(userId));
-      hasVideo = peer && peer.stream &&
+      const state = this.peerMedia.get(Number(userId));
+      // Tắt camera thì trình duyệt vẫn gửi khung hình đen, nên phải dựa vào
+      // trạng thái người kia tự báo mới biết để hiện avatar thay vì ô đen
+      const cameraOn = !state || state.camera !== false;
+      micOn = !state || state.mic !== false;
+      hasVideo = cameraOn && peer && peer.stream &&
         peer.stream.getVideoTracks().some((t) => t.readyState === "live" && !t.muted);
     }
     video.classList.toggle("invisible", !hasVideo);
     holder.classList.toggle("hidden", !!hasVideo);
+
+    const micBadge = document.getElementById(`call-mic-${userId}`);
+    if (micBadge) micBadge.classList.toggle("hidden", micOn);
   },
 
   controlButton(onclick, icon, label, active, danger = false) {
@@ -756,8 +806,9 @@ const callUI = {
       <div id="call-placeholder-${id}" class="absolute inset-0 flex items-center justify-center">
         ${renderAvatar(user, 64)}
       </div>
-      <div class="absolute bottom-1.5 left-2 right-2 text-[11px] text-white/90 truncate drop-shadow">
-        ${escapeHtml(user.full_name)}${isMe ? " (bạn)" : ""}
+      <div class="absolute bottom-1.5 left-2 right-2 flex items-center gap-1.5 text-[11px] text-white/90 drop-shadow">
+        <span id="call-mic-${id}" class="hidden shrink-0" title="Đang tắt micro">🔇</span>
+        <span class="truncate">${escapeHtml(user.full_name)}${isMe ? " (bạn)" : ""}</span>
       </div>
     </div>`;
   },
@@ -823,6 +874,11 @@ const callUI = {
 
     root.innerHTML = `
       <div id="call-stage" class="fixed inset-0 z-[45] bg-slate-950 text-white flex flex-col">
+        ${FORCE_RELAY ? `
+        <div class="shrink-0 bg-amber-500/90 text-slate-900 text-xs text-center py-1.5 px-4 font-medium">
+          Chế độ thử TURN đang bật · mọi cuộc gọi bị ép đi qua máy chủ trung gian ·
+          bỏ <span class="font-mono">?relay=1</span> khỏi địa chỉ để tắt
+        </div>` : ""}
         <div class="pt-6 pb-3 text-center shrink-0">
           <div class="text-lg font-semibold truncate px-4">${title}</div>
           <div id="call-status" class="text-sm text-white/70 mt-1 h-5">${statusText}</div>
@@ -898,6 +954,23 @@ realtime.on("call.room_ended", (d) => callUI.onRoomCallEvent(d, true));
 realtime.on("call.error", (d) => {
   if (d && d.detail) console.warn("Lỗi tín hiệu cuộc gọi:", d.detail);
 });
+
+// Bật chế độ thử TURN: báo ngay khi mở trang, và cảnh báo nếu chưa cấu hình TURN
+if (FORCE_RELAY) {
+  window.addEventListener("DOMContentLoaded", () => {
+    toast("Chế độ thử TURN: mọi cuộc gọi sẽ đi qua máy chủ trung gian");
+    // Chỉ kiểm tra được cấu hình sau khi đã đăng nhập, vì endpoint cần token
+    if (!api.getToken()) return;
+    callUI.loadConfig().then(() => {
+      const hasTurn = (callUI.iceServers || []).some(
+        (s) => String(s.urls).includes("turn") && s.username
+      );
+      if (!hasTurn) {
+        toast("Chưa cấu hình TURN -- ở chế độ này cuộc gọi sẽ không kết nối được", "error");
+      }
+    });
+  });
+}
 
 // Đóng tab giữa cuộc gọi: server tự dọn khi WebSocket ngắt,
 // ở đây chỉ cần giải phóng camera/micro
