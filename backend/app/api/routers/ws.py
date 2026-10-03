@@ -1,6 +1,8 @@
+import asyncio
 import json
 import logging
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from app.config import settings
 from app.infra.db.session import SessionLocal
 from app.infra.realtime.connection_manager import connection_manager
 from app.infra.security.jwt import decode_access_token
@@ -66,7 +68,22 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
         }, ensure_ascii=False))
 
         while True:
-            raw = await websocket.receive_text()
+            # Không chờ vô hạn. Nếu client tắt máy hoặc rớt mạng, tầng TCP có thể
+            # không báo gì cả -- nhất là khi đi qua proxy hoặc lớp chuyển tiếp cổng.
+            # Khi đó người dùng sẽ hiện online mãi và bị kẹt ở trạng thái "đang bận
+            # trong cuộc gọi khác", không ai gọi được nữa.
+            try:
+                raw = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=settings.WS_IDLE_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                logger.info(
+                    "Đóng kết nối của user %s: không nhận được tín hiệu nào trong %ss",
+                    user_id, settings.WS_IDLE_TIMEOUT_SECONDS,
+                )
+                await websocket.close(code=4002, reason="Không nhận được tín hiệu")
+                break
             try:
                 msg = json.loads(raw)
             except json.JSONDecodeError:

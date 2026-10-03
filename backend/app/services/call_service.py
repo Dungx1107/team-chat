@@ -23,7 +23,11 @@ class CallService:
     qua IEventPublisher.
     """
 
-    SIGNAL_TYPES = ("offer", "answer", "ice")
+    # offer/answer/ice: bắt tay WebRTC.
+    # media: báo cho người kia biết mình vừa bật/tắt micro hay camera. Cần vì khi
+    # tắt camera, trình duyệt vẫn gửi khung hình đen chứ không ngắt luồng, nên bên
+    # nhận không tự phân biệt được "đã tắt camera" với "phòng đang tối".
+    SIGNAL_TYPES = ("offer", "answer", "ice", "media")
     MAX_SIGNAL_BYTES = 64 * 1024
 
     def __init__(

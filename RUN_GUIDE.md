@@ -314,6 +314,25 @@ cũng vào được, kèm **chứng chỉ thật** nên không còn cảnh báo 
 Giữ cửa sổ này mở. Cổng 8080 là cổng HTTP nội bộ dành riêng cho tunnel, chỉ mở
 trên localhost nên người trong LAN không vào bằng HTTP không mã hóa được.
 
+## Chế độ thử TURN trên một máy
+
+Bình thường hai cửa sổ trên cùng máy sẽ nối thẳng, không dùng TURN. Muốn thấy
+TURN hoạt động mà không cần hai mạng, mở trang kèm tham số:
+
+```
+https://localhost/?relay=1
+```
+
+Mọi cuộc gọi khi đó bị cấm đi thẳng, buộc phải vòng qua TURN. Màn hình cuộc gọi
+hiện dải vàng cảnh báo, và dòng trạng thái chuyển thành *"Đang chuyển tiếp qua
+máy chủ trung gian"*. Tiện để quay video demo hoặc chụp ảnh cho báo cáo.
+
+Tải lại trang không kèm `?relay=1` là trở về bình thường — chế độ này không lưu
+lại ở đâu cả.
+
+> ⚠️ Chỉ dùng khi cần: ép qua TURN làm mọi cuộc gọi tiêu tốn hạn mức băng thông
+> và tăng độ trễ, kể cả khi hai máy ngồi cạnh nhau.
+
 ## Kiểm tra cuộc gọi đang đi đường nào
 
 Trong màn hình cuộc gọi có một dòng chữ nhỏ dưới tên người gọi:

@@ -47,6 +47,7 @@ const realtime = {
     if (!token) return;
 
     this.manuallyClosed = false;
+    this.everOpened = false;
     this.setStatus("connecting");
 
     try {
@@ -60,6 +61,7 @@ const realtime = {
     this.socket.onopen = () => {
       this.reconnectDelay = 1000;
       this.failedAttempts = 0;
+      this.everOpened = true;
       this.setStatus("online");
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = setInterval(() => this.send({ action: "ping" }), 30000);
@@ -91,8 +93,23 @@ const realtime = {
         return;
       }
 
-      // Chưa lần nào bắt tay được: nhiều khả năng token đã chết và bị chặn
-      // ngay từ khâu handshake. Thử vài lần rồi dừng, thay vì dội request mãi.
+      // 4002 = server cắt vì lâu không nhận được tín hiệu. Kết nối vẫn hợp lệ,
+      // chỉ cần nối lại ngay.
+      if (event.code === 4002) {
+        this.reconnectDelay = 1000;
+        this.scheduleReconnect();
+        return;
+      }
+
+      // Chỉ đếm là thất bại khi CHƯA từng bắt tay được -- khi đó nhiều khả năng
+      // token đã chết và bị chặn ngay từ đầu. Nếu đã từng kết nối rồi mới đứt thì
+      // đó là chuyện mạng, cứ nối lại, không được nhầm thành hết phiên rồi
+      // đăng xuất người dùng.
+      if (this.everOpened) {
+        this.scheduleReconnect();
+        return;
+      }
+
       this.failedAttempts = (this.failedAttempts || 0) + 1;
       if (this.failedAttempts >= 4) {
         api.onSessionExpired();
