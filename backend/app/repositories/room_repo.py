@@ -21,6 +21,7 @@ class RoomRepository(IRoomRepository):
             is_private=model.is_private,
             owner_id=model.owner_id,
             avatar_url=model.avatar_url,
+            theme_color=model.theme_color,
             created_at=model.created_at,
         )
 
@@ -32,6 +33,7 @@ class RoomRepository(IRoomRepository):
             room_id=model.room_id,
             user_id=model.user_id,
             role=model.role,
+            nickname=model.nickname,
             joined_at=model.joined_at,
         )
 
@@ -59,6 +61,7 @@ class RoomRepository(IRoomRepository):
             is_private=room.is_private,
             owner_id=room.owner_id,
             avatar_url=room.avatar_url,
+            theme_color=room.theme_color,
             created_at=room.created_at,
         )
         self.db.add(model)
@@ -78,6 +81,7 @@ class RoomRepository(IRoomRepository):
         model.description = room.description
         model.is_private = room.is_private
         model.avatar_url = room.avatar_url
+        model.theme_color = room.theme_color
         self.db.commit()
         self.db.refresh(model)
         return self._to_room_entity(model)
@@ -134,11 +138,45 @@ class RoomRepository(IRoomRepository):
             user_id=member.user_id,
             role=member.role,
             joined_at=member.joined_at,
+            nickname=member.nickname,
         )
         self.db.add(model)
         self.db.commit()
         self.db.refresh(model)
         return self._to_member_entity(model)
+
+    def update_member_nickname(self, room_id: int, user_id: int, nickname: Optional[str]) -> Optional[RoomMember]:
+        model = self.db.query(RoomMemberModel).filter(
+            RoomMemberModel.room_id == room_id,
+            RoomMemberModel.user_id == user_id,
+        ).first()
+        if not model:
+            return None
+        model.nickname = nickname.strip() if nickname and nickname.strip() else None
+        self.db.commit()
+        self.db.refresh(model)
+        return self._to_member_entity(model)
+
+    def list_media(self, room_id: int) -> list:
+        rows = (
+            self.db.query(AttachmentModel, MessageModel)
+            .join(MessageModel, MessageModel.attachment_id == AttachmentModel.id)
+            .filter(MessageModel.room_id == room_id, MessageModel.is_deleted.is_(False))
+            .order_by(MessageModel.created_at.desc())
+            .limit(100)
+            .all()
+        )
+        return [
+            {
+                "id": attachment.id,
+                "filename": attachment.filename,
+                "content_type": attachment.content_type,
+                "size_bytes": attachment.size_bytes,
+                "message_id": message.id,
+                "created_at": message.created_at,
+            }
+            for attachment, message in rows
+        ]
 
     def get_member(self, room_id: int, user_id: int) -> Optional[RoomMember]:
         model = self.db.query(RoomMemberModel).filter(
@@ -196,10 +234,18 @@ class RoomRepository(IRoomRepository):
         if not row:
             return None
         message, user, attachment = row
+        nickname = (
+            self.db.query(RoomMemberModel.nickname)
+            .filter(
+                RoomMemberModel.room_id == room_id,
+                RoomMemberModel.user_id == message.user_id,
+            )
+            .scalar()
+        )
         return {
             "id": message.id,
             "content": "" if message.is_deleted else message.content,
-            "sender_name": f"{user.last_name} {user.first_name}".strip(),
+            "sender_name": nickname or f"{user.last_name} {user.first_name}".strip(),
             "created_at": message.created_at,
             "type": message.message_type,
             "is_deleted": message.is_deleted,

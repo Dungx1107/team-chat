@@ -40,7 +40,7 @@ sequenceDiagram
     R-->>F: message response
 ```
 
-WebSocket không thay thế bước persistence; action `call.signal` là signaling riêng.
+WebSocket không thay thế bước persistence; action `call.signal` là signaling riêng. Các loại tín hiệu gồm `offer`, `answer`, `ice` và `media`, trong đó `media` chỉ truyền trạng thái camera/micro chứ không truyền audio/video.
 
 ## C. Create room
 
@@ -52,7 +52,7 @@ WebSocket không thay thế bước persistence; action `call.signal` là signal
 
 ## E. Call
 
-`call.js -> POST /api/calls hoặc /api/calls/group -> CallService -> call_repo.py -> calls/call_participants -> call event qua ConnectionManager`. Sau đó `call.js` gửi `call.signal` (offer/answer/ice) qua `/ws`; backend relay signal, còn media chạy browser-to-browser WebRTC mesh.
+`call.js -> POST /api/calls hoặc /api/calls/group -> CallService -> call_repo.py -> calls/call_participants -> call event qua ConnectionManager`. Sau đó `call.js` gửi `call.signal` (offer/answer/ice/media) qua `/ws`; backend relay signal, còn media chạy browser-to-browser WebRTC mesh hoặc qua ICE/TURN server khi không thể nối trực tiếp.
 
 ## Traceability map
 

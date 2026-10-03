@@ -49,6 +49,14 @@ class IRoomRepository(ABC):
         pass
 
     @abstractmethod
+    def update_member_nickname(self, room_id: int, user_id: int, nickname: Optional[str]) -> Optional[RoomMember]:
+        pass
+
+    @abstractmethod
+    def list_media(self, room_id: int) -> list:
+        pass
+
+    @abstractmethod
     def remove_member(self, room_id: int, user_id: int) -> bool:
         pass
 

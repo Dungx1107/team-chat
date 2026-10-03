@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "super-secret-key-change-it-in-production-min-32-chars"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    GOOGLE_CLIENT_ID: str = (
+        "869671892121-o2un8vci63vtdpio7rgv5spdv525vo1u.apps.googleusercontent.com"
+    )
 
     # Nơi lưu tệp đính kèm và ảnh đại diện (gắn Docker volume)
     UPLOAD_DIR: str = "/app/uploads"

@@ -6,20 +6,44 @@ Tài liệu dành cho thành viên trong nhóm: clone về là chạy được, 
 
 ## MỤC LỤC
 
-1. [Chạy lần đầu](#1-chạy-lần-đầu)
-2. [Tài khoản dùng thử](#2-tài-khoản-dùng-thử)
-3. [Các lần sau](#3-các-lần-sau)
-4. [Thử từng tính năng](#4-thử-từng-tính-năng)
-5. [Thử trên điện thoại và máy khác](#5-thử-trên-điện-thoại-và-máy-khác)
-5B. [Gọi qua Internet](#5b-gọi-qua-internet-khác-mạng)
-6. [Lệnh bảo trì](#6-lệnh-bảo-trì)
-7. [Xử lý sự cố](#7-xử-lý-sự-cố)
-8. [Checklist trước khi demo](#8-checklist-trước-khi-demo)
-9. [Phụ lục: chạy không cần nginx](#9-phụ-lục-chạy-không-cần-nginx)
+1. [Chọn trường hợp của bạn](#1-chọn-trường-hợp-của-bạn)
+2. [Chạy lần đầu cho người mới](#2-chạy-lần-đầu-cho-người-mới)
+3. [Tài khoản dùng thử](#3-tài-khoản-dùng-thử)
+4. [Các lần sau](#4-các-lần-sau)
+5. [Thử từng tính năng](#5-thử-từng-tính-năng)
+6. [Thử trên điện thoại và máy khác](#6-thử-trên-điện-thoại-và-máy-khác)
+6B. [Gọi qua Internet](#6b-gọi-qua-internet-khác-mạng)
+7. [Lệnh bảo trì](#7-lệnh-bảo-trì)
+8. [Xử lý sự cố](#8-xử-lý-sự-cố)
+9. [Checklist trước khi demo](#9-checklist-trước-khi-demo)
+10. [Phụ lục: chạy không cần nginx](#10-phụ-lục-chạy-không-cần-nginx)
+
+## Lệnh nhanh nhất cho người đã có cấu hình
+
+Nếu bạn đã có file `.env`, Docker volume và cấu hình từ trước, **không chạy lại `cp .env.example .env` và không chạy `seed_users.py`**:
+
+```bash
+cd <thư-mục-team-chat>
+docker compose up -d --build
+```
+
+Sau đó mở `https://localhost`.
 
 ---
 
-# 1. CHẠY LẦN ĐẦU
+# 1. CHỌN TRƯỜNG HỢP CỦA BẠN
+
+| Trường hợp | Cần làm |
+| --- | --- |
+| Người mới, chưa có `.env` và chưa có Docker volume | Làm theo [mục 2](#2-chạy-lần-đầu-cho-người-mới) |
+| Đã chạy dự án trước đây, còn `.env` và dữ liệu Docker | Chạy `docker compose up -d --build`, rồi mở `https://localhost` |
+| Chỉ sửa code frontend | Chỉ refresh trình duyệt |
+| Sửa code backend hoặc thêm dependency | Chạy `docker compose up -d --build` |
+| Muốn giữ dữ liệu cũ | Không dùng `docker compose down -v` |
+
+---
+
+# 2. CHẠY LẦN ĐẦU CHO NGƯỜI MỚI
 
 ## Cần cài sẵn
 
@@ -65,6 +89,16 @@ DATABASE_URL=postgresql://postgres:dat-mot-mat-khau-bat-ky@db:5432/teamchat_db
 
 Mật khẩu ở hai dòng phải **giống hệt nhau**. Nên sửa thêm `JWT_SECRET_KEY` thành một chuỗi ngẫu nhiên dài trên 32 ký tự.
 
+Để bật **Đăng nhập bằng Google**, thêm hoặc kiểm tra dòng sau trong `.env`:
+
+```ini
+GOOGLE_CLIENT_ID=869671892121-o2un8vci63vtdpio7rgv5spdv525vo1u.apps.googleusercontent.com
+```
+
+Frontend đã dùng cùng Client ID này. Khi triển khai trên domain khác
+(`localhost` không cần thêm cấu hình), hãy thêm domain đó vào **Authorized JavaScript origins**
+trong Google Cloud Console.
+
 ## Bước 3: Khởi động
 
 Mở Docker Desktop trước, chờ icon cá voi ở khay hệ thống ngừng nhấp nháy. Rồi:
@@ -95,13 +129,19 @@ Lệnh này tạo 4 tài khoản, một phòng công khai và một phòng riên
 https://localhost
 ```
 
+API kiểm tra nhanh:
+
+```bash
+curl http://localhost:8000/health
+```
+
 Lần đầu trình duyệt báo **"Kết nối của bạn không phải là kết nối riêng tư"**. Đây là bình thường: hệ thống dùng chứng chỉ tự ký. Bấm **Nâng cao → Tiếp tục truy cập localhost**. Mỗi thiết bị chỉ phải làm một lần.
 
 > **Vì sao phải HTTPS?** Trình duyệt chỉ cho phép dùng micro và camera trên kết nối bảo mật. Không có HTTPS thì tính năng gọi điện không chạy.
 
 ---
 
-# 2. TÀI KHOẢN DÙNG THỬ
+# 3. TÀI KHOẢN DÙNG THỬ
 
 Mật khẩu chung: **`password123`**
 
@@ -116,7 +156,7 @@ Ngoài ra có phòng riêng tư `🔒 Nhóm Trưởng`, chỉ `user1` và `user2
 
 ---
 
-# 3. CÁC LẦN SAU
+# 4. CÁC LẦN SAU
 
 ```bash
 # 1. Mở Docker Desktop, chờ khởi động xong
@@ -148,7 +188,7 @@ docker compose exec backend python seed_users.py
 
 ---
 
-# 4. THỬ TỪNG TÍNH NĂNG
+# 5. THỬ TỪNG TÍNH NĂNG
 
 Muốn thấy realtime thì phải mở **nhiều cửa sổ** và đăng nhập tài khoản khác nhau:
 
@@ -205,7 +245,7 @@ Giao diện Swagger, bấm "Try it out" để gọi thử API ngay trên trình 
 
 ---
 
-# 5. THỬ TRÊN ĐIỆN THOẠI VÀ MÁY KHÁC
+# 6. THỬ TRÊN ĐIỆN THOẠI VÀ MÁY KHÁC
 
 Tất cả thiết bị phải **cùng một mạng Wi-Fi** với máy chạy server. Không có Wi-Fi chung thì bật điểm phát sóng trên điện thoại rồi cho laptop kết nối vào.
 
@@ -257,7 +297,7 @@ Xem [mục 5B](#5b-gọi-qua-internet-khác-mạng).
 
 ---
 
-# 5B. GỌI QUA INTERNET (khác mạng)
+# 6B. GỌI QUA INTERNET (khác mạng)
 
 Mặc định chỉ gọi được trong **cùng một mạng**. Muốn gọi khi hai người ở hai mạng
 khác nhau cần thêm hai thứ, cả hai đều nằm ngoài code.
@@ -367,7 +407,7 @@ docker compose --profile turn up -d
 
 ---
 
-# 6. LỆNH BẢO TRÌ
+# 7. LỆNH BẢO TRÌ
 
 | Việc | Lệnh |
 | --- | --- |
@@ -384,6 +424,15 @@ Sửa code Python trong `backend/` thì chỉ cần `docker compose restart back
 
 Sửa file trong `frontend/` thì **không cần làm gì cả** — chỉ cần `Ctrl + F5` trên trình duyệt.
 
+Nếu database được tạo từ phiên bản cũ, cập nhật thủ công một lần bằng lệnh sau
+(backend mới cũng tự thực hiện lệnh tương tự khi khởi động):
+
+```bash
+docker compose exec -T db psql -U postgres -d teamchat_db \
+  -c 'ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;'
+docker compose restart backend
+```
+
 ## Reset toàn bộ dữ liệu
 
 ```bash
@@ -394,7 +443,7 @@ docker compose exec backend python seed_users.py
 
 ---
 
-# 7. XỬ LÝ SỰ CỐ
+# 8. XỬ LÝ SỰ CỐ
 
 ## `docker compose` báo lỗi 500 hoặc "daemon is not running"
 
@@ -448,7 +497,7 @@ Trình duyệt dùng lại file JS trong cache. Nhấn `Ctrl + F5` (Windows) ho�
 
 ---
 
-# 8. CHECKLIST TRƯỚC KHI DEMO
+# 9. CHECKLIST TRƯỚC KHI DEMO
 
 **Chuẩn bị**
 
@@ -475,7 +524,7 @@ Trình duyệt dùng lại file JS trong cache. Nhấn `Ctrl + F5` (Windows) ho�
 
 ---
 
-# 9. PHỤ LỤC: CHẠY KHÔNG CẦN NGINX
+# 10. PHỤ LỤC: CHẠY KHÔNG CẦN NGINX
 
 Cách cũ, giữ lại để tham khảo. Cần cài sẵn Python trên máy.
 

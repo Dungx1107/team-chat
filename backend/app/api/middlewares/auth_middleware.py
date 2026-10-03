@@ -12,6 +12,7 @@ PUBLIC_PATHS = (
     "/health",
     "/api/auth/login",
     "/api/auth/register",
+    "/api/auth/google",
     "/api/auth/refresh",
     "/ws",
 )

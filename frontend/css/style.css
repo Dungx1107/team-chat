@@ -153,11 +153,11 @@ html.dark #sidebar {
 
 /* Bong bóng tin nhắn */
 .bubble-me {
-  background-color: #4f46e5;
+  background-color: var(--room-theme, #4f46e5);
   color: #fff;
 }
 html.dark .bubble-me {
-  background-color: #4338ca;
+  background-color: var(--room-theme, #4338ca);
 }
 .bubble-other {
   background-color: #fff;

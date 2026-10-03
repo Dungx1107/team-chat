@@ -65,7 +65,7 @@ const api = {
     const response = await fetch(url, { ...options, headers });
 
     // Access token hết hạn -> thử làm mới một lần rồi gọi lại
-    if (response.status === 401 && !isRetry) {
+    if (response.status === 401 && token && !isRetry) {
       const refreshed = this.getRefreshToken() ? await this.tryRefresh() : false;
       if (refreshed) return this.request(endpoint, options, true);
 
@@ -99,6 +99,10 @@ const api = {
   sessionExpiredNotified: false,
 
   onSessionExpired() {
+    const chatView = document.getElementById("chat-view");
+    const isInAuthenticatedApp = chatView && !chatView.classList.contains("hidden");
+    if (!isInAuthenticatedApp) return;
+
     if (this.sessionExpiredNotified) return;
     this.sessionExpiredNotified = true;
     window.dispatchEvent(new CustomEvent("session-expired"));
@@ -129,7 +133,15 @@ const api = {
   },
 
   login(credentials) {
+    this.clearSession();
     return this.request("/auth/login", { method: "POST", body: JSON.stringify(credentials) });
+  },
+
+  googleLogin(credential) {
+    return this.request("/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential }),
+    });
   },
 
   // ---------- Phòng ----------
@@ -151,6 +163,10 @@ const api = {
 
   updateRoom(roomId, payload) {
     return this.request(`/rooms/${roomId}`, { method: "PATCH", body: JSON.stringify(payload) });
+  },
+
+  getRoomMedia(roomId) {
+    return this.request(`/rooms/${roomId}/media`);
   },
 
   deleteRoom(roomId) {
@@ -196,6 +212,13 @@ const api = {
     return this.request(`/rooms/${roomId}/members/${userId}/role`, {
       method: "PATCH",
       body: JSON.stringify({ role }),
+    });
+  },
+
+  updateMemberNickname(roomId, userId, nickname) {
+    return this.request(`/rooms/${roomId}/members/${userId}/nickname`, {
+      method: "PATCH",
+      body: JSON.stringify({ nickname }),
     });
   },
 
@@ -248,6 +271,18 @@ const api = {
 
   attachmentUrl(attachmentId) {
     return `${API_BASE_URL}/attachments/${attachmentId}`;
+  },
+
+  async downloadAttachment(attachmentId) {
+    const response = await fetch(this.attachmentUrl(attachmentId), {
+      headers: { Authorization: "Bearer " + this.getToken() },
+    });
+    if (!response.ok) {
+      const error = new Error(`Không tải được tệp (HTTP ${response.status})`);
+      error.status = response.status;
+      throw error;
+    }
+    return response.blob();
   },
 
   avatarUrl(userId, version = null) {

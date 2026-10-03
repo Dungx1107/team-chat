@@ -22,7 +22,7 @@ flowchart LR
     API --> Files
 ```
 
-`docker-compose.yml` định nghĩa ba service: `db`, `backend`, `web`. Không có Redis, message broker, migration runner hoặc media server trong repository.
+`docker-compose.yml` định nghĩa ba service chạy mặc định: `db`, `backend`, `web`. Có thêm service `turn` dùng profile tùy chọn để thử coturn trong LAN; service này không chạy mặc định. Không có Redis, message broker, migration runner hoặc SFU/media server xử lý cuộc gọi tập trung trong repository.
 
 ## Mục lục
 
@@ -49,7 +49,7 @@ flowchart LR
 - Authentication: `frontend/js/api.js` -> `backend/app/api/routers/auth.py` -> `backend/app/services/auth_service.py` -> `backend/app/infra/security/{jwt,password}.py` -> `backend/repositories/{user,refresh_token}_repo.py`.
 - Room: `frontend/js/rooms.js` -> `backend/app/api/routers/rooms.py` -> `backend/app/services/room_service.py` -> `backend/repositories/room_repo.py`.
 - Message: `frontend/js/messages.js`/`ws.js` -> `backend/app/api/routers/messages.py` hoặc `ws.py` -> `message_service.py` -> `message_repo.py` -> `messages` và related tables.
-- Call: `frontend/js/call.js` -> `calls.py`/`ws.py` -> `call_service.py` -> `call_repo.py` -> `calls`/`call_participants`.
+- Call: `frontend/js/call.js` -> `calls.py`/`ws.py` -> `call_service.py` -> `call_repo.py` -> `calls`/`call_participants`; media đi peer-to-peer qua WebRTC, còn offer/answer/ICE và trạng thái camera/micro đi qua WebSocket.
 
 ## Ghi chú độ chính xác
 

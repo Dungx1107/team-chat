@@ -14,6 +14,46 @@ function clearAlert() {
   box.textContent = "";
 }
 
+async function handleGoogleLoginCallback(response) {
+  clearAlert();
+  try {
+    const data = await api.googleLogin(response.credential);
+    api.setSession(data.access_token, data.refresh_token, data.user);
+    await enterChat();
+  } catch (err) {
+    showAlert(err.message || "Đăng nhập bằng Google thất bại.");
+  }
+}
+
+// GIS is loaded asynchronously, so wait for it without assuming script order.
+function initGoogleSignIn() {
+  if (typeof google === "undefined" || !google.accounts || !google.accounts.id) {
+    setTimeout(initGoogleSignIn, 200);
+    return;
+  }
+
+  const button = document.getElementById("google-signin-btn");
+  if (!button || button.dataset.initialized === "true") return;
+
+  google.accounts.id.initialize({
+    client_id: "869671892121-o2un8vci63vtdpio7rgv5spdv525vo1u.apps.googleusercontent.com",
+    callback: window.handleGoogleLoginCallback,
+    auto_select: false,
+    cancel_on_tap_outside: true,
+  });
+  google.accounts.id.renderButton(button, {
+    theme: "outline",
+    size: "large",
+    width: "320",
+    text: "signin_with",
+    shape: "rectangular",
+    logo_alignment: "left",
+  });
+  button.dataset.initialized = "true";
+}
+
+window.handleGoogleLoginCallback = handleGoogleLoginCallback;
+
 function switchAuthTab(tab) {
   clearAlert();
   const isLogin = tab === "login";
@@ -26,6 +66,8 @@ function switchAuthTab(tab) {
     ? "flex-1 py-3 font-semibold text-slate-400 text-sm"
     : "flex-1 py-3 font-semibold text-indigo-600 border-b-2 border-indigo-600 text-sm";
 }
+
+window.addEventListener("DOMContentLoaded", initGoogleSignIn);
 
 // ---------- Đăng ký / Đăng nhập / Đăng xuất ----------
 
@@ -269,6 +311,21 @@ function registerRealtimeHandlers() {
     if (currentRoom && data.id === currentRoom.id) {
       currentRoom = { ...currentRoom, ...data };
       updateRoomHeader();
+    }
+  });
+
+  realtime.on("room.nickname_updated", async (data) => {
+    if (!currentRoom || Number(data.room_id) !== Number(currentRoom.id)) return;
+    const member = membersCache.find((item) => Number(item.user_id) === Number(data.user_id));
+    if (member) {
+      member.nickname = data.nickname || null;
+      messagesCache = messagesCache.map((message) =>
+        Number(message.user_id) === Number(data.user_id)
+          ? { ...message, sender_name: data.nickname || data.full_name || member.full_name }
+          : message
+      );
+      renderMessages(true);
+      if (membersPanelOpen) renderMembers();
     }
   });
 

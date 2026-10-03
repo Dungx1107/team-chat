@@ -1,6 +1,7 @@
 from app.api.schemas.auth import (
     RegisterRequest,
     LoginRequest,
+    GoogleLoginRequest,
     RefreshTokenRequest,
     UserResponse,
     TokenResponse,
@@ -12,6 +13,7 @@ from app.api.schemas.room import (
     MemberResponse,
     AddMemberRequest,
     ChangeRoleRequest,
+    NicknameUpdateRequest,
 )
 from app.api.schemas.message import (
     MessageCreateRequest,
@@ -30,6 +32,7 @@ from app.api.schemas.user import (
 __all__ = [
     "RegisterRequest",
     "LoginRequest",
+    "GoogleLoginRequest",
     "RefreshTokenRequest",
     "UserResponse",
     "TokenResponse",
@@ -39,6 +42,7 @@ __all__ = [
     "MemberResponse",
     "AddMemberRequest",
     "ChangeRoleRequest",
+    "NicknameUpdateRequest",
     "MessageCreateRequest",
     "MessageResponse",
     "AttachmentResponse",

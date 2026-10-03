@@ -12,7 +12,7 @@ class UserModel(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)
     first_name = Column(String(50), nullable=False)
     last_name = Column(String(50), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -58,6 +58,7 @@ class RoomModel(Base):
     is_private = Column(Boolean, default=False, nullable=False, index=True)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     avatar_url = Column(String(500), nullable=True)
+    theme_color = Column(String(20), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     owner = relationship("UserModel", back_populates="owned_rooms")
@@ -72,6 +73,7 @@ class RoomMemberModel(Base):
     room_id = Column(Integer, ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(String(20), default="MEMBER", nullable=False)
+    nickname = Column(String(100), nullable=True)
     joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (

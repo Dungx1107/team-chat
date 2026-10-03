@@ -86,6 +86,7 @@ class RoomService:
         user_id: int,
         name: Optional[str] = None,
         description: Optional[str] = None,
+        theme_color: Optional[str] = None,
     ) -> Room:
         room = self._get_room_or_fail(room_id)
         member = self.require_membership(room_id, user_id)
@@ -96,6 +97,8 @@ class RoomService:
             room.rename(name)
         if description is not None:
             room.description = description.strip() or None
+        if theme_color is not None:
+            room.theme_color = theme_color
 
         updated = self.room_repo.update(room)
         self.events.publish_to_room(room_id, "room.updated", {

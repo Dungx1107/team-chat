@@ -100,7 +100,11 @@ async function onAvatarSelected(event) {
     const user = await api.uploadAvatar(file);
     api.updateCurrentUser(user);
     // Thêm tham số thời gian để trình duyệt không dùng lại ảnh cũ trong cache
-    preview.innerHTML = `<img src="${api.avatarUrl(user.id)}?t=${Date.now()}"
+    const avatarSource = typeof user.avatar_url === "string"
+      && /^https?:\/\//i.test(user.avatar_url)
+      ? user.avatar_url
+      : `${api.avatarUrl(user.id)}?t=${Date.now()}`;
+    preview.innerHTML = `<img src="${escapeHtml(avatarSource)}"
       class="w-16 h-16 rounded-full object-cover" alt="" />`;
     renderMyAvatarBar(user);
     toast("Đã cập nhật ảnh đại diện", "success");

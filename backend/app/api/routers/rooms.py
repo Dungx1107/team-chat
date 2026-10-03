@@ -9,9 +9,17 @@ from app.api.schemas import (
     MemberResponse,
     AddMemberRequest,
     ChangeRoleRequest,
+    NicknameUpdateRequest,
 )
-from app.api.dependencies import get_room_service, get_current_user_id, get_call_service, file_storage
+from app.api.dependencies import (
+    get_room_service,
+    get_current_user_id,
+    get_call_service,
+    get_message_service,
+    file_storage,
+)
 from app.services.room_service import RoomService
+from app.services.message_service import MessageService
 from app.infra.realtime.connection_manager import connection_manager
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
@@ -28,6 +36,7 @@ def _to_response(room, my_role=None, member_count=None, last_message=None, unrea
         my_role=my_role,
         member_count=member_count,
         avatar_url=getattr(room, "avatar_url", None),
+        theme_color=getattr(room, "theme_color", None),
         last_message=last_message,
         unread_count=unread_count,
     )
@@ -44,6 +53,7 @@ def create_room(
             name=body.name,
             owner_id=current_user_id,
             description=body.description,
+            theme_color=body.theme_color,
             is_private=body.is_private,
         )
         return _to_response(room, my_role="OWNER", member_count=1)
@@ -176,6 +186,20 @@ def get_active_group_call(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     return call_service.to_payload(call) if call else None
 
+@router.get("/{room_id}/media")
+def list_room_media(
+    room_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    room_service: RoomService = Depends(get_room_service),
+):
+    try:
+        room_service.get_room(room_id, current_user_id)
+        return room_service.room_repo.list_media(room_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
 
 @router.post("/{room_id}/join", response_model=MemberResponse, status_code=status.HTTP_201_CREATED)
 def join_room(
@@ -222,6 +246,7 @@ def list_members(
                 avatar_url=u.avatar_url,
                 status=u.status,
                 role=m.role,
+                nickname=m.nickname,
                 joined_at=m.joined_at,
                 is_online=connection_manager.is_online(u.id),
             )
@@ -282,6 +307,51 @@ def change_member_role(
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
+@router.patch("/{room_id}/members/{user_id}/nickname", response_model=MemberResponse)
+def update_member_nickname(
+    room_id: int,
+    user_id: int,
+    body: NicknameUpdateRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    room_service: RoomService = Depends(get_room_service),
+    msg_service: MessageService = Depends(get_message_service),
+):
+    try:
+        actor = room_service.require_membership(room_id, current_user_id)
+        room_service.require_membership(room_id, user_id)
+        members = room_service.room_repo.list_members(room_id)
+        actor_user = next((user for member, user in members if member.user_id == current_user_id), None)
+        target_user = next((user for member, user in members if member.user_id == user_id), None)
+        if not actor_user or not target_user:
+            raise ValueError("Không tìm thấy thành viên")
+        if not room_service.room_repo.update_member_nickname(room_id, user_id, body.nickname):
+            raise ValueError("Không tìm thấy thành viên")
+        new_nickname = body.nickname.strip() if body.nickname and body.nickname.strip() else None
+        actor_name = f"{actor_user.last_name} {actor_user.first_name}".strip()
+        target_name = f"{target_user.last_name} {target_user.first_name}".strip()
+        if new_nickname:
+            if current_user_id == user_id:
+                content = f"{actor_name} đã đặt biệt danh cho mình là {new_nickname}"
+            else:
+                content = f"{actor_name} đã đặt biệt danh cho {target_name} là {new_nickname}"
+        else:
+            if current_user_id == user_id:
+                content = f"{actor_name} đã xóa biệt danh của mình"
+            else:
+                content = f"{actor_name} đã xóa biệt danh của {target_name}"
+        msg_service.create_system_message(room_id, current_user_id, content)
+        msg_service.events.publish_to_room(room_id, "room.nickname_updated", {
+            "room_id": room_id,
+            "user_id": user_id,
+            "nickname": new_nickname,
+            "full_name": target_name,
+        })
+        return _find_member_response(room_service, room_id, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
 
 def _find_member_response(room_service: RoomService, room_id: int, user_id: int) -> MemberResponse:
     for m, u in room_service.room_repo.list_members(room_id):
@@ -293,6 +363,7 @@ def _find_member_response(room_service: RoomService, room_id: int, user_id: int)
                 avatar_url=u.avatar_url,
                 status=u.status,
                 role=m.role,
+                nickname=m.nickname,
                 joined_at=m.joined_at,
                 is_online=connection_manager.is_online(u.id),
             )

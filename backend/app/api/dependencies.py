@@ -45,7 +45,7 @@ def get_current_user_id(request: Request) -> int:
 # Service chỉ nhận các interface, không biết gì về SQLAlchemy hay WebSocket.
 
 def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
-    return AuthService(UserRepository(db), RefreshTokenRepository(db))
+    return AuthService(UserRepository(db), RefreshTokenRepository(db), RoomRepository(db))
 
 
 def get_room_service(db: Session = Depends(get_db)) -> RoomService:

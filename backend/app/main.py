@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.config import settings
 from app.infra.db.session import engine, Base
@@ -23,6 +24,13 @@ from app.infra.realtime.connection_manager import connection_manager
 logging.basicConfig(level=logging.INFO)
 
 Base.metadata.create_all(bind=engine)
+# Keep existing PostgreSQL installations compatible with OAuth-only accounts.
+# create_all() does not alter constraints on tables that already exist.
+with engine.begin() as connection:
+    connection.execute(text("ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL"))
+    connection.execute(text("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS theme_color VARCHAR(20)"))
+    connection.execute(text("ALTER TABLE room_members ADD COLUMN IF NOT EXISTS nickname VARCHAR(100)"))
+    connection.execute(text("ALTER TABLE room_members ALTER COLUMN nickname TYPE VARCHAR(100)"))
 
 # Thư mục lưu tệp tải lên, gắn với Docker volume
 Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)

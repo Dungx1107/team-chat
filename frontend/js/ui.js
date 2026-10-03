@@ -119,8 +119,11 @@ function renderAvatar(user, size = 36, opts = {}) {
   // Luôn vẽ sẵn lớp chữ cái đầu ở dưới. Nếu có ảnh thì ảnh đè lên trên;
   // ảnh lỗi thì chỉ cần ẩn thẻ <img>, lớp dưới lộ ra -- không phải dựng lại DOM
   // bằng chuỗi HTML lồng nhau trong thuộc tính onerror.
+  const avatarSource = user.avatar_url;
+  const isExternalAvatar = typeof avatarSource === "string"
+    && /^https?:\/\//i.test(avatarSource);
   const imgLayer = hasAvatar
-    ? `<img src="${escapeHtml(api.avatarUrl(id, avatarVersions[id]))}" alt=""
+    ? `<img src="${escapeHtml(isExternalAvatar ? avatarSource : api.avatarUrl(id, avatarVersions[id]))}" alt=""
            style="width:${px};height:${px};position:absolute;inset:0"
            class="rounded-full object-cover"
            onerror="this.style.display='none'" />`
@@ -146,8 +149,15 @@ function renderRoomAvatar(room, size = 48) {
   if (room.avatar_url) {
     return `<span class="room-avatar-wrap" style="width:${size}px;height:${size}px"><img src="${escapeHtml(api.roomAvatarUrl(roomId, roomAvatarVersions[roomId]))}" alt="" class="w-full h-full rounded-xl object-cover" onerror="this.style.display='none'" /></span>`;
   }
+
   const colors = ROOM_AVATAR_COLORS[Math.abs(roomId) % ROOM_AVATAR_COLORS.length];
   return `<span class="room-avatar-wrap rounded-xl flex items-center justify-center text-white font-bold shadow-sm" style="width:${size}px;height:${size}px;background:linear-gradient(135deg, ${colors[0]}, ${colors[1]})">${escapeHtml(initials)}</span>`;
+}
+
+function applyRoomTheme(room) {
+  const area = document.getElementById("messages-scroll-area");
+  if (!area) return;
+  area.style.setProperty("--room-theme", room?.theme_color || "#4f46e5");
 }
 
 function formatRoomTime(iso) {

@@ -4,6 +4,7 @@ from typing import List, Optional
 class Message:
     TYPE_TEXT = "TEXT"
     TYPE_FILE = "FILE"
+    TYPE_SYSTEM = "SYSTEM"
 
     def __init__(
         self,
@@ -29,7 +30,7 @@ class Message:
         deleted_at: Optional[datetime] = None,
     ):
         # Tin nhắn dạng TEXT bắt buộc có nội dung; dạng FILE thì content là chú thích tùy chọn
-        if message_type == self.TYPE_TEXT and (not content or len(content.strip()) == 0):
+        if message_type in (self.TYPE_TEXT, self.TYPE_SYSTEM) and (not content or len(content.strip()) == 0):
             raise ValueError("Nội dung tin nhắn không được để trống")
         if message_type == self.TYPE_FILE and attachment_id is None and attachment is None:
             raise ValueError("Tin nhắn dạng file phải có tệp đính kèm")

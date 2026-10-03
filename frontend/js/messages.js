@@ -108,7 +108,7 @@ function renderMessages(keepScroll = false) {
     // Tin liên tiếp của cùng một người thì gộp, không lặp lại avatar
     const grouped = lastSender === m.user_id;
     html += renderMessageRow(m, myId, grouped);
-    lastSender = m.user_id;
+    lastSender = m.message_type === "SYSTEM" || m.type === "SYSTEM" ? null : m.user_id;
   });
 
   container.innerHTML = html;
@@ -119,6 +119,11 @@ function renderMessages(keepScroll = false) {
 }
 
 function renderMessageRow(m, myId, grouped) {
+  if (m.message_type === "SYSTEM" || m.type === "SYSTEM") {
+    return `<div class="flex justify-center px-4 py-2" data-msg-id="${m.id}">
+      <div class="max-w-[85%] text-center text-[11px] italic text-slate-400 dark:text-slate-500">${escapeHtml(m.content || "")}<span class="not-italic ml-2">${formatTime(m.created_at)}</span></div>
+    </div>`;
+  }
   const isMe = myId !== null && Number(m.user_id) === myId;
   const senderName = m.sender_name || (m.username ? `@${m.username}` : `Người dùng #${m.user_id}`);
   const avatarHtml = grouped
@@ -133,8 +138,8 @@ function renderMessageRow(m, myId, grouped) {
   const header = grouped
     ? ""
     : `<div class="flex items-baseline gap-2 mb-0.5 ${isMe ? "justify-end" : ""}">
-        ${isMe ? "" : `<span class="font-semibold text-sm text-slate-900 dark:text-slate-100">${escapeHtml(senderName)}</span>`}
-        ${isMe ? "" : m.username ? `<span class="text-[11px] text-slate-400 dark:text-slate-500">@${escapeHtml(m.username)}</span>` : ""}
+        <span class="font-semibold text-sm text-slate-900 dark:text-slate-100">${escapeHtml(isMe ? (senderName || "Bạn") : senderName)}</span>
+        ${m.username ? `<span class="text-[11px] text-slate-400 dark:text-slate-500">@${escapeHtml(m.username)}</span>` : ""}
         <span class="text-[10px] text-slate-400 dark:text-slate-500">${formatTime(m.created_at)}</span>
         ${m.edited_at ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 italic">(đã chỉnh sửa)</span>` : ""}
       </div>`;

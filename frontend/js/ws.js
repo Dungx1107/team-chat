@@ -12,6 +12,7 @@ const realtime = {
   manuallyClosed: false,
   handlers: {},
   heartbeatTimer: null,
+  everOpened: false,
 
   on(event, handler) {
     (this.handlers[event] = this.handlers[event] || []).push(handler);
@@ -88,10 +89,11 @@ const realtime = {
       if (this.manuallyClosed) return;
 
       // 4001 = server từ chối vì token không hợp lệ. Nối lại cũng vô ích.
-      if (event.code === 4001) {
+      if (event.code === 4001 && this.everOpened) {
         api.onSessionExpired();
         return;
       }
+      if (event.code === 4001) return;
 
       // 4002 = server cắt vì lâu không nhận được tín hiệu. Kết nối vẫn hợp lệ,
       // chỉ cần nối lại ngay.

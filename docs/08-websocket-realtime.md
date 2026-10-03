@@ -2,7 +2,7 @@
 
 ## Kết nối
 
-Client trong `frontend/js/ws.js` mở `wss://host/ws?token=<access_token>` khi chạy HTTPS (hoặc `ws://` khi chạy HTTP trực tiếp). `ws.py` decode token, đăng ký socket với `ConnectionManager`, gửi `connected`, xử lý message loop và unregister khi disconnect. Client có reconnect và heartbeat `ping`/`pong`.
+Client trong `frontend/js/ws.js` mở `wss://host/ws?token=<access_token>` khi chạy HTTPS (hoặc `ws://` khi chạy HTTP trực tiếp). `ws.py` decode token, đăng ký socket với `ConnectionManager`, gửi `connected`, xử lý message loop và unregister khi disconnect. Client gửi `ping` mỗi 30 giây và tự reconnect với backoff tối đa 15 giây; server chờ tối đa 90 giây mặc định (`WS_IDLE_TIMEOUT_SECONDS`) trước khi đóng kết nối im lặng bằng mã `4002`.
 
 ## Client actions
 
@@ -14,6 +14,8 @@ Client trong `frontend/js/ws.js` mở `wss://host/ws?token=<access_token>` khi c
 {"action":"call.signal","call_id":1,"to_user_id":2,"signal":{}}
 {"action":"ping"}
 ```
+
+`signal.type` hỗ trợ `offer`, `answer`, `ice` và `media`. `media` dùng để đồng bộ trạng thái camera/micro của participant, không chứa luồng audio/video.
 
 ## Server event
 
@@ -40,4 +42,4 @@ sequenceDiagram
 
 ## Presence và giới hạn
 
-Online/subscription/typing là process memory. Một user có thể có nhiều socket; manager giữ tập socket theo user. Disconnect xóa socket và phát offline khi không còn connection. Không có broker nên nhiều replica sẽ có trạng thái/event không nhất quán.
+Online/subscription/typing là process memory. Một user có thể có nhiều socket; manager giữ tập socket theo user. Disconnect xóa socket và phát offline khi không còn connection. Khi socket cuối cùng của user biến mất, router gọi `CallService.end_calls_of_user()` để dọn cuộc gọi đang dang dở. Không có broker nên nhiều replica sẽ có trạng thái/event không nhất quán.

@@ -140,6 +140,7 @@ function updateRoomHeader() {
   document.getElementById("active-room-name").textContent = `${icon} ${currentRoom.name}`;
   const roomAvatar = document.getElementById("active-room-avatar");
   if (roomAvatar) roomAvatar.innerHTML = renderRoomAvatar(currentRoom, 40);
+  applyRoomTheme(currentRoom);
 
   const parts = [];
   if (currentRoom.description) parts.push(currentRoom.description);
@@ -154,7 +155,7 @@ function updateRoomHeader() {
   toggleEl("btn-group-call", !!currentRoom.my_role);
   document.getElementById("member-count-badge").textContent = currentRoom.member_count ?? 0;
 
-  toggleEl("btn-room-settings", canManage);
+  toggleEl("btn-room-settings", !!currentRoom.my_role);
   toggleEl("btn-delete-room", isOwner);
   toggleEl("btn-leave-room", !!currentRoom.my_role && !isOwner);
   toggleEl("btn-add-member", canManage);
@@ -225,8 +226,11 @@ async function onCreateRoom(event) {
 
 // ---------- Cài đặt phòng ----------
 
-function openRoomSettingsModal() {
+async function openRoomSettingsModal() {
   if (!currentRoom) return;
+  if (!membersCache.length) await loadMembers();
+  const canManage = ["OWNER", "ADMIN"].includes(currentRoom.my_role);
+  const myId = Number(api.getCurrentUser()?.id);
   openModal(`
     <div class="p-5">
       <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100 mb-4">Cài đặt phòng</h3>
@@ -235,19 +239,41 @@ function openRoomSettingsModal() {
         <div class="min-w-0 flex-1">
           <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Ảnh đại diện phòng</div>
           <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">JPEG, PNG, GIF hoặc WEBP · tối đa 5MB</div>
-          <button type="button" onclick="document.getElementById('room-avatar-input').click()" class="mt-2 px-2.5 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-white dark:hover:bg-slate-700">Đổi ảnh</button>
-          <input id="room-avatar-input" type="file" accept="image/*" class="hidden" onchange="onRoomAvatarSelected(event)" />
+          ${canManage ? `<button type="button" onclick="document.getElementById('room-avatar-input').click()" class="mt-2 px-2.5 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-white dark:hover:bg-slate-700">Đổi ảnh</button>
+          <input id="room-avatar-input" type="file" accept="image/*" class="hidden" onchange="onRoomAvatarSelected(event)" />` : `<div class="mt-2 text-[10px] text-slate-400">Chỉ OWNER/ADMIN có thể đổi ảnh phòng</div>`}
         </div>
       </div>
-      <form onsubmit="onUpdateRoom(event)" class="space-y-4">
+      <form ${canManage ? `onsubmit="onUpdateRoom(event)"` : ""} class="space-y-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Tên phòng</label>
-          <input id="edit-room-name" required maxlength="150" value="${escapeHtml(currentRoom.name)}"
+          <input id="edit-room-name" ${canManage ? "required" : "disabled"} maxlength="150" value="${escapeHtml(currentRoom.name)}"
                  class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Chủ đề đoạn chat</label>
+          <div class="flex items-center gap-2">
+            ${["#4f46e5", "#059669", "#db2777", "#ea580c", "#0891b2", "#7c3aed"].map((color) => `<button type="button" ${canManage ? `onclick="saveRoomTheme('${color}')"` : "disabled"} title="${color}" class="w-7 h-7 rounded-full border-2 ${currentRoom.theme_color === color ? "border-slate-900 dark:border-white" : "border-transparent"} disabled:opacity-40" style="background:${color}"></button>`).join("")}
+          </div>
+        </div>
+        <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Biệt danh thành viên</label>
+            <span class="text-[10px] text-slate-400">Mỗi thành viên có thể đặt biệt danh cho thành viên trong phòng</span>
+          </div>
+          <div class="space-y-2 max-h-36 overflow-y-auto">
+            ${(membersCache || []).map((member) => {
+              const canEditNickname = canManage || Number(member.user_id) === myId;
+              return `<div class="flex items-center gap-2">${renderAvatar(member, 28)}<span class="text-xs flex-1 truncate">${escapeHtml(member.nickname || member.full_name)}</span><input id="nickname-${member.user_id}" ${canEditNickname ? "" : "disabled"} value="${escapeHtml(member.nickname || "")}" maxlength="80" placeholder="Biệt danh" class="w-28 px-2 py-1 border rounded text-xs dark:bg-slate-800 dark:border-slate-700" />${canEditNickname ? `<button type="button" onclick="saveMemberNickname(${member.user_id})" class="text-xs text-indigo-600">Lưu</button>` : ""}</div>`;
+            }).join("")}
+          </div>
+        </div>
+        <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
+          <div class="flex items-center justify-between mb-2"><label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Ảnh, video và tệp</label><button type="button" onclick="loadRoomMedia()" class="text-xs text-indigo-600">Tải lại</button></div>
+          <div id="room-media-list" class="grid grid-cols-3 gap-2 text-[10px] text-slate-500"><span class="col-span-3 text-center">Đang tải...</span></div>
+        </div>
+        <div>
           <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Mô tả</label>
-          <input id="edit-room-desc" maxlength="300" value="${escapeHtml(currentRoom.description || "")}"
+          <input id="edit-room-desc" ${canManage ? "" : "disabled"} maxlength="300" value="${escapeHtml(currentRoom.description || "")}"
                  class="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div class="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 leading-relaxed">
@@ -257,12 +283,75 @@ function openRoomSettingsModal() {
         <div class="flex gap-2">
           <button type="button" onclick="closeModal()"
                   class="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800">Hủy</button>
-          <button type="submit"
-                  class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold">Lưu</button>
+          <button type="submit" ${canManage ? "" : "disabled"}
+                  class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold disabled:opacity-40">Lưu</button>
         </div>
       </form>
     </div>
   `);
+  loadRoomMedia();
+}
+
+async function saveRoomTheme(color) {
+  if (!currentRoom) return;
+  try {
+    const updated = await api.updateRoom(currentRoom.id, { theme_color: color });
+    currentRoom = { ...currentRoom, ...updated, theme_color: color };
+    updateRoomHeader();
+    openRoomSettingsModal();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function saveMemberNickname(userId) {
+  if (!currentRoom) return;
+  const input = document.getElementById(`nickname-${userId}`);
+  try {
+    const updated = await api.updateMemberNickname(currentRoom.id, userId, input?.value || "");
+    membersCache = membersCache.map((member) => member.user_id === userId ? { ...member, ...updated } : member);
+    const changedMember = membersCache.find((member) => Number(member.user_id) === Number(userId));
+    if (changedMember) {
+      messagesCache = messagesCache.map((message) =>
+        Number(message.user_id) === Number(userId)
+          ? { ...message, sender_name: changedMember.nickname || changedMember.full_name }
+          : message
+      );
+      renderMessages(true);
+    }
+    await loadMembers();
+    openRoomSettingsModal();
+    toast("Đã cập nhật biệt danh", "success");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function loadRoomMedia() {
+  const list = document.getElementById("room-media-list");
+  if (!list || !currentRoom) return;
+  try {
+    const files = await api.getRoomMedia(currentRoom.id);
+    list.innerHTML = files.length
+      ? files.map((file) => `<button type="button" onclick="downloadRoomMedia(${file.id})" class="p-2 rounded bg-slate-100 dark:bg-slate-800 truncate hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-left" title="${escapeHtml(file.filename)}">${file.content_type?.startsWith("image/") ? "🖼️" : "📎"} ${escapeHtml(file.filename)}</button>`).join("")
+      : `<span class="col-span-3 text-center">Chưa có tệp nào</span>`;
+  } catch (err) {
+    list.innerHTML = `<span class="col-span-3 text-center text-red-500">${escapeHtml(err.message)}</span>`;
+  }
+}
+
+async function downloadRoomMedia(attachmentId) {
+  try {
+    const blob = await api.downloadAttachment(attachmentId);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "";
+    link.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    toast(err.message, "error");
+  }
 }
 
 async function onRoomAvatarSelected(event) {
@@ -403,7 +492,8 @@ function renderMembers() {
         <div class="shrink-0">${renderAvatar(m, 32)}</div>
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5">
-            <span class="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">${escapeHtml(m.full_name)}</span>
+            <span class="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">${escapeHtml(m.nickname || m.full_name)}</span>
+            ${m.nickname ? `<span class="text-[10px] text-slate-400 truncate">(${escapeHtml(m.full_name)})</span>` : ""}
             ${isSelf ? `<span class="text-[10px] text-slate-400 dark:text-slate-500">(bạn)</span>` : ""}
           </div>
           <div class="flex items-center gap-1.5 mt-0.5">

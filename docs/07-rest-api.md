@@ -8,7 +8,11 @@ Router thực tế nằm trong `backend/app/api/routers/`. Trừ endpoint auth, 
 | --- | --- | --- |
 | POST | `/api/auth/register` | đăng ký |
 | POST | `/api/auth/login` | đăng nhập/cấp token |
+| POST | `/api/auth/google` | xác thực Google ID Token và cấp token nội bộ |
 | POST | `/api/auth/refresh` | rotate refresh token |
+
+`POST /api/auth/google` nhận JSON `{ "credential": "<Google ID Token>" }` và trả
+về cùng `TokenResponse` như đăng nhập bằng email/mật khẩu.
 
 ## User - `users.py`
 
@@ -54,7 +58,7 @@ Router thực tế nằm trong `backend/app/api/routers/`. Trừ endpoint auth, 
 
 | Method | Path | Chức năng |
 | --- | --- | --- |
-| GET | `/api/calls/config` | config call/STUN |
+| GET | `/api/calls/config` | cấu hình ICE servers (STUN/TURN) cho WebRTC |
 | POST | `/api/calls` | start direct call |
 | POST | `/api/calls/group` | start group call |
 | GET | `/api/calls` / `/{call_id}` | list/get call |

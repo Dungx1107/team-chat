@@ -10,6 +10,7 @@ class RoomCreateRequest(BaseModel):
 class RoomUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=150)
     description: Optional[str] = Field(None, max_length=300)
+    theme_color: Optional[str] = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
 
 class RoomResponse(BaseModel):
     id: int
@@ -21,6 +22,7 @@ class RoomResponse(BaseModel):
     my_role: Optional[str] = None
     member_count: Optional[int] = None
     avatar_url: Optional[str] = None
+    theme_color: Optional[str] = None
     last_message: Optional[dict] = None
     unread_count: int = 0
 
@@ -33,6 +35,10 @@ class MemberResponse(BaseModel):
     role: str
     joined_at: datetime
     is_online: bool = False
+    nickname: Optional[str] = None
+
+class NicknameUpdateRequest(BaseModel):
+    nickname: Optional[str] = Field(None, max_length=100)
 
 class AddMemberRequest(BaseModel):
     user_id: int

@@ -1,5 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.api.schemas import RegisterRequest, LoginRequest, RefreshTokenRequest, TokenResponse, UserResponse
+from app.api.schemas import (
+    RegisterRequest,
+    LoginRequest,
+    GoogleLoginRequest,
+    RefreshTokenRequest,
+    TokenResponse,
+    UserResponse,
+)
 from app.api.dependencies import get_auth_service
 from app.services.auth_service import AuthService
 
@@ -23,6 +30,7 @@ def register(body: RegisterRequest, auth_service: AuthService = Depends(get_auth
             last_name=user.last_name,
             full_name=user.full_name,
             is_active=user.is_active,
+            avatar_url=user.avatar_url,
             created_at=user.created_at
         )
     except ValueError as e:
@@ -45,8 +53,33 @@ def login(body: LoginRequest, auth_service: AuthService = Depends(get_auth_servi
                 last_name=u.last_name,
                 full_name=u.full_name,
                 is_active=u.is_active,
+                avatar_url=u.avatar_url,
                 created_at=u.created_at
             )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
+@router.post("/google", response_model=TokenResponse)
+def google_login(body: GoogleLoginRequest, auth_service: AuthService = Depends(get_auth_service)):
+    try:
+        result = auth_service.login_with_google(body.credential)
+        u = result["user"]
+        return TokenResponse(
+            access_token=result["access_token"],
+            refresh_token=result["refresh_token"],
+            token_type=result["token_type"],
+            user=UserResponse(
+                id=u.id,
+                email=u.email,
+                username=u.username,
+                first_name=u.first_name,
+                last_name=u.last_name,
+                full_name=u.full_name,
+                is_active=u.is_active,
+                avatar_url=u.avatar_url,
+                created_at=u.created_at,
+            ),
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))

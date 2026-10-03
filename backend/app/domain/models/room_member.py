@@ -21,6 +21,7 @@ class RoomMember:
         room_id: int,
         user_id: int,
         role: str = ROLE_MEMBER,
+        nickname: Optional[str] = None,
         id: Optional[int] = None,
         joined_at: Optional[datetime] = None
     ):
@@ -30,6 +31,7 @@ class RoomMember:
         self.room_id = room_id
         self.user_id = user_id
         self.role = role
+        self.nickname = nickname
         self.joined_at = joined_at or datetime.utcnow()
 
     @property

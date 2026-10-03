@@ -10,6 +10,7 @@ class Room:
         description: Optional[str] = None,
         is_private: bool = False,
         avatar_url: Optional[str] = None,
+        theme_color: Optional[str] = None,
         created_at: Optional[datetime] = None
     ):
         if not name or len(name.strip()) == 0:
@@ -20,6 +21,7 @@ class Room:
         self.description = (description or "").strip() or None
         self.is_private = is_private
         self.avatar_url = avatar_url
+        self.theme_color = theme_color
         self.created_at = created_at or datetime.utcnow()
 
     def is_owner(self, user_id: int) -> bool:

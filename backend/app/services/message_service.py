@@ -83,6 +83,19 @@ class MessageService:
         })
         return created
 
+    def create_system_message(self, room_id: int, user_id: int, content: str) -> Message:
+        self._require_room(room_id)
+        self._require_membership(room_id, user_id)
+        message = Message(
+            room_id=room_id,
+            user_id=user_id,
+            content=content,
+            message_type=Message.TYPE_SYSTEM,
+        )
+        created = self.message_repo.create(message)
+        self.events.publish_to_room(room_id, "message.created", {"message": self._to_payload(created)})
+        return created
+
     def send_file_message(
         self,
         room_id: int,

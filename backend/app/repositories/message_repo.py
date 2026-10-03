@@ -10,6 +10,7 @@ from app.domain.models import Message, Attachment, Reaction
 from app.infra.db.models import (
     MessageModel,
     AttachmentModel,
+    RoomMemberModel,
     ReactionModel,
     UserModel,
 )
@@ -61,7 +62,15 @@ class MessageRepository(IMessageRepository):
         entity.pinned_at = model.pinned_at
         entity.pinned_by = model.pinned_by
         entity.deleted_at = model.deleted_at
-        entity.sender_name = f"{user.last_name} {user.first_name}".strip() if user else None
+        nickname = (
+            self.db.query(RoomMemberModel.nickname)
+            .filter(
+                RoomMemberModel.room_id == model.room_id,
+                RoomMemberModel.user_id == model.user_id,
+            )
+            .scalar()
+        )
+        entity.sender_name = nickname or (f"{user.last_name} {user.first_name}".strip() if user else None)
         entity.username = user.username if user else None
         entity.avatar_url = user.avatar_url if user else None
         entity.attachment = _attachment_to_entity(model.attachment)

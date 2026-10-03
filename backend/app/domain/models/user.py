@@ -6,7 +6,7 @@ class User:
         self,
         email: str,
         username: str,
-        password_hash: str,
+        password_hash: Optional[str],
         first_name: str,
         last_name: str,
         id: Optional[int] = None,

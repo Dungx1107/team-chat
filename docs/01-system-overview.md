@@ -11,6 +11,7 @@ Hệ thống cung cấp không gian trao đổi theo phòng công khai/riêng t�
 - **FastAPI (`backend`)**: xác thực, use case, REST, WebSocket, signaling và truy cập persistence.
 - **PostgreSQL (`db`)**: dữ liệu user, room, message, call, token và metadata file.
 - **Local file storage**: file vật lý trong `UPLOAD_DIR`, được giữ bởi named volume `uploads`.
+- **STUN/TURN**: STUN mặc định giúp tìm đường kết nối; TURN bên ngoài hoặc service `turn` tùy chọn chuyển tiếp media khi WebRTC không thể kết nối trực tiếp.
 
 ## Giao tiếp
 
@@ -27,6 +28,7 @@ sequenceDiagram
     A->>F: save/read attachment or avatar
     A-->>N: response/event
     N-->>U: HTTPS response or WebSocket event
+    U<<->>S: WebRTC media (direct hoặc qua TURN)
 ```
 
 REST dùng cho thao tác bền vững và truy vấn. WebSocket dùng cho presence, typing, event thay đổi message/room và call signaling; lịch sử message vẫn lấy qua REST.
@@ -52,4 +54,4 @@ sequenceDiagram
 
 ## Phạm vi đã xác định
 
-Có authentication, refresh token, profile/avatar, room/member role, message CRUD mềm, attachment, reaction, pin, presence/typing và calls. Không thấy SFU, TURN server, Redis/PubSub hay migration framework.
+Có authentication, refresh token, profile/avatar, room/member role, message CRUD mềm, attachment, reaction, pin, presence/typing và calls. Call dùng WebRTC mesh ở browser; backend chỉ lưu lifecycle và làm signaling, không vận chuyển media. Có STUN mặc định và hỗ trợ TURN bên ngoài hoặc coturn qua Compose profile `turn`; không có SFU, Redis/PubSub hay migration framework.

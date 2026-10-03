@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 
 class RegisterRequest(BaseModel):
@@ -12,6 +13,9 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+class GoogleLoginRequest(BaseModel):
+    credential: str
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
@@ -23,6 +27,7 @@ class UserResponse(BaseModel):
     last_name: str
     full_name: str
     is_active: bool
+    avatar_url: Optional[str] = None
     created_at: datetime
 
 class TokenResponse(BaseModel):
