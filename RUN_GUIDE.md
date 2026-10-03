@@ -8,15 +8,16 @@ Tài liệu dành cho thành viên trong nhóm: clone về là chạy được, 
 
 1. [Chọn trường hợp của bạn](#1-chọn-trường-hợp-của-bạn)
 2. [Chạy lần đầu cho người mới](#2-chạy-lần-đầu-cho-người-mới)
-3. [Tài khoản dùng thử](#3-tài-khoản-dùng-thử)
-4. [Các lần sau](#4-các-lần-sau)
-5. [Thử từng tính năng](#5-thử-từng-tính-năng)
-6. [Thử trên điện thoại và máy khác](#6-thử-trên-điện-thoại-và-máy-khác)
+3. [Cấu hình Đăng nhập bằng Google](#3-cấu-hình-đăng-nhập-bằng-google)
+4. [Tài khoản dùng thử](#4-tài-khoản-dùng-thử)
+5. [Các lần sau](#5-các-lần-sau)
+6. [Thử từng tính năng](#6-thử-từng-tính-năng)
+7. [Thử trên điện thoại và máy khác](#7-thử-trên-điện-thoại-và-máy-khác)
 6B. [Gọi qua Internet](#6b-gọi-qua-internet-khác-mạng)
-7. [Lệnh bảo trì](#7-lệnh-bảo-trì)
-8. [Xử lý sự cố](#8-xử-lý-sự-cố)
-9. [Checklist trước khi demo](#9-checklist-trước-khi-demo)
-10. [Phụ lục: chạy không cần nginx](#10-phụ-lục-chạy-không-cần-nginx)
+8. [Lệnh bảo trì](#8-lệnh-bảo-trì)
+9. [Xử lý sự cố](#9-xử-lý-sự-cố)
+10. [Checklist trước khi demo](#10-checklist-trước-khi-demo)
+11. [Phụ lục: chạy không cần nginx](#11-phụ-lục-chạy-không-cần-nginx)
 
 ## Lệnh nhanh nhất cho người đã có cấu hình
 
@@ -141,7 +142,120 @@ Lần đầu trình duyệt báo **"Kết nối của bạn không phải là k�
 
 ---
 
-# 3. TÀI KHOẢN DÙNG THỬ
+# 3. CẤU HÌNH ĐĂNG NHẬP BẰNG GOOGLE
+
+Phần này dành cho trường hợp bạn muốn tự tạo Client ID riêng trên Google Cloud Console
+thay vì dùng Client ID mẫu đã có trong dự án.
+
+## 3.1. Tạo hoặc chọn Google Cloud Project
+
+1. Mở [Google Cloud Console](https://console.cloud.google.com/).
+2. Đăng nhập bằng tài khoản Google của bạn.
+3. Ở thanh phía trên, bấm **Select a project** → **New Project**.
+4. Đặt tên, ví dụ `team-chat`, rồi bấm **Create**.
+5. Chọn project vừa tạo.
+
+## 3.2. Cấu hình OAuth consent screen
+
+1. Vào **APIs & Services** → **OAuth consent screen**.
+2. Chọn **External** nếu người dùng đăng nhập bằng các tài khoản Gmail khác
+   ngoài tổ chức Google Workspace của bạn.
+3. Điền tối thiểu:
+   - **App name**: `Team Chat`
+   - **User support email**: email của bạn
+   - **Developer contact information**: email của bạn
+4. Bấm **Save and Continue** qua các bước còn lại.
+5. Nếu ứng dụng đang ở trạng thái **Testing**, vào phần **Test users** → **Add users**
+   và thêm các địa chỉ Gmail được phép đăng nhập thử.
+
+> Khi ứng dụng ở trạng thái Testing, chỉ những tài khoản trong danh sách Test users
+> mới đăng nhập được. Nếu thấy lỗi `access_denied` hoặc ứng dụng chưa được Google xác minh,
+> hãy kiểm tra lại danh sách này.
+
+## 3.3. Tạo OAuth Client ID cho website
+
+1. Vào **APIs & Services** → **Credentials**.
+2. Bấm **+ CREATE CREDENTIALS** → **OAuth client ID**.
+3. Ở **Application type**, chọn **Web application**.
+4. Đặt tên, ví dụ `Team Chat Web`.
+5. Trong **Authorized JavaScript origins**, thêm đúng các origin bạn dùng:
+
+```text
+https://localhost
+http://localhost:8080
+```
+
+Nếu chạy frontend bằng server khác, thêm origin tương ứng, ví dụ:
+
+```text
+http://localhost:3000
+https://chat.example.com
+```
+
+Chỉ nhập origin gồm giao thức, hostname và port; **không thêm dấu `/` ở cuối**,
+không nhập đường dẫn như `/login`.
+
+6. Với cơ chế GIS hiện tại, không cần thêm **Authorized redirect URI**.
+7. Bấm **Create**.
+8. Sao chép giá trị **Client ID** có dạng:
+
+```text
+123456789012-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com
+```
+
+> Chỉ dùng **Client ID**, không dùng Client Secret ở frontend. Client Secret không được
+> đưa vào Git, HTML hoặc JavaScript trình duyệt.
+
+## 3.4. Gắn Client ID vào dự án
+
+Mở file `.env` ở thư mục gốc và thay Client ID:
+
+```ini
+GOOGLE_CLIENT_ID=Client_ID_cua_ban.apps.googleusercontent.com
+```
+
+Frontend hiện đang dùng Client ID trong file [app.js](./frontend/js/app.js).
+Nếu bạn thay sang Client ID riêng, hãy thay cùng một giá trị ở phần cấu hình
+`client_id` trong file đó.
+
+Sau đó build lại backend và frontend:
+
+```bash
+docker compose up -d --build
+```
+
+Mở lại `https://localhost` bằng **Ctrl + F5**, bấm nút **Đăng nhập bằng Google**
+và chọn tài khoản Gmail đã thêm trong **Test users**.
+
+## 3.5. Khi chạy bằng HTTPS localhost hoặc domain thật
+
+Google kiểm tra origin rất chính xác. Các địa chỉ sau là khác nhau:
+
+```text
+https://localhost
+http://localhost:8080
+http://localhost:3000
+https://chat.example.com
+```
+
+Bạn phải thêm từng origin thực tế vào **Authorized JavaScript origins**.
+Không thêm `*`, không thêm URL API `/api`, và không thêm đường dẫn `/login`.
+
+Nếu trình duyệt báo:
+
+```text
+The given origin is not allowed for the given client ID
+```
+
+hãy kiểm tra ba điểm:
+
+1. Địa chỉ trên thanh trình duyệt có đúng với origin đã khai báo không.
+2. Client ID trong `.env` và `frontend/js/app.js` có giống nhau không.
+3. Bạn đã bấm **Save** trong Google Cloud Console và chờ vài phút để cấu hình cập nhật chưa.
+
+---
+
+# 4. TÀI KHOẢN DÙNG THỬ
 
 Mật khẩu chung: **`password123`**
 
@@ -156,7 +270,7 @@ Ngoài ra có phòng riêng tư `🔒 Nhóm Trưởng`, chỉ `user1` và `user2
 
 ---
 
-# 4. CÁC LẦN SAU
+# 5. CÁC LẦN SAU
 
 ```bash
 # 1. Mở Docker Desktop, chờ khởi động xong
@@ -188,7 +302,7 @@ docker compose exec backend python seed_users.py
 
 ---
 
-# 5. THỬ TỪNG TÍNH NĂNG
+# 6. THỬ TỪNG TÍNH NĂNG
 
 Muốn thấy realtime thì phải mở **nhiều cửa sổ** và đăng nhập tài khoản khác nhau:
 
@@ -245,7 +359,7 @@ Giao diện Swagger, bấm "Try it out" để gọi thử API ngay trên trình 
 
 ---
 
-# 6. THỬ TRÊN ĐIỆN THOẠI VÀ MÁY KHÁC
+# 7. THỬ TRÊN ĐIỆN THOẠI VÀ MÁY KHÁC
 
 Tất cả thiết bị phải **cùng một mạng Wi-Fi** với máy chạy server. Không có Wi-Fi chung thì bật điểm phát sóng trên điện thoại rồi cho laptop kết nối vào.
 
@@ -407,7 +521,7 @@ docker compose --profile turn up -d
 
 ---
 
-# 7. LỆNH BẢO TRÌ
+# 8. LỆNH BẢO TRÌ
 
 | Việc | Lệnh |
 | --- | --- |
@@ -443,7 +557,7 @@ docker compose exec backend python seed_users.py
 
 ---
 
-# 8. XỬ LÝ SỰ CỐ
+# 9. XỬ LÝ SỰ CỐ
 
 ## `docker compose` báo lỗi 500 hoặc "daemon is not running"
 
@@ -497,7 +611,7 @@ Trình duyệt dùng lại file JS trong cache. Nhấn `Ctrl + F5` (Windows) ho�
 
 ---
 
-# 9. CHECKLIST TRƯỚC KHI DEMO
+# 10. CHECKLIST TRƯỚC KHI DEMO
 
 **Chuẩn bị**
 
@@ -524,7 +638,7 @@ Trình duyệt dùng lại file JS trong cache. Nhấn `Ctrl + F5` (Windows) ho�
 
 ---
 
-# 10. PHỤ LỤC: CHẠY KHÔNG CẦN NGINX
+# 11. PHỤ LỤC: CHẠY KHÔNG CẦN NGINX
 
 Cách cũ, giữ lại để tham khảo. Cần cài sẵn Python trên máy.
 
