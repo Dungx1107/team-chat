@@ -42,6 +42,7 @@ flowchart LR
 | [12 - Deployment](12-deployment.md) | Compose, Dockerfile, Nginx, certificate |
 | [13 - Security](13-security.md) | Cơ chế hiện có và rủi ro cần lưu ý |
 | [14 - Code flow](14-code-flow.md) | Luồng login, message, room, upload, call |
+| [15 - Dịch vụ bên thứ ba](15-third-party-services.md) | Đăng ký và chạy TURN, Cloudflare Tunnel cho tính năng gọi |
 
 ## Traceability nhanh
 
