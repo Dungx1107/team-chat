@@ -1,287 +1,317 @@
 # Team Chat
 
-Hệ thống chat nội bộ theo phòng, hỗ trợ xác thực người dùng, phân quyền thành viên, tin nhắn realtime qua WebSocket, tệp đính kèm, ảnh đại diện và reaction.
+Ứng dụng chat nội bộ theo phòng. Hệ thống có tài khoản, phòng công khai/riêng tư, phân quyền thành viên, tin nhắn và tệp đính kèm, cập nhật realtime qua WebSocket, gọi thoại/video qua WebRTC.
 
-Tài liệu này mô tả kiến trúc, đặc tả kỹ thuật, giao diện API và quy trình triển khai của dự án.
+Backend là **monolith có phân tầng**, sử dụng FastAPI, PostgreSQL và SQLAlchemy. Frontend HTML/CSS/JavaScript được Nginx phục vụ qua HTTPS. Docker Compose chạy ba service mặc định: `db`, `backend`, `web`; có thêm `turn` tùy chọn.
 
-## 1. Tổng quan
+## 1. Chức năng và công nghệ
 
-### 1.1. Mục tiêu
+| Nhóm | Phần đã triển khai trong mã |
+|---|---|
+| Tài khoản | Đăng ký, đăng nhập email/mật khẩu, Google ID token login, access JWT và rotation refresh token |
+| Hồ sơ | Xem/sửa hồ sơ, avatar, bio, trạng thái cá nhân, tìm kiếm người dùng |
+| Phòng | Phòng công khai/riêng tư, danh sách phòng, sửa/xóa, tham gia/rời phòng, avatar và màu phòng|
+| Thành viên | Mời/xóa thành viên, vai trò OWNER/ADMIN/MEMBER, nickname theo phòng |
+| Tin nhắn | Gửi/đọc, trả lời, chỉnh sửa, xóa mềm, ghim/bỏ ghim, tin SYSTEM |
+| File và reaction | Tin nhắn có file, tải/stream attachment, danh sách media, bật/tắt reaction |
+| Realtime | Sự kiện message/room/user/call, online/offline, typing, reconnect và subscribe phòng |
+| Cuộc gọi | Gọi thoại/video 1–1 và theo phòng, tham gia/rời nhóm, lịch sử cuộc gọi, signaling WebRTC |
 
-- Cung cấp không gian trao đổi theo phòng công khai hoặc riêng tư.
-- Quản lý tài khoản, hồ sơ cá nhân và trạng thái online.
-- Gửi tin nhắn văn bản, tệp đính kèm và biểu cảm.
-- Cập nhật tin nhắn, thành viên và trạng thái typing theo thời gian thực.
-- Tách biệt lớp API, nghiệp vụ, domain, persistence và hạ tầng để dễ bảo trì.
+Giới hạn hiện tại: nội dung tin nhắn tối đa **4.000 ký tự tại API schema**; attachment tối đa **25 MiB**; avatar tối đa **5 MiB**, nhận JPEG/PNG/GIF/WEBP; cuộc gọi nhóm tối đa **6 người**. Reaction hợp lệ: 👍 ❤️ 😂 😮 😢 🎉.
 
-### 1.2. Phạm vi chức năng
+| Thành phần | Công nghệ |
+|---|---|
+| Backend | Python 3.11 trong Docker, FastAPI, Uvicorn |
+| Validation/config | Pydantic, pydantic-settings |
+| Persistence | PostgreSQL 16, SQLAlchemy, Psycopg 3 |
+| Security | bcrypt trực tiếp, PyJWT, google-auth |
+| Frontend | HTML, CSS, JavaScript thuần, Tailwind CDN; không có bước build frontend |
+| Realtime/media | WebSocket, WebRTC mesh, STUN/TURN |
+| Triển khai | Docker Compose, Nginx, OpenSSL; coturn tùy chọn |
 
-| Nhóm | Chức năng |
-| --- | --- |
-| Tài khoản | Đăng ký, đăng nhập, làm mới phiên, quản lý hồ sơ và avatar |
-| Phòng chat | Tạo, xem, cập nhật, xóa phòng; tham gia/rời phòng |
-| Thành viên | Mời, xóa, xem danh sách và thay đổi vai trò thành viên |
-| Tin nhắn | Gửi, đọc, xóa mềm tin nhắn văn bản hoặc tin nhắn có file |
-| Realtime | Kết nối WebSocket, subscribe phòng, typing, cập nhật sự kiện |
-| Tệp | Upload attachment, lưu persistent, tải/stream theo quyền truy cập |
-| Phản ứng | Toggle reaction trên tin nhắn |
+## 2. Chạy bằng Docker Compose
 
-## 2. Kiến trúc hệ thống
+### 2.1. Chuẩn bị
 
-Hệ thống gồm ba thành phần triển khai chính:
+- Docker Engine/Desktop và Docker Compose đang hoạt động.
+- Các cổng mặc định `80`, `443`, `8000`, `5432` và cổng tunnel trên loopback `8080` còn trống, hoặc đổi cổng trong `.env`.
+- Có mạng để tải image, dependency và các tài nguyên CDN/dịch vụ bên ngoài.
+
+Nếu chưa có source:
+
+```bash
+git clone https://github.com/Dungx1107/team-chat.git
+cd team-chat
+```
+
+Các lệnh Compose bên dưới chạy tại thư mục chứa `docker-compose.yml`.
+
+### 2.2. Tạo cấu hình lần đầu
+
+Chỉ sao chép khi chưa có `.env`; giữ cấu hình hiện có nếu project đã được thiết lập.
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Bash:
+
+```bash
+cp .env.example .env
+```
+
+### 2.3. Khởi động
+
+```bash
+docker compose up -d --build
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail=100 backend web
+```
+
+`backend` chờ `db` healthy. Khi khởi động, backend tạo các bảng chưa có và thực hiện một số câu ALTER tương thích schema. Nginx tạo chứng chỉ tự ký khi volume `certs` chưa có chứng chỉ.
+
+| Địa chỉ mặc định | Mục đích |
+|---|---|
+| `https://localhost` | Giao diện qua Nginx |
+| `https://localhost/docs` | Swagger UI |
+| `https://localhost/redoc` | ReDoc |
+| `https://localhost/api/openapi.json` | OpenAPI |
+| `https://localhost/health` | Trạng thái process backend |
+| `wss://localhost/ws?token=<access_token>` | Kết nối realtime |
+| `http://localhost:8000/docs` | Truy cập backend trực tiếp khi phát triển |
+
+Chứng chỉ mặc định là tự ký; thiết bị demo cần tin cậy/chấp nhận chứng chỉ và cấp quyền camera/micro. `/health` trả trạng thái ứng dụng và số user online trong process, **không phải** kiểm tra toàn diện DB/storage/media.
+
+### 2.4. Dữ liệu mẫu
+
+Sau khi backend khởi động thành công:
+
+```bash
+docker compose exec backend python seed_users.py
+```
+
+Trên DB mới, script tạo các tài khoản dưới đây, dùng chung mật khẩu demo **`password123`**:
+
+| Email | Username | Vai trò trong Phòng Kiến Trúc |
+|---|---|---|
+| `user1@example.com` | `dungx` | OWNER |
+| `user2@example.com` | `namtv` | ADMIN |
+| `user3@example.com` | `anhlh` | MEMBER |
+| `user4@example.com` | `maipt` | Chưa được script thêm vào phòng |
+
+Script còn tạo phòng riêng tư **Nhóm Trưởng** cho user1 và user2, cùng tin nhắn mẫu. Script bỏ qua tài khoản/phòng đã tồn tại; không bảo đảm sửa lại mọi trạng thái nếu dữ liệu demo đã bị thay đổi. 
+
+### 2.5. Dừng và chạy lại
+
+```bash
+docker compose down
+docker compose up -d
+```
+
+`down` giữ named volume. **`docker compose down -v` xóa cả dữ liệu PostgreSQL, file upload và chứng chỉ trong các volume của project**; không dùng lệnh này như bước cập nhật schema thông thường.
+
+## 3. Cấu hình môi trường
+
+Nguồn cấu hình: `.env.example`, `backend/app/config.py` và `docker-compose.yml`. Có biến được code hỗ trợ nhưng chưa có dòng mẫu trong `.env.example`; có thể bổ sung vào `.env`.
+
+| Biến | Vai trò và hành vi hiện tại |
+|---|---|
+| `PROJECT_NAME` | Tên hiển thị của API |
+| `ENVIRONMENT` | Có trong file mẫu; chưa được `Settings` sử dụng để bật/tắt chế độ ứng dụng |
+| `PORT` | Cổng host của backend, mặc định 8000; Uvicorn trong container luôn nghe 8000 |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Khởi tạo PostgreSQL và dựng URL kết nối của backend trong Compose |
+| `POSTGRES_PORT` | Cổng PostgreSQL trên host, mặc định 5432; backend trong Docker vẫn gọi `db:5432` |
+| `POSTGRES_HOST` | Có trong file mẫu; Compose hiện cố định host backend kết nối là `db` |
+| `DATABASE_URL` | URL SQLAlchemy; khi chạy Compose bị giá trị `backend.environment` ghi đè |
+| `JWT_SECRET_KEY`, `JWT_ALGORITHM` | Secret và thuật toán ký/kiểm tra JWT, mặc định thuật toán HS256 |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `Settings` mặc định 1440, nhưng hàm cấp access token hiện dùng 60 phút; chỉnh biến này chưa tự đổi TTL |
+| `UPLOAD_DIR` | Thư mục file; Compose ghi đè thành `/app/uploads` và gắn volume `uploads` |
+| `MAX_UPLOAD_BYTES` | Có trong Settings nhưng giới hạn attachment hiện nằm tại entity, 25 MiB |
+| `CORS_ORIGINS` | `*` hoặc danh sách origin phân cách bằng dấu phẩy; mặc định `*` |
+| `GOOGLE_CLIENT_ID` | Audience dùng xác minh Google ID token; cần đồng bộ với client ID phía frontend |
+| `WS_IDLE_TIMEOUT_SECONDS` | Thời gian không nhận frame từ client trước khi đóng socket, mặc định 90 giây |
+| `HTTPS_PORT`, `HTTP_PORT` | Cổng host Nginx, mặc định 443/80 |
+| `CERT_IPS` | Danh sách IP LAN cách nhau bằng dấu phẩy, dùng khi tạo chứng chỉ lần đầu |
+| `TUNNEL_PORT` | Cổng HTTP Nginx chỉ map trên `127.0.0.1`, mặc định 8080 |
+| `ICE_SERVERS` | Danh sách STUN/TURN cho WebRTC |
+| `TURN_EXTERNAL_IP`, `TURN_USER`, `TURN_PASSWORD` | Cấu hình coturn khi bật profile `turn` |
+
+### Google login
+
+Backend nhận `credential` từ frontend, xác minh Google ID token rồi cấp bộ token của ứng dụng. Để dùng OAuth client của nhóm:
+
+1. Cấu hình origin truy cập ứng dụng trong OAuth client Google của nhóm.
+2. Đặt `GOOGLE_CLIENT_ID` tương ứng ở backend.
+3. Cập nhật `client_id` trong `initGoogleSignIn()` của `frontend/js/app.js` cho trùng nhau.
+4. Recreate backend sau khi thay `.env` và tải lại frontend.
+
+Frontend hiện chứa client ID trực tiếp trong JavaScript; chỉ sửa `.env` chưa cập nhật được phía frontend. Đăng nhập email/mật khẩu là luồng riêng, không cần cấu hình Google.
+
+### STUN/TURN
+
+Code chấp nhận dạng ngắn:
+
+```dotenv
+ICE_SERVERS=stun:stun.l.google.com:19302,turn:turn.example.com:3478|USERNAME|PASSWORD
+```
+
+Hoặc JSON một dòng:
+
+```dotenv
+ICE_SERVERS=[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"USERNAME","credential":"PASSWORD"}]
+```
+
+Để thử coturn kèm project, đặt IP/credential của máy chủ, thêm URL TURN tương ứng vào `ICE_SERVERS`, rồi chạy:
+
+```bash
+docker compose --profile turn up -d
+docker compose exec backend python check_turn.py
+```
+
+Bật container `turn` **không tự thêm** TURN vào `ICE_SERVERS`. Service này dùng `network_mode: host`; khả năng truy cập phụ thuộc cấu hình Docker/network của máy. Coturn được cấu hình cổng 3478 và dải relay 50000–50010. Chẩn đoán STUN/TURN không thay thế việc thử media giữa hai thiết bị thực tế.
+
+## 4. Kiến trúc và tổ chức mã nguồn
+
+### 4.1. Sơ đồ triển khai
+```mermaid
+flowchart LR
+    A[Trình duyệt A] -->|HTTPS / WSS| W[Nginx: frontend và reverse proxy]
+    B[Trình duyệt B] -->|HTTPS / WSS| W
+    W -->|HTTP API / WebSocket| API[FastAPI + Uvicorn]
+    API --> DB[(PostgreSQL)]
+    API --> F[(uploads volume)]
+    A <-->|WebRTC media khi kết nối trực tiếp được| B
+    A <-->|Media relay khi cần| T[TURN tùy chọn]
+    T <-->|Media relay| B
+```
+
+Nginx phục vụ frontend, kết thúc TLS và proxy `/api`, `/ws`, tài liệu API và health sang backend. Compose cũng publish cổng backend và DB ra host, nên Nginx không phải đường truy cập duy nhất được cấu hình. Backend xử lý nghiệp vụ và signaling; không chuyển tiếp luồng âm thanh/video như SFU.
+
+### 4.2. Phân tầng và hướng phụ thuộc
+
+| Phần | Trách nhiệm | Thành phần |
+|---|---|---|
+| API | HTTP/WS, schema, status code, nhận danh tính, wiring dependency | Router, 28 schema Pydantic, middleware, dependency factory |
+| Service | Điều phối use case, quyền, phối hợp repository/storage/event | 5 service |
+| Domain | Entity, hành vi nghiệp vụ, contract truy cập hạ tầng | 9 entity và 9 interface |
+| Repository | Query SQLAlchemy, ghi dữ liệu, mapping domain ↔ ORM | 7 implementation |
+| Infrastructure | Session/ORM, JWT/bcrypt, filesystem, socket | DB, security, LocalFileStorage, ConnectionManager |
 
 ```mermaid
 flowchart LR
-    Browser[Trình duyệt]
-    Web[Nginx\nHTTPS :443 / HTTP :80\nTunnel :8080]
-    Backend[FastAPI + Uvicorn\nHTTP :8000\nWebSocket /ws]
-    Database[(PostgreSQL 16)]
-    Storage[(Docker volume\nuploads)]
-
-    Browser --> Web
-    Web -->|static frontend, /api, /ws| Backend
-    Backend --> Database
-    Backend --> Storage
+    API[API router] --> S[Service]
+    S --> D[Domain entity]
+    S --> P[Interface trong domain]
+    R[Repository / storage / publisher adapter] -. implements .-> P
+    R --> I[SQLAlchemy / filesystem / WebSocket]
 ```
 
-### 2.1. Backend
+Sơ đồ trên biểu diễn **phụ thuộc mã nguồn**. Khi thực thi, service gọi phương thức interface trên object implementation đã được inject, rồi implementation thao tác DB/file/socket.
 
-Backend chạy bằng FastAPI và Uvicorn, được tổ chức theo các lớp:
+| Service | Dependency nghiệp vụ/hạ tầng được inject |
+|---|---|
+| `AuthService` | IUserRepository, IRefreshTokenRepository, IRoomRepository |
+| `RoomService` | IRoomRepository, IUserRepository, IEventPublisher, IFileStorage |
+| `MessageService` | IMessageRepository, IRoomRepository, IAttachmentRepository, IReactionRepository, IFileStorage, IEventPublisher |
+| `UserService` | IUserRepository, IFileStorage, IEventPublisher |
+| `CallService` | ICallRepository, IRoomRepository, IUserRepository, IEventPublisher |
+
+Các factory `get_auth_service`, `get_room_service`, `get_message_service`, `get_user_service`, `get_call_service` tạo implementation và truyền vào constructor. `get_db` cấp/đóng session. `LocalFileStorage` implement `IFileStorage`; `ConnectionManager` và `NullEventPublisher` implement `IEventPublisher`.
+
+Các cơ chế được áp dụng: Service Layer, Repository, Data Mapper, DI, DIP qua interface, một số ranh giới ports/adapters, DTO/schema, middleware, RBAC theo phòng, publish/subscribe trong process, Null Object và state machine cuộc gọi.
+
+Ranh giới hiện chưa hoàn toàn nhất quán: router phòng còn truy cập repository và điều phối nickname; WebSocket tự mở session và kiểm tra quyền phòng; AuthService import trực tiếp security/config/Google. Vì vậy cách mô tả phù hợp là **monolith có phân tầng và nhiều yếu tố theo hướng Clean Architecture**. Nhiều container không làm các class service trở thành microservices.
+
+### 4.3. Cấu trúc thư mục
 
 ```text
-backend/app/
-├── api/                 # Router, schema HTTP, middleware, dependency wiring
-├── domain/              # Entity và interface nghiệp vụ
-├── services/            # Use case và luật nghiệp vụ
-├── repositories/        # Adapter truy cập dữ liệu qua SQLAlchemy
-├── infra/
-│   ├── db/              # Engine, session, ORM model
-│   ├── realtime/        # ConnectionManager cho WebSocket
-│   ├── security/        # JWT và hash mật khẩu
-│   └── storage/         # Lưu file cục bộ
-└── main.py              # Khởi tạo FastAPI và đăng ký router
+team-chat/
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── routers/       # auth, rooms, messages, users, calls, ws
+│   │   │   ├── schemas/       # Contract Pydantic
+│   │   │   ├── middlewares/  # AuthenticationMiddleware
+│   │   │   └── dependencies.py
+│   │   ├── domain/
+│   │   │   ├── models/        # Entity nghiệp vụ
+│   │   │   └── interfaces/    # Repository, storage, event ports
+│   │   ├── services/          # Auth, Room, Message, User, Call
+│   │   ├── repositories/     # Implementation dùng SQLAlchemy
+│   │   ├── infra/
+│   │   │   ├── db/            # ORM model, engine, session
+│   │   │   ├── realtime/      # ConnectionManager
+│   │   │   ├── security/      # JWT, password
+│   │   │   └── storage/       # LocalFileStorage
+│   │   ├── config.py
+│   │   └── main.py
+│   ├── seed_users.py
+│   ├── check_turn.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── frontend/
+│   ├── index.html
+│   ├── css/style.css
+│   └── js/                   # api, app, rooms, messages, profile, ui, ws, call
+├── deploy/nginx/              # Nginx config, Dockerfile, tạo chứng chỉ
+├── docs/                     # Tài liệu kỹ thuật theo chủ đề
+├── .env.example
+├── docker-compose.yml
+├── RUN_GUIDE.md
+└── README.md
 ```
 
-Luồng xử lý HTTP tiêu chuẩn:
+## 5. Luồng xử lý chính
 
-```text
-Request
-  -> Middleware xác thực
-  -> Router
-  -> Dependency injection
-  -> Service
-  -> Domain interface / Repository / Infrastructure adapter
-  -> PostgreSQL hoặc file storage
-  -> Response schema
-```
+### Đăng nhập và gọi API có xác thực
 
-Service không phụ thuộc trực tiếp vào FastAPI hoặc SQLAlchemy cho logic nghiệp vụ. Repository chịu trách nhiệm chuyển đổi giữa ORM model và domain model.
+1. Frontend gửi email/mật khẩu tới `POST /api/auth/login`.
+2. Router validate schema và gọi AuthService.
+3. Service lấy user qua repository, kiểm tra mật khẩu bằng bcrypt và trạng thái tài khoản.
+4. Backend cấp access JWT; tạo refresh token ngẫu nhiên và lưu SHA-256 hash vào DB.
+5. Frontend lưu token/user trong localStorage. Request sau gửi `Authorization: Bearer <access_token>`.
+6. Middleware kiểm tra JWT và gắn `request.state.user_id`; endpoint lấy danh tính qua `get_current_user_id`.
+7. Khi request nhận 401, REST client thử refresh và gửi lại một lần. Refresh token cũ bị thu hồi khi rotation thành công.
 
-### 2.2. Frontend
+Access token hiện mặc định **60 phút**, refresh token **7 ngày**. Logout phía frontend xóa phiên cục bộ; chưa có endpoint logout thu hồi phiên phía server.
 
-Frontend là ứng dụng tĩnh, không dùng bundler hoặc framework JavaScript:
+### Gửi tin nhắn
 
-```text
-frontend/
-├── index.html       # Layout đăng nhập, chat, modal và các view chính
-├── css/style.css    # CSS bổ sung
-└── js/
-    ├── api.js       # REST client, token, refresh, upload/download
-    ├── app.js       # Vòng đời ứng dụng và điều phối sự kiện
-    ├── messages.js  # Tin nhắn, file, reaction, typing
-    ├── profile.js   # Hồ sơ người dùng và avatar
-    ├── rooms.js     # Phòng và thành viên
-    ├── ui.js        # Tiện ích giao diện
-    └── ws.js        # WebSocket, reconnect và subscribe phòng
-```
+1. Client gửi `POST /api/rooms/{room_id}/messages` với JSON và Bearer token.
+2. MessageService kiểm tra phòng, membership; phòng công khai có thể tự thêm người gửi, phòng riêng tư cần được mời.
+3. Nếu trả lời một tin nhắn, service kiểm tra tin gốc thuộc cùng phòng.
+4. Tạo domain Message; MessageRepository chuyển sang ORM, lưu DB rồi trả domain entity.
+5. Service phát `message.created` và `room.summary_updated` qua IEventPublisher.
+6. ConnectionManager chuyển event tới các socket đang subscribe; API đồng thời trả response cho người gửi.
 
-Frontend dùng Tailwind CDN trong `index.html` kết hợp với `frontend/css/style.css`. Frontend được Nginx phục vụ cùng origin với API và WebSocket:
+### Gửi file
 
-```text
-Giao diện: https://<hostname>/
-REST:      https://<hostname>/api
-WebSocket: wss://<hostname>/ws
-```
+API nhận multipart → service kiểm tra quyền → LocalFileStorage ghi file bằng tên vật lý UUID → Attachment kiểm tra metadata/size → lưu attachment → lưu message loại FILE → phát event. File không hợp lệ được dọn trong nhánh validation; lỗi DB ở bước sau chưa có cơ chế rollback chung với filesystem.
 
-Chạy HTTPS là cần thiết cho quyền microphone/camera của trình duyệt khi dùng
-tính năng gọi. Backend vẫn lắng nghe nội bộ ở cổng `8000`; người dùng truy cập
-qua Nginx, không truy cập trực tiếp frontend bằng Python HTTP Server.
+### Tạo phòng và quản lý thành viên
 
-### 2.3. Docker và triển khai
+Ý định use case: tạo Room → lưu phòng → thêm membership OWNER → trả kết quả. Các thao tác sửa/xóa/mời/đổi vai trò kiểm tra RoomMember của người thực hiện.
 
-`docker-compose.yml` định nghĩa ba service chạy mặc định:
+### Gọi thoại/video
 
-| Service | Công nghệ | Cổng | Persistent data |
-| --- | --- | --- | --- |
-| `db` | PostgreSQL 16 Alpine | Host `5432` -> container `5432` | Volume `pgdata` |
-| `backend` | Python 3.11 + Uvicorn | Host `${PORT:-8000}` -> container `8000` | Volume `uploads` |
-| `web` | Nginx Alpine | `${HTTPS_PORT:-443}`, `${HTTP_PORT:-80}`, tunnel `127.0.0.1:${TUNNEL_PORT:-8080}` | Volume `certs` |
+REST tạo/nhận/từ chối/kết thúc call → CallService kiểm tra quyền và chuyển trạng thái domain Call → repository lưu trạng thái/participants → publisher thông báo client. Offer/answer/ICE đi qua action WebSocket `call.signal`. Browser trao đổi media qua WebRTC trực tiếp hoặc TURN. Gọi nhóm dùng mesh, giới hạn 6 người; project chưa có SFU.
 
-Đặc điểm container backend:
+## 6. Mô hình dữ liệu
 
-- Chờ database đạt trạng thái healthy trước khi khởi động.
-- Chạy bằng user non-root `appuser`.
-- Mount mã nguồn `./backend:/app` trong môi trường phát triển.
-- Lưu file tại `/app/uploads` và ánh xạ vào named volume `uploads`.
-- Frontend được mount read-only vào Nginx và chạy cùng service `web`.
-- Cổng `8080` chỉ bind trên localhost để dùng với Cloudflare Tunnel/ngrok.
-
-## 3. Đặc tả giao diện
-
-### 3.1. Địa chỉ dịch vụ
-
-| Thành phần | URL mặc định | Mô tả |
-| --- | --- | --- |
-| Giao diện | `https://localhost` | Frontend qua Nginx |
-| Backend API | `https://localhost/api` | REST API qua Nginx |
-| Swagger UI | `https://localhost/docs` | Tài liệu API tương tác |
-| ReDoc | `https://localhost/redoc` | Tài liệu API dạng ReDoc |
-| OpenAPI | `https://localhost/api/openapi.json` | Đặc tả OpenAPI |
-| Health check | `https://localhost/health` | Kiểm tra trạng thái backend |
-| WebSocket | `wss://localhost/ws` | Kênh realtime |
-
-### 3.2. REST API
-
-Các endpoint nghiệp vụ đều nằm dưới prefix `/api`. Những endpoint cần xác thực nhận header:
-
-```http
-Authorization: Bearer <access_token>
-```
-
-#### Xác thực
-
-| Method | Endpoint | Mô tả |
-| --- | --- | --- |
-| `POST` | `/api/auth/register` | Tạo tài khoản |
-| `POST` | `/api/auth/login` | Đăng nhập và cấp token |
-| `POST` | `/api/auth/refresh` | Rotation refresh token |
-
-#### Phòng và thành viên
-
-| Method | Endpoint | Mô tả |
-| --- | --- | --- |
-| `POST` | `/api/rooms` | Tạo phòng |
-| `GET` | `/api/rooms` | Liệt kê phòng mình đã tham gia |
-| `GET` | `/api/rooms/search?q=` | Tìm phòng công khai theo tên (cách duy nhất để thấy phòng chưa tham gia) |
-| `GET` | `/api/rooms/{room_id}` | Xem thông tin phòng |
-| `PATCH` | `/api/rooms/{room_id}` | Cập nhật tên/mô tả |
-| `DELETE` | `/api/rooms/{room_id}` | Xóa phòng |
-| `POST` | `/api/rooms/{room_id}/join` | Tham gia phòng công khai |
-| `DELETE` | `/api/rooms/{room_id}/leave` | Rời phòng |
-| `GET` | `/api/rooms/{room_id}/members` | Liệt kê thành viên |
-| `POST` | `/api/rooms/{room_id}/members` | Thêm thành viên trực tiếp |
-| `POST` | `/api/rooms/{room_id}/invites` | Gửi lời mời chờ chấp nhận |
-| `GET` | `/api/rooms/notifications/invites` | Lấy lời mời đang chờ |
-| `POST` | `/api/rooms/notifications/invites/{invite_id}/accept` | Chấp nhận lời mời |
-| `POST` | `/api/rooms/notifications/invites/{invite_id}/reject` | Từ chối lời mời |
-| `DELETE` | `/api/rooms/{room_id}/members/{user_id}` | Xóa thành viên |
-| `PATCH` | `/api/rooms/{room_id}/members/{user_id}/role` | Đổi vai trò |
-
-Quyền thành viên theo thứ tự: `OWNER > ADMIN > MEMBER`. Phòng công khai có thể được tìm thấy bởi mọi user đã đăng nhập; phòng riêng chỉ hiển thị với thành viên. Khi có lời mời, server phát event WebSocket `room.invite`; khi người nhận chấp nhận, họ được thêm vào phòng và nhận tin nhắn hệ thống thông báo đã vào phòng.
-
-#### Tin nhắn và file
-
-| Method | Endpoint | Mô tả |
-| --- | --- | --- |
-| `POST` | `/api/rooms/{room_id}/messages` | Gửi tin nhắn văn bản |
-| `POST` | `/api/rooms/{room_id}/messages/upload` | Gửi tin nhắn kèm file |
-| `GET` | `/api/rooms/{room_id}/messages` | Lấy lịch sử tin nhắn |
-| `PATCH` | `/api/messages/{message_id}` | Chỉnh sửa tin nhắn của mình |
-| `DELETE` | `/api/messages/{message_id}` | Thu hồi tin nhắn |
-| `POST` | `/api/messages/{message_id}/pin` | Ghim tin nhắn (OWNER/ADMIN) |
-| `DELETE` | `/api/messages/{message_id}/pin` | Bỏ ghim tin nhắn (OWNER/ADMIN) |
-| `POST` | `/api/messages/{message_id}/reactions` | Toggle reaction |
-| `GET` | `/api/attachments/{attachment_id}` | Stream hoặc tải file |
-
-Giới hạn nghiệp vụ chính:
-
-- Nội dung tin nhắn tối đa 4000 ký tự.
-- File đính kèm tối đa 25 MB.
-- Reaction hợp lệ: `👍`, `❤️`, `😂`, `😮`, `😢`, `🎉`.
-- File ảnh, video và audio được stream inline; loại file khác được tải xuống.
-
-#### Người dùng
-
-| Method | Endpoint | Mô tả |
-| --- | --- | --- |
-| `GET` | `/api/users/me` | Lấy hồ sơ hiện tại |
-| `PATCH` | `/api/users/me` | Cập nhật hồ sơ |
-| `POST` | `/api/users/me/avatar` | Upload avatar |
-| `GET` | `/api/users/search?q=...` | Tìm người dùng |
-| `GET` | `/api/users/online` | Danh sách user online |
-| `GET` | `/api/users/{user_id}` | Xem hồ sơ người dùng |
-| `GET` | `/api/users/{user_id}/avatar` | Lấy avatar |
-
-Avatar chỉ nhận JPEG, PNG, GIF hoặc WEBP, tối đa 5 MB. Endpoint avatar được thiết kế public để trình duyệt có thể tải ảnh trực tiếp.
-
-### 3.3. WebSocket protocol
-
-Kết nối bằng access token trên query string:
-
-```text
-ws://<host>:8000/ws?token=<access_token>
-```
-
-Token nằm trên query string vì trình duyệt không cho tùy biến header `Authorization` khi khởi tạo WebSocket.
-
-Các action client gửi:
-
-```json
-{"action":"subscribe","room_id":1}
-{"action":"unsubscribe","room_id":1}
-{"action":"typing.start","room_id":1}
-{"action":"typing.stop","room_id":1}
-{"action":"ping"}
-```
-
-Các event server phát:
-
-- `connected`
-- `message.created`
-- `message.updated`, `message.deleted`, `message.reaction`, `message.pinned`
-- `user.updated`, `user.online`, `user.offline`
-- `typing.start`, `typing.stop`
-- `room.member_joined`
-- `room.member_left`
-- `room.role_changed`
-- `room.updated`
-- `room.deleted`
-- `room.invite`
-- `error`
-
-`ConnectionManager` lưu kết nối, subscription và trạng thái online trong memory của process backend hiện tại.
-
-Khi thay đổi schema database trong Pha 1 (không dùng Alembic), reset volume rồi dựng lại:
-
-```bash
-docker compose down -v
-docker compose up --build
-```
-
-## 4. Xác thực và bảo mật
-
-### 4.1. Luồng xác thực
-
-1. Đăng ký tạo user mới; mật khẩu được hash bằng Passlib/bcrypt.
-2. Đăng nhập kiểm tra email và mật khẩu.
-3. Backend cấp JWT access token và refresh token ngẫu nhiên.
-4. Database chỉ lưu SHA-256 hash của refresh token.
-5. Middleware xác thực access token và gắn `request.state.user_id`.
-6. Frontend lưu access token, refresh token và user hiện tại trong `localStorage`.
-7. Khi nhận HTTP `401`, frontend gọi `/api/auth/refresh`, cập nhật token và retry request một lần.
-8. Refresh token được rotation và có thời hạn 7 ngày.
-
-Access token hiện được tạo với thời hạn 60 phút trong `backend/app/infra/security/jwt.py`. Biến `ACCESS_TOKEN_EXPIRE_MINUTES` có trong cấu hình nhưng cần được kiểm tra nếu muốn dùng làm nguồn cấu hình thực tế.
-
-### 4.2. Lưu trữ file
-
-- `LocalFileStorage` lưu file trong `UPLOAD_DIR`.
-- Tên vật lý trên đĩa được thay bằng UUID và giữ phần mở rộng.
-- Có kiểm tra path traversal.
-- Attachment lưu metadata trong database.
-- Docker named volume `uploads` giúp dữ liệu file tồn tại qua lần recreate container.
-
-## 5. Mô hình dữ liệu
+| Domain entity | ORM model | Bảng | Nội dung |
+|---|---|---|---|
+| User | UserModel | `users` | Tài khoản và hồ sơ |
+| RefreshToken | RefreshTokenModel | `refresh_tokens` | Token hash, hạn và trạng thái thu hồi |
+| Room | RoomModel | `rooms` | Phòng, owner, quyền riêng tư, avatar, màu |
+| RoomMember | RoomMemberModel | `room_members` | Membership, role, nickname |
+| Message | MessageModel | `messages` | TEXT/FILE/SYSTEM, reply, pin, trạng thái xóa mềm |
+| Attachment | AttachmentModel | `attachments` | Metadata và tên vật lý file |
+| Reaction | ReactionModel | `reactions` | User, message và emoji |
+| Call | CallModel | `calls` | DIRECT/GROUP, AUDIO/VIDEO, trạng thái và các mốc thời gian |
+| CallParticipant | CallParticipantModel | `call_participants` | Người tham gia, trạng thái, thời điểm vào/rời |
 
 ```mermaid
 erDiagram
@@ -292,222 +322,163 @@ erDiagram
     USERS ||--o{ MESSAGES : sends
     ROOMS ||--o{ MESSAGES : contains
     USERS ||--o{ ATTACHMENTS : uploads
-    ATTACHMENTS ||--o{ MESSAGES : attaches
+    ATTACHMENTS o|--o{ MESSAGES : attaches
     MESSAGES ||--o{ REACTIONS : receives
     USERS ||--o{ REACTIONS : creates
-
-    USERS {
-        int id PK
-        string email UK
-        string username UK
-        string password_hash
-        string first_name
-        string last_name
-        boolean is_active
-        string avatar_url
-        string bio
-        string status
-        datetime created_at
-    }
-    ROOMS {
-        int id PK
-        string name
-        string description
-        boolean is_private
-        int owner_id FK
-        datetime created_at
-    }
-    ROOM_MEMBERS {
-        int id PK
-        int room_id FK
-        int user_id FK
-        string role
-        datetime joined_at
-    }
-    MESSAGES {
-        int id PK
-        int room_id FK
-        int user_id FK
-        text content
-        string message_type
-        int attachment_id FK
-        boolean is_deleted
-        datetime edited_at
-        datetime created_at
-    }
+    ROOMS o|--o{ CALLS : hosts
+    USERS ||--o{ CALLS : initiates
+    CALLS ||--o{ CALL_PARTICIPANTS : contains
+    USERS ||--o{ CALL_PARTICIPANTS : participates
 ```
 
-Các bảng chính:
+Email và username là duy nhất. Các cặp/bộ `room_id + user_id`, `message_id + user_id + emoji`, `call_id + user_id` có unique constraint tương ứng. Message có index theo phòng/thời gian và phòng/trạng thái ghim. Các trường `reply_to_id`, `forwarded_from_id` tham chiếu message; có trường trong model không đồng nghĩa đã có đầy đủ API/UI sử dụng trường đó.
 
-- `users`: tài khoản và hồ sơ cá nhân.
-- `refresh_tokens`: refresh token đã hash, thời hạn và trạng thái thu hồi.
-- `rooms`: thông tin phòng và chủ phòng.
-- `room_members`: quan hệ nhiều-nhiều giữa user và room, kèm role.
-- `messages`: nội dung tin nhắn, loại tin, trạng thái xóa mềm và attachment.
-- `attachments`: metadata file và người upload.
-- `reactions`: reaction theo user và emoji.
+Domain chứa luật/hành vi; ORM chứa cấu trúc persistence; Pydantic schema chứa hợp đồng API. Repository ánh xạ giữa domain và ORM. `RoomRepository` quản lý cả membership; `CallRepository` quản lý cả participant, nên số repository không bằng số bảng.
 
-Ràng buộc đáng chú ý:
+Schema hiện được khởi tạo bằng `create_all()` và một số ALTER tại startup, chưa có migration version. `create_all()` không tự nâng cấp mọi cột/constraint của bảng đã tồn tại.
 
-- Email và username là duy nhất.
-- Một user chỉ có một membership trong một room.
-- Một user chỉ thả một reaction cùng loại trên một message.
-- Quan hệ user/room/message chính dùng `ON DELETE CASCADE`.
-- Khi attachment bị xóa, `messages.attachment_id` được đặt thành `NULL`.
-- Schema được tạo bằng `Base.metadata.create_all()`; dự án hiện chưa dùng migration framework.
+## 7. Xác thực và phân quyền
 
-## 6. Cấu hình môi trường
+HTTP dùng AuthenticationMiddleware kiểm tra access JWT tập trung; `get_current_user_id` lấy danh tính đã được middleware gắn. WebSocket xác thực token riêng lúc mở kết nối. CORSMiddleware xử lý chính sách origin, không thay thế xác thực.
 
-Tạo file `.env` từ `.env.example` và thay các giá trị bí mật trước khi triển khai.
+Các endpoint auth, GET avatar user/room, health và tài liệu API được miễn access JWT; login/Google/refresh vẫn tự kiểm tra credential của luồng tương ứng. OPTIONS được cho qua để xử lý preflight. 
 
-| Biến | Mặc định/ý nghĩa |
-| --- | --- |
-| `PROJECT_NAME` | Tên API |
-| `ENVIRONMENT` | Môi trường chạy |
-| `PORT` | Cổng host map vào backend, mặc định `8000` |
-| `POSTGRES_USER` | User PostgreSQL |
-| `POSTGRES_PASSWORD` | Mật khẩu PostgreSQL |
-| `POSTGRES_DB` | Tên database |
-| `POSTGRES_HOST` | Host database |
-| `POSTGRES_PORT` | Cổng database |
-| `DATABASE_URL` | Chuỗi kết nối SQLAlchemy |
-| `JWT_SECRET_KEY` | Secret ký JWT, phải đủ dài và bí mật |
-| `JWT_ALGORITHM` | Thuật toán JWT, mặc định `HS256` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Cấu hình thời hạn access token |
-| `UPLOAD_DIR` | Thư mục lưu file, mặc định `/app/uploads` |
-| `MAX_UPLOAD_BYTES` | Kích thước upload tối đa, mặc định 25 MB |
-| `CORS_ORIGINS` | Danh sách origin phân tách bằng dấu phẩy; `*` cho development |
+| Quyền trong phòng | OWNER | ADMIN | MEMBER |
+|---|---|---|---|
+| Gửi tin khi có membership hợp lệ | Có | Có | Có |
+| Sửa tin của chính mình | Có | Có | Có |
+| Xóa tin của chính mình | Có | Có | Có |
+| Moderation tin của người khác, ghim/bỏ ghim | Có | Có | Không |
+| Sửa thông tin phòng | Có | Có | Không |
+| Quản lý thành viên | Có | Có, còn xét thứ bậc mục tiêu | Không |
+| Đổi vai trò | Có | Không | Không |
+| Xóa phòng | Có | Không | Không |
 
-Không commit `.env` hoặc secret thật vào repository.
+Vai trò thuộc membership từng phòng, không phải một role toàn hệ thống. Phòng công khai có thể được thấy bởi người đã đăng nhập; phòng riêng chỉ hiển thị cho thành viên. Luồng đọc lịch sử/tải attachment kiểm tra membership.
 
-## 7. Khởi động hệ thống
+Mật khẩu được hash bằng bcrypt; code hiện cắt đầu vào ở 72 byte UTF-8 trước khi hash/verify. Refresh token lưu dạng hash trong DB; access JWT chứa `sub`, `exp`, `type`. Tên file vật lý được thay bằng UUID và adapter có kiểm tra đường dẫn. Cơ chế này chưa thay thế việc rà soát phiên, quyền và upload trước triển khai thực tế.
 
-### 7.1. Điều kiện
+## 8. Danh mục REST API
 
-- Docker Engine và Docker Compose.
-- Cổng `80`, `443`, `5432` và `8000` không bị tiến trình khác chiếm.
+Có **47 endpoint REST nghiệp vụ**: Auth 4, Rooms 16, Messages 10, Users 7, Calls 10; gồm GET 17, POST 20, PATCH 5, DELETE 5. Ngoài ra có `GET /health`, `/ws` và tài liệu do FastAPI cung cấp.
 
-### 7.2. Khởi động backend và database
+Các API dùng JSON, trừ upload multipart và response stream/file. Header cho request cần danh tính:
 
-```bash
-docker compose up -d --build
-docker compose ps
+```http
+Authorization: Bearer <access_token>
 ```
 
-Mở giao diện tại `https://localhost`. Chứng chỉ local là self-signed; lần đầu
-hãy chọn **Advanced → Proceed to localhost** trong trình duyệt.
+Ký hiệu **JWT** dưới đây nghĩa là cần danh tính; quyền tài nguyên vẫn được kiểm tra ở bước nghiệp vụ. **Public** nghĩa là không cần access JWT.
 
-Nạp dữ liệu mẫu:
+### Auth
 
-```bash
-docker compose exec backend python seed_users.py
+| Method | Endpoint | Xác thực | Chức năng |
+|---|---|---|---|
+| POST | `/api/auth/register` | Public | Đăng ký |
+| POST | `/api/auth/login` | Public | Đăng nhập |
+| POST | `/api/auth/google` | Public | Xác minh Google credential và đăng nhập |
+| POST | `/api/auth/refresh` | Public | Đổi refresh token lấy bộ token mới |
+
+### Rooms và members
+
+| Method | Endpoint | Xác thực | Chức năng |
+|---|---|---|---|
+| POST | `/api/rooms` | JWT | Tạo phòng |
+| GET | `/api/rooms` | JWT | Danh sách phòng được thấy |
+| GET | `/api/rooms/{room_id}` | JWT | Chi tiết phòng |
+| PATCH | `/api/rooms/{room_id}` | JWT | Sửa phòng — màu|
+| DELETE | `/api/rooms/{room_id}` | JWT | Xóa phòng |
+| POST | `/api/rooms/{room_id}/avatar` | Guard | Upload avatar phòng |
+| GET | `/api/rooms/{room_id}/avatar` | Public | Stream avatar phòng |
+| GET | `/api/rooms/{room_id}/active-call` | JWT | Call nhóm đang hoạt động |
+| GET | `/api/rooms/{room_id}/media` | JWT | Danh sách media |
+| POST | `/api/rooms/{room_id}/join` | JWT | Tham gia phòng công khai |
+| DELETE | `/api/rooms/{room_id}/leave` | JWT | Rời phòng |
+| GET | `/api/rooms/{room_id}/members` | JWT | Danh sách thành viên |
+| POST | `/api/rooms/{room_id}/members` | JWT | Thêm thành viên |
+| DELETE | `/api/rooms/{room_id}/members/{user_id}` | JWT | Xóa thành viên |
+| PATCH | `/api/rooms/{room_id}/members/{user_id}/role` | JWT | Đổi vai trò |
+| PATCH | `/api/rooms/{room_id}/members/{user_id}/nickname` | JWT | Đổi nickname |
+
+### Messages, attachment và reaction
+
+| Method | Endpoint | Xác thực | Chức năng |
+|---|---|---|---|
+| POST | `/api/rooms/{room_id}/messages` | JWT | Gửi tin văn bản/trả lời |
+| POST | `/api/rooms/{room_id}/messages/upload` | JWT | Gửi file qua multipart |
+| GET | `/api/rooms/{room_id}/messages` | JWT | Lịch sử tin nhắn |
+| GET | `/api/rooms/{room_id}/pinned-messages` | JWT | Danh sách tin ghim |
+| DELETE | `/api/messages/{message_id}` | JWT | Xóa mềm tin nhắn |
+| PATCH | `/api/messages/{message_id}` | JWT | Sửa tin nhắn |
+| POST | `/api/messages/{message_id}/pin` | JWT | Ghim tin |
+| DELETE | `/api/messages/{message_id}/pin` | JWT | Bỏ ghim |
+| POST | `/api/messages/{message_id}/reactions` | JWT | Toggle reaction |
+| GET | `/api/attachments/{attachment_id}` | JWT | Tải/stream attachment |
+
+### Users
+
+| Method | Endpoint | Xác thực | Chức năng |
+|---|---|---|---|
+| GET | `/api/users/me` | JWT | Hồ sơ hiện tại |
+| PATCH | `/api/users/me` | JWT | Sửa hồ sơ |
+| POST | `/api/users/me/avatar` | JWT | Upload avatar cá nhân |
+| GET | `/api/users/search` | JWT | Tìm user qua query `q` |
+| GET | `/api/users/online` | JWT | User online trong process |
+| GET | `/api/users/{user_id}` | JWT | Hồ sơ công khai của user |
+| GET | `/api/users/{user_id}/avatar` | Public | Stream avatar cá nhân |
+
+### Calls
+
+| Method | Endpoint | Xác thực | Chức năng |
+|---|---|---|---|
+| GET | `/api/calls/config` | JWT | ICE server, thời gian đổ chuông, giới hạn nhóm |
+| POST | `/api/calls` | JWT | Tạo call 1–1 |
+| POST | `/api/calls/group` | JWT | Tạo call nhóm |
+| POST | `/api/calls/{call_id}/join` | JWT | Tham gia call nhóm |
+| POST | `/api/calls/{call_id}/leave` | JWT | Rời call nhóm |
+| GET | `/api/calls` | JWT | Lịch sử call |
+| GET | `/api/calls/{call_id}` | JWT | Chi tiết call |
+| POST | `/api/calls/{call_id}/accept` | JWT | Nhận call |
+| POST | `/api/calls/{call_id}/decline` | JWT | Từ chối call |
+| POST | `/api/calls/{call_id}/end` | JWT | Kết thúc call |
+
+Chi tiết trường đầu vào/đầu ra xem OpenAPI và schema trong mã. Các mã lỗi thường gặp: 400 dữ liệu/nghiệp vụ không hợp lệ, 401 chưa xác thực, 403 thiếu quyền, 404 không tìm thấy, 409 xung đột call, 422 validation schema.
+
+Middleware JWT chưa khai báo thành security scheme trong OpenAPI; Swagger hiển thị endpoint/schema nhưng chưa có luồng Authorize Bearer tự động tương ứng. Dùng REST client gửi header để thử các endpoint có bảo vệ.
+
+## 9. WebSocket và WebRTC
+
+Qua Nginx, URL socket là `wss://<host>/ws?token=<access_token>`. Frontend dùng cùng origin với trang khi không chạy ở cổng 3000. Khi frontend chạy riêng ở cổng 3000, code chuyển sang backend `http://<hostname>:8000` và `ws://<hostname>:8000`.
+
+Các action client gửi:
+
+```json
+{"action":"subscribe","room_id":1}
+{"action":"unsubscribe","room_id":1}
+{"action":"typing.start","room_id":1}
+{"action":"typing.stop","room_id":1}
+{"action":"ping"}
+{"action":"call.signal","call_id":1,"to_user_id":2,"signal":{"type":"offer","sdp":"..."}}
 ```
 
-`seed_users.py` tạo các tài khoản demo, phòng mẫu, membership và tin nhắn mẫu. Mật khẩu demo hiện là `password123`; chỉ dùng trong môi trường kiểm thử.
+Mỗi dòng là một thông điệp riêng; ID và SDP ở trên chỉ minh họa hình dạng. Server dùng envelope:
 
-### 7.3. Tài khoản và phòng dùng để kiểm thử
-
-`seed_users.py` tạo bốn tài khoản, tất cả dùng mật khẩu `password123`:
-
-| Email | Username | Mục đích |
-| --- | --- | --- |
-| `user1@example.com` | `dungx` | chủ phòng |
-| `user2@example.com` | `namtv` | ADMIN/thành viên |
-| `user3@example.com` | `anhlh` | thành viên |
-| `user4@example.com` | `maipt` | tài khoản chưa vào phòng, dùng để test lời mời |
-
-### 7.4. Kiểm thử mời người dùng vào phòng
-
-Mở hai cửa sổ trình duyệt, hoặc một cửa sổ thường và một cửa sổ ẩn danh:
-
-1. Cửa sổ thứ nhất đăng nhập `user1@example.com`.
-2. Tạo phòng riêng tư hoặc mở phòng có sẵn.
-3. Mở bảng **👥 Thành viên**, bấm `+`, tìm `maipt` hoặc
-   `user4@example.com`, rồi gửi lời mời.
-4. Cửa sổ thứ hai đăng nhập `user4@example.com`.
-5. Chuông `🔔` sẽ hiện thông báo lời mời theo thời gian thực.
-6. Bấm **Nhận** để tham gia hoặc **Từ chối** để bỏ qua.
-
-Khi chấp nhận, User 4 được thêm làm thành viên, phòng xuất hiện trong danh
-sách của User 4 và khung chat hiển thị tin nhắn hệ thống dạng:
-
-```text
-Phương Mai đã vào phòng
+```json
+{"event":"message.created","data":{"message":{"id":123}}}
 ```
 
-Lời mời được lưu lại nên nếu người nhận offline, họ vẫn thấy lời mời sau khi
-đăng nhập. Chi tiết API xem tại [docs/07-rest-api.md](docs/07-rest-api.md).
+Payload đầy đủ phụ thuộc event; ví dụ trên được rút gọn. Các nhóm event trong mã:
 
-### 7.5. Truy cập từ mạng khác
+| Nhóm | Event |
+|---|---|
+| Kết nối | `connected`, `subscribed`, `pong`, `error` |
+| Tin nhắn | `message.created`, `message.updated`, `message.deleted`, `message.reaction`, `message.pinned` |
+| Phòng | `room.summary_updated`, `room.updated`, `room.deleted`, `room.avatar_updated`, `room.nickname_updated`, `room.member_joined`, `room.member_left`, `room.role_changed` |
+| User/typing | `user.updated`, `user.online`, `user.offline`, `typing.start`, `typing.stop` |
+| Cuộc gọi | `call.incoming`, `call.accepted`, `call.ended`, `call.signal`, `call.error`, `call.room_started`, `call.room_updated`, `call.room_ended`, `call.participant_joined`, `call.participant_left` |
 
-Để chia sẻ ứng dụng qua Internet mà không mở port router:
+Token được kiểm tra lúc handshake. Server chờ frame với timeout mặc định 90 giây; frontend gửi ping định kỳ. Khi socket cuối cùng của một user mất kết nối, server có logic dọn call dở dang.
 
-```bash
-cloudflared tunnel --url http://localhost:8080
-```
+Vòng đời gọi trực tiếp: `RINGING → ACTIVE → ENDED`, với các nhánh `REJECTED`, `MISSED`, `CANCELED`. Gọi nhóm mở ở `ACTIVE`; người cuối rời làm kết thúc call. Participant có trạng thái `INVITED`, `JOINED`, `DECLINED`, `LEFT`. Giá trị đổ chuông 30 giây được trả qua API config và frontend sử dụng; không có dịch vụ scheduler timeout cuộc gọi độc lập.
 
-Gửi URL `https://*.trycloudflare.com` cho người dùng khác. Giữ tiến trình
-`cloudflared` chạy trong suốt thời gian sử dụng. Cloudflare Tunnel chuyển tiếp
-website/API/WebSocket; cuộc gọi WebRTC có thể cần cấu hình TURN trong `.env`.
-Xem hướng dẫn đầy đủ tại
-[docs/16-goi-xuyen-mang-lam-may-chu.md](docs/16-goi-xuyen-mang-lam-may-chu.md).
-
-Nếu gặp `Address already in use`, kiểm tra tiến trình đang chiếm cổng:
-
-```bash
-ss -ltnp | grep -E ':(80|443|5432|8000)'
-kill <PID>
-```
-
-### 7.4. Dừng hoặc reset dữ liệu
-
-```bash
-# Dừng container, giữ nguyên volume
-docker compose down
-
-# Xóa cả volume database và upload; dữ liệu sẽ mất
-docker compose down -v
-```
-
-## 8. Cây thư mục rút gọn
-
-```text
-team-chat/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── domain/
-│   │   ├── infra/
-│   │   ├── repositories/
-│   │   ├── services/
-│   │   └── main.py
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── seed_users.py
-├── frontend/
-│   ├── index.html
-│   ├── css/style.css
-│   └── js/
-├── docker-compose.yml
-├── .env.example
-├── RUN_GUIDE.md
-└── README.md
-```
-
-## 9. Giới hạn và lưu ý triển khai
-
-- CORS mặc định là `*`, phù hợp development nhưng cần giới hạn origin khi production.
-- Frontend hiện dùng `http://` và `ws://`; khi triển khai HTTPS cần reverse proxy và `https://`/`wss://` tương ứng.
-- Presence và WebSocket chỉ lưu trong memory của một backend process; chưa có Redis Pub/Sub, vì vậy chưa phù hợp scale ngang nhiều instance.
-- Chưa có migration framework. Thay đổi schema cần có quy trình migration riêng hoặc reset database trong development.
-- Backend container map cổng host theo `PORT`, trong khi Uvicorn bên trong container vẫn lắng nghe cổng `8000`.
-- Attachment cần Bearer token khi truy cập. Quyền truy cập attachment nên được rà soát thêm nếu triển khai production nhiều tenant/phòng.
-- Secret JWT, mật khẩu PostgreSQL và tài khoản demo phải được thay đổi trong môi trường thật.
-
-## 10. Tài liệu liên quan
-
-- [Hướng dẫn vận hành chi tiết](RUN_GUIDE.md)
-- [Cấu hình mẫu](.env.example)
-- [Docker Compose](docker-compose.yml)
-- [Backend entrypoint](backend/app/main.py)
-- [Database models](backend/app/infra/db/models.py)
+Media không đi qua REST hay message WebSocket. STUN hỗ trợ tìm đường kết nối; TURN relay khi cần. HTTPS tunnel cho web/signaling cũng không tự thay thế TURN cho media.
