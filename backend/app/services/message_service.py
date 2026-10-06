@@ -50,25 +50,15 @@ class MessageService:
             raise PermissionError("Bạn không phải thành viên của phòng này")
         return member
 
-    def _ensure_member_for_public_room(self, room_id: int, user_id: int) -> RoomMember:
-        """Phòng công khai: tự động tham gia. Phòng riêng tư: phải được mời."""
-        member = self.room_repo.get_member(room_id, user_id)
-        if member:
-            return member
-
-        room = self._require_room(room_id)
-        if room.is_private:
-            raise PermissionError("Đây là phòng riêng tư, bạn cần được mời mới vào được")
-
-        return self.room_repo.add_member(
-            RoomMember(room_id=room_id, user_id=user_id, role=RoomMember.ROLE_MEMBER)
-        )
-
     # ---------- Gửi và đọc tin nhắn ----------
+    #
+    # Gửi tin KHÔNG tự cho người lạ vào phòng công khai nữa. Trước đây có, nên đó là
+    # một cửa vào thứ hai không đi qua RoomService.join_room -- người đã bị xóa khỏi
+    # phòng chỉ cần gửi một tin là vào lại được. Giờ join_room là cửa vào duy nhất.
 
     def send_message(self, room_id: int, user_id: int, content: str, reply_to_id: Optional[int] = None) -> Message:
         self._require_room(room_id)
-        self._ensure_member_for_public_room(room_id, user_id)
+        self._require_membership(room_id, user_id)
 
         if reply_to_id is not None:
             reply = self.message_repo.get_by_id(reply_to_id)
@@ -109,7 +99,7 @@ class MessageService:
             raise ValueError("Chức năng đính kèm tệp chưa được cấu hình")
 
         self._require_room(room_id)
-        self._ensure_member_for_public_room(room_id, user_id)
+        self._require_membership(room_id, user_id)
 
         stored_name, size_bytes = self.file_storage.save(file_obj, filename)
 

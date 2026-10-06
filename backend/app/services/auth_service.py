@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import re
 
 from google.auth.transport import requests
 from google.oauth2 import id_token
 
 from app.config import settings
-from app.domain.interfaces import IUserRepository, IRefreshTokenRepository, IRoomRepository
-from app.domain.models import User, RefreshToken, RoomMember
+from app.domain.interfaces import IUserRepository, IRefreshTokenRepository
+from app.domain.models import User, RefreshToken
 from app.infra.security.password import hash_password, verify_password
 from app.infra.security.jwt import create_access_token, generate_refresh_token, hash_token
 
@@ -16,11 +16,9 @@ class AuthService:
         self,
         user_repo: IUserRepository,
         refresh_token_repo: IRefreshTokenRepository,
-        room_repo: Optional[IRoomRepository] = None,
     ):
         self.user_repo = user_repo
         self.refresh_token_repo = refresh_token_repo
-        self.room_repo = room_repo
 
     def register(self, email: str, username: str, password: str, first_name: str, last_name: str) -> User:
         if self.user_repo.get_by_email(email):
@@ -105,27 +103,15 @@ class AuthService:
             user.avatar_url = picture
             user = self.user_repo.update(user)
 
-        self._join_public_rooms(user.id)
+        # Không tự cho vào phòng công khai nào: phòng công khai phải tìm theo tên rồi
+        # tham gia qua RoomService.join_room, nơi kiểm tra người đã bị xóa khỏi phòng.
+        # Trước đây mỗi lần đăng nhập Google đều thêm vào MỌI phòng công khai, nên
+        # người bị xóa chỉ cần đăng nhập lại là vào lại được.
 
         if not user.is_active:
             raise ValueError("Tài khoản đã bị vô hiệu hóa")
 
         return self._issue_tokens(user)
-
-    def _join_public_rooms(self, user_id: int) -> None:
-        if not self.room_repo:
-            return
-        offset = 0
-        while True:
-            rooms = self.room_repo.list_all(limit=100, offset=offset)
-            if not rooms:
-                return
-            for room in rooms:
-                if not self.room_repo.get_member(room.id, user_id):
-                    self.room_repo.add_member(RoomMember(room_id=room.id, user_id=user_id))
-            if len(rooms) < 100:
-                return
-            offset += len(rooms)
 
     def _issue_tokens(self, user: User) -> Dict[str, Any]:
         access_token = create_access_token(subject=user.id)
