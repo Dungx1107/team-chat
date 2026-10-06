@@ -1,56 +1,81 @@
-# Team Chat - Tài liệu kỹ thuật
+# Team Chat — Tài liệu kỹ thuật
 
-Bộ tài liệu này mô tả implementation hiện tại của hệ thống Team Chat. Nguồn kiểm chứng là source code trong `backend/`, `frontend/`, `deploy/`, `docker-compose.yml` và các tài liệu gốc ở root.
+Bộ tài liệu mô tả hệ thống **đúng như code hiện tại**. Mọi khẳng định đều có thể lần
+ngược về file nguồn được nhắc tên. Khi tài liệu và code mâu thuẫn, code là đúng — hãy
+sửa tài liệu.
 
-## Hệ thống là gì?
+## Hệ thống là gì
 
-Team Chat là ứng dụng chat nội bộ theo phòng, hỗ trợ tài khoản, phân quyền thành viên, tin nhắn văn bản/file, reaction, pin, trạng thái online/typing và cuộc gọi WebRTC. Backend lưu dữ liệu trong PostgreSQL, file trong filesystem/volume, còn các cập nhật tức thời đi qua WebSocket.
-
-## Sơ đồ tổng thể
+Team Chat là ứng dụng trò chuyện nội bộ theo phòng: tài khoản (mật khẩu hoặc Google),
+phòng công khai/riêng tư, phân quyền ba cấp, tin nhắn văn bản và tệp, biểu cảm, ghim,
+biệt danh, lời mời, cập nhật thời gian thực qua WebSocket, và gọi thoại/video WebRTC
+(1-1 và nhóm tối đa 6 người).
 
 ```mermaid
 flowchart LR
-    Browser[Browser]
-    Web[Nginx web container\nHTTPS + static frontend]
-    API[FastAPI/Uvicorn\n/api + /ws]
-    DB[(PostgreSQL 16)]
-    Files[(uploads volume)]
-    Browser --> Web
-    Web -->|/api, /health, /docs| API
-    Web -->|/ws upgrade| API
-    API --> DB
-    API --> Files
+    B[Trình duyệt<br/>HTML + JS thuần]
+    N[nginx<br/>HTTPS, file tĩnh, proxy]
+    A[FastAPI / Uvicorn<br/>REST /api + WebSocket /ws]
+    D[(PostgreSQL 16)]
+    F[(Volume uploads)]
+    T[TURN<br/>tùy chọn]
+    B -->|HTTPS| N
+    N -->|/api, /ws| A
+    A --> D
+    A --> F
+    B <-.->|Âm thanh/hình ảnh WebRTC<br/>trực tiếp hoặc qua TURN| B
+    B -.-> T
 ```
 
-`docker-compose.yml` định nghĩa ba service chạy mặc định: `db`, `backend`, `web`. Có thêm service `turn` dùng profile tùy chọn để thử coturn trong LAN; service này không chạy mặc định. Không có Redis, message broker, migration runner hoặc SFU/media server xử lý cuộc gọi tập trung trong repository.
+## Nên đọc theo thứ tự nào
+
+| Bạn muốn | Đọc |
+|---|---|
+| Hiểu hệ thống trong 10 phút | [01](01-system-overview.md) → [02](02-architecture.md) |
+| Hiểu các tầng nối với nhau thế nào | [02](02-architecture.md) → [14](14-code-flow.md) |
+| Thêm một tính năng backend | [02](02-architecture.md) → [03](03-backend.md) → [05](05-database.md) |
+| Làm frontend | [04](04-frontend.md) → [07](07-rest-api.md) → [08](08-websocket-realtime.md) |
+| Chuẩn bị vấn đáp kiến trúc | [02](02-architecture.md) → [05](05-database.md) → [13](13-security.md) |
+| Chạy và demo | [`RUN_GUIDE.md`](../RUN_GUIDE.md) → [12](12-deployment.md) → [15](15-third-party-services.md) |
 
 ## Mục lục
 
-| Tài liệu | Nội dung |
-| --- | --- |
-| [01 - Tổng quan hệ thống](01-system-overview.md) | Context, thành phần, giao tiếp, request flow |
-| [02 - Kiến trúc](02-architecture.md) | Layer, dependency, pattern và ranh giới thực tế |
-| [03 - Backend](03-backend.md) | FastAPI, cấu trúc module và dependency wiring |
-| [04 - Frontend](04-frontend.md) | HTML/CSS/JavaScript và quan hệ module |
-| [05 - Database](05-database.md) | ORM models, khóa và cardinality |
-| [06 - Authentication](06-authentication-authorization.md) | Register/login/JWT/refresh/middleware/quyền |
-| [07 - REST API](07-rest-api.md) | Danh mục endpoint theo router |
-| [08 - WebSocket](08-websocket-realtime.md) | Protocol, presence, event và signaling |
-| [09 - Chat features](09-chat-features.md) | Room, message, reaction, pin, presence |
-| [10 - Call features](10-call-features.md) | Lifecycle và WebRTC signaling |
-| [11 - File storage](11-file-storage.md) | Upload, avatar, attachment và volume |
-| [12 - Deployment](12-deployment.md) | Compose, Dockerfile, Nginx, certificate |
-| [13 - Security](13-security.md) | Cơ chế hiện có và rủi ro cần lưu ý |
-| [14 - Code flow](14-code-flow.md) | Luồng login, message, room, upload, call |
-| [15 - Dịch vụ bên thứ ba](15-third-party-services.md) | Đăng ký và chạy TURN, Cloudflare Tunnel cho tính năng gọi |
+| # | Tài liệu | Nội dung |
+|---|---|---|
+| 01 | [Tổng quan hệ thống](01-system-overview.md) | Thành phần, công nghệ, phạm vi tính năng |
+| 02 | [Kiến trúc](02-architecture.md) | 4 tầng, quy tắc phụ thuộc, cổng và bộ chuyển đổi, nợ kỹ thuật |
+| 03 | [Backend](03-backend.md) | Cấu trúc thư mục, khởi động, vòng đời request, xử lý lỗi |
+| 04 | [Frontend](04-frontend.md) | Các module JS, trạng thái, cách nhận sự kiện |
+| 05 | [Thực thể và database](05-database.md) | Thực thể domain, bảng, ánh xạ giữa hai bên, sơ đồ ER |
+| 06 | [Xác thực và phân quyền](06-authentication-authorization.md) | Mật khẩu, Google, JWT, refresh token, ma trận quyền |
+| 07 | [REST API](07-rest-api.md) | Toàn bộ 52 endpoint |
+| 08 | [WebSocket và realtime](08-websocket-realtime.md) | Giao thức, hành động, sự kiện, ai phát ai nhận |
+| 09 | [Tính năng chat](09-chat-features.md) | Phòng, thành viên, chặn, lời mời, tin nhắn, biểu cảm, ghim |
+| 10 | [Tính năng gọi](10-call-features.md) | Máy trạng thái cuộc gọi, mesh, signaling |
+| 11 | [Lưu trữ tệp](11-file-storage.md) | Tệp đính kèm, ảnh đại diện, volume |
+| 12 | [Triển khai](12-deployment.md) | Docker Compose, nginx, chứng chỉ, biến môi trường |
+| 13 | [Bảo mật](13-security.md) | Cơ chế đã có và rủi ro còn lại |
+| 14 | [Luồng hoạt động](14-code-flow.md) | Sơ đồ tuần tự đi qua từng tầng cho các luồng chính |
+| 15 | [Dịch vụ bên thứ ba](15-third-party-services.md) | Đăng ký TURN (Metered), Cloudflare Tunnel |
+| 16 | [Gọi xuyên mạng](16-goi-xuyen-mang-lam-may-chu.md) | Dùng máy cá nhân làm máy chủ cho người ở mạng khác |
 
-## Traceability nhanh
+## Lần ngược nhanh một tính năng
 
-- Authentication: `frontend/js/api.js` -> `backend/app/api/routers/auth.py` -> `backend/app/services/auth_service.py` -> `backend/app/infra/security/{jwt,password}.py` -> `backend/repositories/{user,refresh_token}_repo.py`.
-- Room: `frontend/js/rooms.js` -> `backend/app/api/routers/rooms.py` -> `backend/app/services/room_service.py` -> `backend/repositories/room_repo.py`.
-- Message: `frontend/js/messages.js`/`ws.js` -> `backend/app/api/routers/messages.py` hoặc `ws.py` -> `message_service.py` -> `message_repo.py` -> `messages` và related tables.
-- Call: `frontend/js/call.js` -> `calls.py`/`ws.py` -> `call_service.py` -> `call_repo.py` -> `calls`/`call_participants`; media đi peer-to-peer qua WebRTC, còn offer/answer/ICE và trạng thái camera/micro đi qua WebSocket.
+| Tính năng | Frontend | API | Service | Repository | Bảng |
+|---|---|---|---|---|---|
+| Đăng nhập | `api.js`, `app.js` | `routers/auth.py` | `AuthService` | `UserRepository`, `RefreshTokenRepository` | `users`, `refresh_tokens` |
+| Phòng | `rooms.js` | `routers/rooms.py` | `RoomService` | `RoomRepository` | `rooms`, `room_members`, `room_bans` |
+| Lời mời | `app.js`, `rooms.js` | `routers/rooms.py` | *(không có — xem [02](02-architecture.md#nợ-kỹ-thuật))* | `InviteRepository` | `room_invites` |
+| Tin nhắn | `messages.js` | `routers/messages.py` | `MessageService` | `MessageRepository` | `messages`, `attachments`, `reactions` |
+| Cuộc gọi | `call.js` | `routers/calls.py`, `ws.py` | `CallService` | `CallRepository` | `calls`, `call_participants` |
+| Realtime | `ws.js`, `app.js` | `routers/ws.py` | qua cổng `IEventPublisher` | — | *(trong bộ nhớ)* |
 
-## Ghi chú độ chính xác
+## Những gì hệ thống KHÔNG có
 
-`README.md` root có một số mô tả cũ, như frontend chạy riêng ở port 3000 và Compose chỉ có hai service. Tài liệu này ưu tiên `docker-compose.yml`, `deploy/nginx/` và code runtime. Không có migration framework hoặc automated test suite được tìm thấy trong repository.
+Ghi rõ để không ai mô tả nhầm thành tính năng hiện có:
+
+- Không có framework migration (Alembic). `main.py` chạy vài câu `ALTER TABLE` thủ công khi khởi động.
+- Không có bộ kiểm thử tự động trong repository.
+- Không có Redis hay message broker. Trạng thái kết nối realtime nằm trong bộ nhớ một tiến trình.
+- Không có máy chủ media (SFU/MCU). Âm thanh/hình ảnh cuộc gọi không đi qua backend.
+- Không có giao diện xem lịch sử cuộc gọi, dù API `GET /api/calls` có trả về.

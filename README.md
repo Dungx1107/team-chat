@@ -161,7 +161,8 @@ Authorization: Bearer <access_token>
 | Method | Endpoint | Mô tả |
 | --- | --- | --- |
 | `POST` | `/api/rooms` | Tạo phòng |
-| `GET` | `/api/rooms` | Liệt kê phòng được phép xem |
+| `GET` | `/api/rooms` | Liệt kê phòng mình đã tham gia |
+| `GET` | `/api/rooms/search?q=` | Tìm phòng công khai theo tên (cách duy nhất để thấy phòng chưa tham gia) |
 | `GET` | `/api/rooms/{room_id}` | Xem thông tin phòng |
 | `PATCH` | `/api/rooms/{room_id}` | Cập nhật tên/mô tả |
 | `DELETE` | `/api/rooms/{room_id}` | Xóa phòng |

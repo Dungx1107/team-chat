@@ -115,6 +115,13 @@ class MessageRepository(IMessageRepository):
 
         Nếu không eager load, mỗi tin nhắn sẽ sinh thêm 3 truy vấn phụ
         (bài toán N+1) -- với 50 tin nhắn là 151 truy vấn thay vì 1.
+
+        Truy vấn sắp xếp MỚI NHẤT TRƯỚC rồi mới cắt theo limit, vì phòng chat
+        cần trang đầu là những tin gần đây. Sắp xếp cũ nhất trước rồi cắt sẽ
+        trả về 50 tin đầu tiên của phòng, nên khi phòng có hơn 50 tin thì tin
+        mới gửi biến mất sau khi tải lại trang. Kết quả được đảo lại trước khi
+        trả về, để thứ tự hiển thị vẫn là cũ -> mới như giao diện mong đợi.
+        `offset` nhờ vậy cũng có nghĩa đúng: offset=50 là 50 tin cũ hơn nữa.
         """
         models = (
             self.db.query(MessageModel)
@@ -124,12 +131,12 @@ class MessageRepository(IMessageRepository):
                 joinedload(MessageModel.reactions),
             )
             .filter(MessageModel.room_id == room_id)
-            .order_by(MessageModel.created_at.asc(), MessageModel.id.asc())
+            .order_by(MessageModel.created_at.desc(), MessageModel.id.desc())
             .offset(offset)
             .limit(limit)
             .all()
         )
-        return [self._to_entity(m) for m in models]
+        return [self._to_entity(m) for m in reversed(models)]
 
     def get_pinned_by_room_id(self, room_id: int) -> List[Message]:
         models = (

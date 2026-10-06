@@ -21,8 +21,13 @@ class IRoomRepository(ABC):
         pass
 
     @abstractmethod
-    def list_visible_to_user(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Room]:
-        """Phòng công khai + phòng riêng tư mà người dùng là thành viên."""
+    def list_joined_by_user(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Room]:
+        """Chỉ những phòng (công khai hay riêng tư) mà người dùng đang là thành viên."""
+        pass
+
+    @abstractmethod
+    def search_public(self, keyword: str, user_id: int, limit: int = 20) -> List[Room]:
+        """Tìm phòng công khai theo tên, bỏ qua phòng mà người dùng đã bị xóa khỏi."""
         pass
 
     @abstractmethod
@@ -62,6 +67,20 @@ class IRoomRepository(ABC):
 
     @abstractmethod
     def count_members(self, room_id: int) -> int:
+        pass
+
+    # --- Danh sách bị xóa khỏi phòng ---
+
+    @abstractmethod
+    def add_ban(self, room_id: int, user_id: int, banned_by: int) -> None:
+        pass
+
+    @abstractmethod
+    def remove_ban(self, room_id: int, user_id: int) -> None:
+        pass
+
+    @abstractmethod
+    def is_banned(self, room_id: int, user_id: int) -> bool:
         pass
 
     @abstractmethod

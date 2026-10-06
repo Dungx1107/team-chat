@@ -1,9 +1,11 @@
 from typing import List, Optional, Tuple
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.domain.interfaces import IRoomRepository
 from app.domain.models import Room, RoomMember, User
-from app.infra.db.models import RoomModel, RoomMemberModel, UserModel, MessageModel, AttachmentModel
+from app.infra.db.models import (
+    RoomModel, RoomMemberModel, RoomBanModel, UserModel, MessageModel, AttachmentModel,
+)
 
 class RoomRepository(IRoomRepository):
     def __init__(self, db: Session):
@@ -97,26 +99,40 @@ class RoomRepository(IRoomRepository):
         )
         return [self._to_room_entity(m) for m in models]
 
-    def list_visible_to_user(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Room]:
-        """Phòng công khai, cộng thêm phòng riêng tư mà người này là thành viên.
+    def list_joined_by_user(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Room]:
+        """Phòng mà người này đang là thành viên.
 
-        Dùng outer join thay vì subquery lồng để tránh N+1 khi số phòng lớn.
+        Phòng công khai chưa tham gia không còn hiện ở đây -- muốn thấy thì phải
+        tìm theo tên qua search_public. Inner join nên chỉ một truy vấn.
         """
         models = (
             self.db.query(RoomModel)
-            .outerjoin(
+            .join(
                 RoomMemberModel,
                 (RoomMemberModel.room_id == RoomModel.id)
                 & (RoomMemberModel.user_id == user_id),
             )
-            .filter(
-                or_(
-                    RoomModel.is_private.is_(False),
-                    RoomMemberModel.id.isnot(None),
-                )
-            )
             .order_by(RoomModel.created_at.desc())
             .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return [self._to_room_entity(m) for m in models]
+
+    def search_public(self, keyword: str, user_id: int, limit: int = 20) -> List[Room]:
+        # Gõ "%" hay "_" phải được hiểu là ký tự thường, không phải ký tự đại diện
+        # của LIKE -- nếu không, tìm "%" sẽ liệt kê ra toàn bộ phòng công khai.
+        escaped = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        banned_room_ids = (
+            self.db.query(RoomBanModel.room_id)
+            .filter(RoomBanModel.user_id == user_id)
+        )
+        models = (
+            self.db.query(RoomModel)
+            .filter(RoomModel.is_private.is_(False))
+            .filter(RoomModel.name.ilike(f"%{escaped}%", escape="\\"))
+            .filter(RoomModel.id.notin_(banned_room_ids))
+            .order_by(RoomModel.name.asc())
             .limit(limit)
             .all()
         )
@@ -221,6 +237,29 @@ class RoomRepository(IRoomRepository):
             .filter(RoomMemberModel.room_id == room_id)
             .scalar()
         ) or 0
+
+    # ---------- Danh sách bị xóa khỏi phòng ----------
+
+    def add_ban(self, room_id: int, user_id: int, banned_by: int) -> None:
+        if self.is_banned(room_id, user_id):
+            return
+        self.db.add(RoomBanModel(room_id=room_id, user_id=user_id, banned_by=banned_by))
+        self.db.commit()
+
+    def remove_ban(self, room_id: int, user_id: int) -> None:
+        (
+            self.db.query(RoomBanModel)
+            .filter(RoomBanModel.room_id == room_id, RoomBanModel.user_id == user_id)
+            .delete()
+        )
+        self.db.commit()
+
+    def is_banned(self, room_id: int, user_id: int) -> bool:
+        return (
+            self.db.query(RoomBanModel.id)
+            .filter(RoomBanModel.room_id == room_id, RoomBanModel.user_id == user_id)
+            .first()
+        ) is not None
 
     def get_last_message_summary(self, room_id: int) -> Optional[dict]:
         row = (

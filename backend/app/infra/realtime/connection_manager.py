@@ -148,6 +148,11 @@ class ConnectionManager(IEventPublisher):
         rooms = [room_id for room_id, users in self._room_users.items() if user_id in users]
         self._dispatch(self._broadcast_rooms(rooms, message))
 
+    def revoke_room_access(self, user_id: int, room_id: int) -> None:
+        # Coroutine được xếp hàng sau sự kiện room.member_left vừa phát, nên người
+        # bị xóa vẫn nhận được thông báo đó trước khi bị ngắt khỏi phòng.
+        self._dispatch(self.unsubscribe(user_id, room_id))
+
     async def _broadcast_rooms(self, room_ids, message: str) -> None:
         for room_id in room_ids:
             await self._broadcast_room(room_id, message)

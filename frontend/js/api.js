@@ -154,6 +154,10 @@ const api = {
     return this.request(`/rooms/${roomId}`);
   },
 
+  searchRooms(keyword) {
+    return this.request(`/rooms/search?q=${encodeURIComponent(keyword)}`);
+  },
+
   createRoom(name, description = "", isPrivate = false) {
     return this.request("/rooms", {
       method: "POST",
