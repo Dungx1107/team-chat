@@ -28,7 +28,7 @@ class Room:
         return self.owner_id == user_id
 
     def is_visible_to_public(self) -> bool:
-        """Phòng công khai hiện trong danh sách chung, phòng riêng tư thì không."""
+        """Phòng công khai tìm thấy được theo tên; phòng riêng tư thì không bao giờ."""
         return not self.is_private
 
     def rename(self, new_name: str) -> None:
