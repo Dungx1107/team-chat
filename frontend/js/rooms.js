@@ -652,11 +652,9 @@ function onSearchUsers(keyword) {
 
 async function onAddMember(userId) {
   try {
-    await api.addMember(currentRoom.id, userId);
-    await loadMembers();
-    renderMembers();
+    await api.inviteMember(currentRoom.id, userId);
     onSearchUsers(document.getElementById("user-search-input").value);
-    toast("Đã thêm vào phòng", "success");
+    toast("Đã gửi lời mời", "success");
   } catch (err) {
     toast(err.message, "error");
   }

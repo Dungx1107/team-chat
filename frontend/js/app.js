@@ -156,6 +156,7 @@ async function enterChat() {
   registerRealtimeHandlers();
   realtime.connect();
   await loadRooms();
+  await loadRoomInvites();
 }
 
 // ---------- Xử lý sự kiện realtime ----------
@@ -163,6 +164,11 @@ async function enterChat() {
 function registerRealtimeHandlers() {
   if (registerRealtimeHandlers.done) return;
   registerRealtimeHandlers.done = true;
+
+  realtime.on("room.invite", (invite) => {
+    addRoomInvite(invite);
+    toast(`${invite.inviter_name} mời bạn vào phòng ${invite.room_name}`, "info");
+  });
 
   realtime.on("message.created", async (data) => {
     const message = data.message || data;
@@ -175,6 +181,7 @@ function registerRealtimeHandlers() {
       if (room && me && data.user_id !== me.id) {
         toast(`${data.sender_name || "Ai đó"} nhắn trong # ${room.name}`);
       }
+
       return;
     }
 
@@ -356,6 +363,71 @@ function registerRealtimeHandlers() {
   realtime.on("error", (data) => {
     if (data && data.detail) toast(data.detail, "error");
   });
+}
+
+let roomInvites = [];
+
+function updateInviteBadge() {
+  const badge = document.getElementById("invite-count-badge");
+  if (!badge) return;
+  badge.textContent = roomInvites.length > 99 ? "99+" : String(roomInvites.length);
+  badge.classList.toggle("hidden", roomInvites.length === 0);
+}
+
+function addRoomInvite(invite) {
+  if (!roomInvites.some((item) => item.id === invite.id)) roomInvites.unshift(invite);
+  updateInviteBadge();
+}
+
+async function loadRoomInvites() {
+  try {
+    roomInvites = await api.getRoomInvites();
+    updateInviteBadge();
+  } catch (err) {
+    console.error("Không tải được lời mời:", err);
+  }
+}
+
+function openInvitesModal() {
+  const items = roomInvites.length
+    ? roomInvites.map((invite) => `
+      <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-semibold truncate">${escapeHtml(invite.room_name)}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${escapeHtml(invite.inviter_name)} đã mời bạn vào phòng</div>
+        </div>
+        <button onclick="respondRoomInvite(${invite.id}, true)" class="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold">Nhận</button>
+        <button onclick="respondRoomInvite(${invite.id}, false)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs">Từ chối</button>
+      </div>`).join("")
+    : `<p class="text-sm text-center text-slate-500 py-6">Không có lời mời mới.</p>`;
+  openModal(`<div class="p-5">
+    <h3 class="font-bold text-lg mb-4">Thông báo</h3>
+    <div class="space-y-2">${items}</div>
+    <button onclick="closeModal()" class="w-full mt-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">Đóng</button>
+  </div>`);
+}
+
+async function respondRoomInvite(inviteId, accepted) {
+  try {
+    const invite = roomInvites.find((item) => item.id === inviteId);
+    if (accepted) {
+      await api.acceptRoomInvite(inviteId);
+      toast("Đã tham gia phòng", "success");
+      await loadRooms();
+      if (invite) {
+        const room = roomsCache.find((item) => item.id === invite.room_id);
+        if (room) await selectRoom(room);
+      }
+    } else {
+      await api.rejectRoomInvite(inviteId);
+      toast("Đã từ chối lời mời", "info");
+    }
+    roomInvites = roomInvites.filter((item) => item.id !== inviteId);
+    updateInviteBadge();
+    openInvitesModal();
+  } catch (err) {
+    toast(err.message, "error");
+  }
 }
 
 // ---------- Khởi động ----------

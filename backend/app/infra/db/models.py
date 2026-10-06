@@ -84,6 +84,22 @@ class RoomMemberModel(Base):
     user = relationship("UserModel", back_populates="memberships")
 
 
+class RoomInviteModel(Base):
+    __tablename__ = "room_invites"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    room_id = Column(Integer, ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    inviter_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    invitee_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(20), default="PENDING", nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    responded_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("room_id", "invitee_id", "status", name="uq_room_invite_status"),
+    )
+
+
 class AttachmentModel(Base):
     __tablename__ = "attachments"
 

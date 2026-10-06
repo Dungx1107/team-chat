@@ -33,14 +33,13 @@ Hệ thống gồm ba thành phần triển khai chính:
 ```mermaid
 flowchart LR
     Browser[Trình duyệt]
-    Frontend[Frontend tĩnh\nHTML CSS JavaScript\nPython HTTP Server :3000]
+    Web[Nginx\nHTTPS :443 / HTTP :80\nTunnel :8080]
     Backend[FastAPI + Uvicorn\nHTTP :8000\nWebSocket /ws]
     Database[(PostgreSQL 16)]
     Storage[(Docker volume\nuploads)]
 
-    Browser --> Frontend
-    Browser -->|REST /api| Backend
-    Browser -->|WebSocket /ws| Backend
+    Browser --> Web
+    Web -->|static frontend, /api, /ws| Backend
     Backend --> Database
     Backend --> Storage
 ```
@@ -96,23 +95,27 @@ frontend/
     └── ws.js        # WebSocket, reconnect và subscribe phòng
 ```
 
-Frontend dùng Tailwind CDN trong `index.html` kết hợp với `frontend/css/style.css`. Địa chỉ backend được suy ra từ hostname hiện tại:
+Frontend dùng Tailwind CDN trong `index.html` kết hợp với `frontend/css/style.css`. Frontend được Nginx phục vụ cùng origin với API và WebSocket:
 
 ```text
-REST:      http://<hostname>:8000/api
-WebSocket: ws://<hostname>:8000/ws
+Giao diện: https://<hostname>/
+REST:      https://<hostname>/api
+WebSocket: wss://<hostname>/ws
 ```
 
-Do đó, khi chạy theo cấu hình hiện tại, frontend và backend cần được truy cập qua cùng hostname và backend phải lắng nghe ở cổng `8000`.
+Chạy HTTPS là cần thiết cho quyền microphone/camera của trình duyệt khi dùng
+tính năng gọi. Backend vẫn lắng nghe nội bộ ở cổng `8000`; người dùng truy cập
+qua Nginx, không truy cập trực tiếp frontend bằng Python HTTP Server.
 
 ### 2.3. Docker và triển khai
 
-`docker-compose.yml` định nghĩa hai service:
+`docker-compose.yml` định nghĩa ba service chạy mặc định:
 
 | Service | Công nghệ | Cổng | Persistent data |
 | --- | --- | --- | --- |
 | `db` | PostgreSQL 16 Alpine | Host `5432` -> container `5432` | Volume `pgdata` |
 | `backend` | Python 3.11 + Uvicorn | Host `${PORT:-8000}` -> container `8000` | Volume `uploads` |
+| `web` | Nginx Alpine | `${HTTPS_PORT:-443}`, `${HTTP_PORT:-80}`, tunnel `127.0.0.1:${TUNNEL_PORT:-8080}` | Volume `certs` |
 
 Đặc điểm container backend:
 
@@ -120,7 +123,8 @@ Do đó, khi chạy theo cấu hình hiện tại, frontend và backend cần đ
 - Chạy bằng user non-root `appuser`.
 - Mount mã nguồn `./backend:/app` trong môi trường phát triển.
 - Lưu file tại `/app/uploads` và ánh xạ vào named volume `uploads`.
-- Frontend chưa chạy trong Docker Compose; phải chạy riêng bằng Python HTTP Server.
+- Frontend được mount read-only vào Nginx và chạy cùng service `web`.
+- Cổng `8080` chỉ bind trên localhost để dùng với Cloudflare Tunnel/ngrok.
 
 ## 3. Đặc tả giao diện
 
@@ -128,13 +132,13 @@ Do đó, khi chạy theo cấu hình hiện tại, frontend và backend cần đ
 
 | Thành phần | URL mặc định | Mô tả |
 | --- | --- | --- |
-| Frontend | `http://localhost:3000` | Giao diện người dùng |
-| Backend API | `http://localhost:8000` | REST API |
-| Swagger UI | `http://localhost:8000/docs` | Tài liệu API tương tác |
-| ReDoc | `http://localhost:8000/redoc` | Tài liệu API dạng ReDoc |
-| OpenAPI | `http://localhost:8000/api/openapi.json` | Đặc tả OpenAPI |
-| Health check | `http://localhost:8000/health` | Kiểm tra trạng thái backend |
-| WebSocket | `ws://localhost:8000/ws` | Kênh realtime |
+| Giao diện | `https://localhost` | Frontend qua Nginx |
+| Backend API | `https://localhost/api` | REST API qua Nginx |
+| Swagger UI | `https://localhost/docs` | Tài liệu API tương tác |
+| ReDoc | `https://localhost/redoc` | Tài liệu API dạng ReDoc |
+| OpenAPI | `https://localhost/api/openapi.json` | Đặc tả OpenAPI |
+| Health check | `https://localhost/health` | Kiểm tra trạng thái backend |
+| WebSocket | `wss://localhost/ws` | Kênh realtime |
 
 ### 3.2. REST API
 
@@ -164,11 +168,15 @@ Authorization: Bearer <access_token>
 | `POST` | `/api/rooms/{room_id}/join` | Tham gia phòng công khai |
 | `DELETE` | `/api/rooms/{room_id}/leave` | Rời phòng |
 | `GET` | `/api/rooms/{room_id}/members` | Liệt kê thành viên |
-| `POST` | `/api/rooms/{room_id}/members` | Mời thành viên |
+| `POST` | `/api/rooms/{room_id}/members` | Thêm thành viên trực tiếp |
+| `POST` | `/api/rooms/{room_id}/invites` | Gửi lời mời chờ chấp nhận |
+| `GET` | `/api/rooms/notifications/invites` | Lấy lời mời đang chờ |
+| `POST` | `/api/rooms/notifications/invites/{invite_id}/accept` | Chấp nhận lời mời |
+| `POST` | `/api/rooms/notifications/invites/{invite_id}/reject` | Từ chối lời mời |
 | `DELETE` | `/api/rooms/{room_id}/members/{user_id}` | Xóa thành viên |
 | `PATCH` | `/api/rooms/{room_id}/members/{user_id}/role` | Đổi vai trò |
 
-Quyền thành viên theo thứ tự: `OWNER > ADMIN > MEMBER`. Phòng công khai có thể được tìm thấy bởi mọi user đã đăng nhập; phòng riêng chỉ hiển thị với thành viên.
+Quyền thành viên theo thứ tự: `OWNER > ADMIN > MEMBER`. Phòng công khai có thể được tìm thấy bởi mọi user đã đăng nhập; phòng riêng chỉ hiển thị với thành viên. Khi có lời mời, server phát event WebSocket `room.invite`; khi người nhận chấp nhận, họ được thêm vào phòng và nhận tin nhắn hệ thống thông báo đã vào phòng.
 
 #### Tin nhắn và file
 
@@ -237,6 +245,7 @@ Các event server phát:
 - `room.role_changed`
 - `room.updated`
 - `room.deleted`
+- `room.invite`
 - `error`
 
 `ConnectionManager` lưu kết nối, subscription và trạng thái online trong memory của process backend hiện tại.
@@ -375,15 +384,17 @@ Không commit `.env` hoặc secret thật vào repository.
 ### 7.1. Điều kiện
 
 - Docker Engine và Docker Compose.
-- Python 3.11 trở lên nếu chạy frontend ngoài Docker.
-- Cổng `3000`, `8000` và `5432` không bị tiến trình khác chiếm.
+- Cổng `80`, `443`, `5432` và `8000` không bị tiến trình khác chiếm.
 
 ### 7.2. Khởi động backend và database
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 docker compose ps
 ```
+
+Mở giao diện tại `https://localhost`. Chứng chỉ local là self-signed; lần đầu
+hãy chọn **Advanced → Proceed to localhost** trong trình duyệt.
 
 Nạp dữ liệu mẫu:
 
@@ -393,19 +404,57 @@ docker compose exec backend python seed_users.py
 
 `seed_users.py` tạo các tài khoản demo, phòng mẫu, membership và tin nhắn mẫu. Mật khẩu demo hiện là `password123`; chỉ dùng trong môi trường kiểm thử.
 
-### 7.3. Khởi động frontend
+### 7.3. Tài khoản và phòng dùng để kiểm thử
 
-```bash
-cd frontend
-python3 -m http.server 3000 --bind 0.0.0.0
+`seed_users.py` tạo bốn tài khoản, tất cả dùng mật khẩu `password123`:
+
+| Email | Username | Mục đích |
+| --- | --- | --- |
+| `user1@example.com` | `dungx` | chủ phòng |
+| `user2@example.com` | `namtv` | ADMIN/thành viên |
+| `user3@example.com` | `anhlh` | thành viên |
+| `user4@example.com` | `maipt` | tài khoản chưa vào phòng, dùng để test lời mời |
+
+### 7.4. Kiểm thử mời người dùng vào phòng
+
+Mở hai cửa sổ trình duyệt, hoặc một cửa sổ thường và một cửa sổ ẩn danh:
+
+1. Cửa sổ thứ nhất đăng nhập `user1@example.com`.
+2. Tạo phòng riêng tư hoặc mở phòng có sẵn.
+3. Mở bảng **👥 Thành viên**, bấm `+`, tìm `maipt` hoặc
+   `user4@example.com`, rồi gửi lời mời.
+4. Cửa sổ thứ hai đăng nhập `user4@example.com`.
+5. Chuông `🔔` sẽ hiện thông báo lời mời theo thời gian thực.
+6. Bấm **Nhận** để tham gia hoặc **Từ chối** để bỏ qua.
+
+Khi chấp nhận, User 4 được thêm làm thành viên, phòng xuất hiện trong danh
+sách của User 4 và khung chat hiển thị tin nhắn hệ thống dạng:
+
+```text
+Phương Mai đã vào phòng
 ```
 
-Mở `http://localhost:3000`. Thiết bị trong cùng mạng LAN dùng `http://<IP-máy-chạy-server>:3000`.
+Lời mời được lưu lại nên nếu người nhận offline, họ vẫn thấy lời mời sau khi
+đăng nhập. Chi tiết API xem tại [docs/07-rest-api.md](docs/07-rest-api.md).
 
-`http.server` của Python đã bật `allow_reuse_address`. Nếu vẫn gặp `Address already in use`, kiểm tra và dừng tiến trình cũ:
+### 7.5. Truy cập từ mạng khác
+
+Để chia sẻ ứng dụng qua Internet mà không mở port router:
 
 ```bash
-ss -ltnp | grep ':3000'
+cloudflared tunnel --url http://localhost:8080
+```
+
+Gửi URL `https://*.trycloudflare.com` cho người dùng khác. Giữ tiến trình
+`cloudflared` chạy trong suốt thời gian sử dụng. Cloudflare Tunnel chuyển tiếp
+website/API/WebSocket; cuộc gọi WebRTC có thể cần cấu hình TURN trong `.env`.
+Xem hướng dẫn đầy đủ tại
+[docs/16-goi-xuyen-mang-lam-may-chu.md](docs/16-goi-xuyen-mang-lam-may-chu.md).
+
+Nếu gặp `Address already in use`, kiểm tra tiến trình đang chiếm cổng:
+
+```bash
+ss -ltnp | grep -E ':(80|443|5432|8000)'
 kill <PID>
 ```
 

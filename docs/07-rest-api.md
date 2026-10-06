@@ -38,8 +38,16 @@ về cùng `TokenResponse` như đăng nhập bằng email/mật khẩu.
 | POST/DELETE | `/api/rooms/{room_id}/join` / `leave` | tham gia/rời |
 | GET | `/api/rooms/{room_id}/members` | list member |
 | POST | `/api/rooms/{room_id}/members` | add member |
+| POST | `/api/rooms/{room_id}/invites` | gửi lời mời thành viên |
+| GET | `/api/rooms/notifications/invites` | lấy lời mời đang chờ |
+| POST | `/api/rooms/notifications/invites/{invite_id}/accept` | chấp nhận lời mời |
+| POST | `/api/rooms/notifications/invites/{invite_id}/reject` | từ chối lời mời |
 | DELETE | `/api/rooms/{room_id}/members/{user_id}` | remove member |
 | PATCH | `/api/rooms/{room_id}/members/{user_id}/role` | đổi role |
+
+Khi tạo lời mời, server phát sự kiện WebSocket `room.invite` trực tiếp đến
+người nhận. Khi chấp nhận, người dùng được thêm vào phòng và server tạo một
+tin nhắn loại `SYSTEM` thông báo người dùng đã vào phòng.
 
 ## Message - `messages.py`
 

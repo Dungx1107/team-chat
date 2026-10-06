@@ -32,10 +32,10 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     việc kiểm tra token -- đúng yêu cầu "không viết lặp trong từng endpoint".
     """
 
-    def _is_public(self, path: str) -> bool:
+    def _is_public(self, path: str, method: str) -> bool:
         if any(path.startswith(p) for p in PUBLIC_PATHS):
             return True
-        return any(p.match(path) for p in PUBLIC_PATTERNS)
+        return method == "GET" and any(p.match(path) for p in PUBLIC_PATTERNS)
 
     async def dispatch(self, request: Request, call_next):
         # WebSocket không đi qua HTTP middleware
@@ -46,7 +46,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS":
             return await call_next(request)
 
-        if self._is_public(request.url.path):
+        if self._is_public(request.url.path, request.method):
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization")

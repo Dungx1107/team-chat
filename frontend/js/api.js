@@ -204,6 +204,25 @@ const api = {
     });
   },
 
+  inviteMember(roomId, userId) {
+    return this.request(`/rooms/${roomId}/invites`, {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    });
+  },
+
+  getRoomInvites() {
+    return this.request("/rooms/notifications/invites");
+  },
+
+  acceptRoomInvite(inviteId) {
+    return this.request(`/rooms/notifications/invites/${inviteId}/accept`, { method: "POST" });
+  },
+
+  rejectRoomInvite(inviteId) {
+    return this.request(`/rooms/notifications/invites/${inviteId}/reject`, { method: "POST" });
+  },
+
   removeMember(roomId, userId) {
     return this.request(`/rooms/${roomId}/members/${userId}`, { method: "DELETE" });
   },

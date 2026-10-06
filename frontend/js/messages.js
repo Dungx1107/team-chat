@@ -139,7 +139,6 @@ function renderMessageRow(m, myId, grouped) {
     ? ""
     : `<div class="flex items-baseline gap-2 mb-0.5 ${isMe ? "justify-end" : ""}">
         <span class="font-semibold text-sm text-slate-900 dark:text-slate-100">${escapeHtml(isMe ? (senderName || "Bạn") : senderName)}</span>
-        ${m.username ? `<span class="text-[11px] text-slate-400 dark:text-slate-500">@${escapeHtml(m.username)}</span>` : ""}
         <span class="text-[10px] text-slate-400 dark:text-slate-500">${formatTime(m.created_at)}</span>
         ${m.edited_at ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 italic">(đã chỉnh sửa)</span>` : ""}
       </div>`;

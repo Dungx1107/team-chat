@@ -6,6 +6,7 @@ class RoomCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)
     description: Optional[str] = Field(None, max_length=300)
     is_private: bool = False
+    theme_color: Optional[str] = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
 
 class RoomUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=150)

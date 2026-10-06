@@ -204,6 +204,10 @@
             class="px-2.5 py-1.5 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition">
             <span id="theme-icon-chat">🌙</span>
           </button>
+          <button onclick="openInvitesModal()" title="Thông báo lời mời"
+            class="relative px-2.5 py-1.5 text-sm rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition">
+            🔔<span id="invite-count-badge" class="hidden absolute -right-1 -top-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[9px] leading-4 text-center"></span>
+          </button>
           <button id="btn-group-call" onclick="callUI.startGroupCall('VIDEO')" title="Bắt đầu cuộc gọi nhóm"
             class="hidden px-2.5 py-1.5 text-xs rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 transition">
             🎥 Gọi nhóm

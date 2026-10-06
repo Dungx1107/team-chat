@@ -50,12 +50,14 @@ class RoomService:
         name: str,
         owner_id: int,
         description: Optional[str] = None,
+        theme_color: Optional[str] = None,
         is_private: bool = False,
     ) -> Room:
         new_room = Room(
             name=name,
             owner_id=owner_id,
             description=description,
+            theme_color=theme_color,
             is_private=is_private,
         )
         created_room = self.room_repo.create(new_room)

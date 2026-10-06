@@ -1,6 +1,7 @@
 from typing import List
 import mimetypes
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from sqlalchemy.orm import Session
 from fastapi.responses import StreamingResponse
 from app.api.schemas import (
     RoomCreateRequest,
@@ -17,10 +18,15 @@ from app.api.dependencies import (
     get_call_service,
     get_message_service,
     file_storage,
+    get_db,
 )
 from app.services.room_service import RoomService
 from app.services.message_service import MessageService
 from app.infra.realtime.connection_manager import connection_manager
+from app.repositories.invite_repo import InviteRepository
+from app.repositories.user_repo import UserRepository
+from app.repositories.room_repo import RoomRepository
+from app.domain.models import RoomMember
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
@@ -273,6 +279,99 @@ def add_member(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+
+@router.post("/{room_id}/invites", status_code=status.HTTP_201_CREATED)
+def invite_member(
+    room_id: int,
+    body: AddMemberRequest,
+    current_user_id: int = Depends(get_current_user_id),
+    room_service: RoomService = Depends(get_room_service),
+    db: Session = Depends(get_db),
+):
+    """Tạo lời mời; người nhận phải chấp nhận trước khi trở thành thành viên."""
+    try:
+        room_service._get_room_or_fail(room_id)
+        actor = room_service.require_membership(room_id, current_user_id)
+        if not actor.can_manage_members():
+            raise PermissionError("Chỉ chủ phòng hoặc quản trị viên mới được mời thành viên")
+        if body.user_id == current_user_id:
+            raise ValueError("Không thể tự mời chính mình")
+        if not UserRepository(db).get_by_id(body.user_id):
+            raise ValueError("Người dùng không tồn tại")
+        if room_service.room_repo.get_member(room_id, body.user_id):
+            raise ValueError("Người dùng đã là thành viên của phòng")
+        invites = InviteRepository(db)
+        if invites.pending_for_room_user(room_id, body.user_id):
+            raise ValueError("Lời mời này đang chờ người dùng phản hồi")
+        invite = invites.create(room_id, current_user_id, body.user_id)
+        room = room_service.room_repo.get_by_id(room_id)
+        inviter = UserRepository(db).get_by_id(current_user_id)
+        connection_manager.publish_to_user(body.user_id, "room.invite", {
+            "id": invite.id,
+            "room_id": room_id,
+            "room_name": room.name,
+            "inviter_id": current_user_id,
+            "inviter_name": inviter.full_name if inviter else "Một thành viên",
+            "created_at": invite.created_at,
+        })
+        return {"id": invite.id, "room_id": room_id, "status": invite.status}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+
+@router.get("/notifications/invites")
+def list_invites(
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    invites = InviteRepository(db).pending_for_user(current_user_id)
+    rooms = {room.id: room for room in [RoomRepository(db).get_by_id(i.room_id) for i in invites]}
+    users = {user.id: user for user in [UserRepository(db).get_by_id(i.inviter_id) for i in invites]}
+    return [{
+        "id": invite.id,
+        "room_id": invite.room_id,
+        "room_name": rooms[invite.room_id].name,
+        "inviter_id": invite.inviter_id,
+        "inviter_name": users[invite.inviter_id].full_name if users.get(invite.inviter_id) else "Một thành viên",
+        "created_at": invite.created_at,
+    } for invite in invites if rooms.get(invite.room_id)]
+
+
+@router.post("/notifications/invites/{invite_id}/accept")
+def accept_invite(
+    invite_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    room_service: RoomService = Depends(get_room_service),
+    msg_service: MessageService = Depends(get_message_service),
+    db: Session = Depends(get_db),
+):
+    invite = InviteRepository(db).get(invite_id)
+    if not invite or invite.invitee_id != current_user_id or invite.status != "PENDING":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lời mời không tồn tại hoặc đã xử lý")
+    room = room_service._get_room_or_fail(invite.room_id)
+    if not room_service.room_repo.get_member(room.id, current_user_id):
+        room_service.room_repo.add_member(RoomMember(room_id=room.id, user_id=current_user_id, role=RoomMember.ROLE_MEMBER))
+        room_service._publish_member_event(room.id, current_user_id, "room.member_joined")
+        user = UserRepository(db).get_by_id(current_user_id)
+        msg_service.create_system_message(room.id, current_user_id, f"{user.full_name if user else 'Một người dùng'} đã vào phòng")
+    InviteRepository(db).respond(invite, "ACCEPTED")
+    return {"room_id": room.id, "status": "ACCEPTED"}
+
+
+@router.post("/notifications/invites/{invite_id}/reject")
+def reject_invite(
+    invite_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    invite = InviteRepository(db).get(invite_id)
+    if not invite or invite.invitee_id != current_user_id or invite.status != "PENDING":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lời mời không tồn tại hoặc đã xử lý")
+    InviteRepository(db).respond(invite, "REJECTED")
+    return {"status": "REJECTED"}
 
 
 @router.delete("/{room_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
