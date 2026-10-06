@@ -74,7 +74,7 @@ def list_rooms(
     current_user_id: int = Depends(get_current_user_id),
     room_service: RoomService = Depends(get_room_service)
 ):
-    """Phòng công khai, cộng thêm phòng riêng tư mà người dùng là thành viên."""
+    """Những phòng người dùng đang tham gia, cả công khai lẫn riêng tư."""
     rooms = room_service.list_rooms(user_id=current_user_id, limit=limit, offset=offset)
     result = []
     for r in rooms:
@@ -84,6 +84,27 @@ def list_rooms(
             my_role=member.role if member else None,
             member_count=room_service.room_repo.count_members(r.id),
             last_message=room_service.room_repo.get_last_message_summary(r.id),
+        ))
+    return result
+
+
+# Phải khai báo trước "/{room_id}", nếu không "search" bị hiểu là room_id và trả 422
+@router.get("/search", response_model=List[RoomResponse])
+def search_rooms(
+    q: str,
+    limit: int = 20,
+    current_user_id: int = Depends(get_current_user_id),
+    room_service: RoomService = Depends(get_room_service)
+):
+    """Tìm phòng công khai theo tên -- cách duy nhất để thấy phòng mình chưa tham gia."""
+    rooms = room_service.search_public_rooms(q, user_id=current_user_id, limit=limit)
+    result = []
+    for r in rooms:
+        member = room_service.room_repo.get_member(r.id, current_user_id)
+        result.append(_to_response(
+            r,
+            my_role=member.role if member else None,
+            member_count=room_service.room_repo.count_members(r.id),
         ))
     return result
 
@@ -352,6 +373,9 @@ def accept_invite(
     if not invite or invite.invitee_id != current_user_id or invite.status != "PENDING":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lời mời không tồn tại hoặc đã xử lý")
     room = room_service._get_room_or_fail(invite.room_id)
+    # Lời mời do chủ phòng/quản trị viên gửi, nên chấp nhận thì gỡ lệnh chặn cũ (nếu có),
+    # giống như khi được thêm thẳng qua RoomService.add_member
+    room_service.room_repo.remove_ban(room.id, current_user_id)
     if not room_service.room_repo.get_member(room.id, current_user_id):
         room_service.room_repo.add_member(RoomMember(room_id=room.id, user_id=current_user_id, role=RoomMember.ROLE_MEMBER))
         room_service._publish_member_event(room.id, current_user_id, "room.member_joined")

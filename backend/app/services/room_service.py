@@ -39,9 +39,10 @@ class RoomService:
         return member
 
     def can_view_room(self, room: Room, user_id: int) -> bool:
-        if not room.is_private:
+        if self.room_repo.get_member(room.id, user_id) is not None:
             return True
-        return self.room_repo.get_member(room.id, user_id) is not None
+        # Phòng công khai thì ai cũng xem được thông tin, trừ người đã bị xóa khỏi phòng
+        return not room.is_private and not self.room_repo.is_banned(room.id, user_id)
 
     # ---------- Tạo và quản lý phòng ----------
 
@@ -73,8 +74,18 @@ class RoomService:
         return created_room
 
     def list_rooms(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Room]:
-        """Trả về phòng công khai + phòng riêng tư mà người dùng có tham gia."""
-        return self.room_repo.list_visible_to_user(user_id, limit=limit, offset=offset)
+        """Chỉ những phòng người dùng đang tham gia.
+
+        Phòng công khai chưa tham gia không tự hiện ra trong danh sách,
+        người dùng phải tìm theo tên (search_public_rooms) rồi mới vào được.
+        """
+        return self.room_repo.list_joined_by_user(user_id, limit=limit, offset=offset)
+
+    def search_public_rooms(self, keyword: str, user_id: int, limit: int = 20) -> List[Room]:
+        keyword = (keyword or "").strip()
+        if not keyword:
+            return []
+        return self.room_repo.search_public(keyword, user_id, limit=min(limit, 50))
 
     def get_room(self, room_id: int, user_id: int) -> Room:
         room = self._get_room_or_fail(room_id)
@@ -131,6 +142,11 @@ class RoomService:
         if room.is_private:
             raise PermissionError("Phòng riêng tư, bạn cần được chủ phòng mời vào")
 
+        if self.room_repo.is_banned(room_id, user_id):
+            raise PermissionError(
+                "Bạn đã bị xóa khỏi phòng này. Chỉ chủ phòng hoặc quản trị viên mới mời lại được"
+            )
+
         existing = self.room_repo.get_member(room_id, user_id)
         if existing:
             return existing
@@ -153,6 +169,7 @@ class RoomService:
         removed = self.room_repo.remove_member(room_id, user_id)
         if removed:
             self._publish_member_event(room_id, user_id, "room.member_left")
+            self.events.revoke_room_access(user_id, room_id)
         return removed
 
     def add_member(self, room_id: int, actor_id: int, target_user_id: int) -> RoomMember:
@@ -164,6 +181,9 @@ class RoomService:
 
         if self.user_repo and not self.user_repo.get_by_id(target_user_id):
             raise ValueError("Người dùng không tồn tại")
+
+        # Quản trị viên chủ động mời lại thì coi như gỡ lệnh xóa trước đó
+        self.room_repo.remove_ban(room_id, target_user_id)
 
         existing = self.room_repo.get_member(room_id, target_user_id)
         if existing:
@@ -194,7 +214,12 @@ class RoomService:
 
         removed = self.room_repo.remove_member(room_id, target_user_id)
         if removed:
+            # Bị người khác xóa thì ghi lại để chặn tự tham gia lại.
+            # Tự xóa chính mình chỉ là rời phòng, không tính là bị cấm.
+            if actor_id != target_user_id:
+                self.room_repo.add_ban(room_id, target_user_id, banned_by=actor_id)
             self._publish_member_event(room_id, target_user_id, "room.member_left")
+            self.events.revoke_room_access(target_user_id, room_id)
         return removed
 
     def change_member_role(

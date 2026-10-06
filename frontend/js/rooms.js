@@ -23,9 +23,13 @@ function renderRoomList() {
   if (countLabel) countLabel.textContent = `${visibleRooms.length}/${roomsCache.length}`;
 
   if (!visibleRooms.length) {
-    container.innerHTML = `<p class="text-[11px] text-slate-500 p-3 text-center leading-relaxed">
-      Chưa có phòng nào.<br />Bấm dấu + để tạo phòng mới.
-    </p>`;
+    container.innerHTML = roomSearchQuery
+      ? `<p class="text-[11px] text-slate-500 p-3 text-center leading-relaxed">
+          Không có phòng nào bạn đã tham gia khớp với tên này.
+        </p>`
+      : `<p class="text-[11px] text-slate-500 p-3 text-center leading-relaxed">
+          Chưa tham gia phòng nào.<br />Bấm dấu + để tạo phòng, hoặc gõ tên vào ô tìm kiếm để tìm phòng công khai.
+        </p>`;
     return;
   }
 
@@ -62,25 +66,83 @@ function roomPreview(room) {
   return `${sender}: ${last.content || "📷 Hình ảnh"}`;
 }
 
+// Phòng công khai tìm được nhưng chưa tham gia, giữ lại để bấm vào thì tham gia
+let searchedRooms = new Map();
+
 function onRoomSearchInput(event) {
-  roomSearchQuery = event.target.value.trim().toLowerCase();
+  const keyword = event.target.value.trim();
+  roomSearchQuery = keyword.toLowerCase();
   renderRoomList();
   clearTimeout(roomSearchTimer);
   const suggestions = document.getElementById("room-search-suggestions");
-  if (!event.target.value.trim()) {
+  if (!keyword) {
     suggestions?.classList.add("hidden");
     return;
   }
   roomSearchTimer = setTimeout(async () => {
-    try {
-      const users = await api.searchUsers(event.target.value.trim());
-      if (!users.length || !suggestions) return suggestions?.classList.add("hidden");
-      suggestions.innerHTML = users.slice(0, 5).map((user) => `<button type="button" onclick="openUserProfile(${user.id})" class="w-full flex items-center gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-left">${renderAvatar(user, 28)}<span class="min-w-0"><span class="block text-xs font-semibold truncate">${escapeHtml(user.full_name)}</span><span class="block text-[10px] text-slate-500 truncate">@${escapeHtml(user.username)}</span></span></button>`).join("");
-      suggestions.classList.remove("hidden");
-    } catch {
-      suggestions?.classList.add("hidden");
+    if (!suggestions) return;
+    // Hai nguồn độc lập: một bên lỗi thì vẫn hiện kết quả của bên kia
+    const [rooms, users] = await Promise.all([
+      api.searchRooms(keyword).catch(() => []),
+      api.searchUsers(keyword).catch(() => []),
+    ]);
+    // Người dùng đã gõ tiếp trong lúc chờ thì bỏ kết quả cũ
+    if (keyword.toLowerCase() !== roomSearchQuery) return;
+
+    // Phòng đã tham gia thì đã hiện sẵn trong danh sách bên dưới
+    const newRooms = rooms.filter((r) => !roomsCache.some((c) => c.id === r.id)).slice(0, 5);
+    searchedRooms = new Map(newRooms.map((r) => [r.id, r]));
+
+    const sections = [];
+    if (newRooms.length) {
+      sections.push(searchSectionHeader("Phòng công khai") + newRooms.map(searchedRoomRow).join(""));
     }
+    if (users.length) {
+      sections.push(searchSectionHeader("Người dùng") + users.slice(0, 5).map(searchedUserRow).join(""));
+    }
+    if (!sections.length) {
+      suggestions.classList.add("hidden");
+      return;
+    }
+    suggestions.innerHTML = sections.join("");
+    suggestions.classList.remove("hidden");
   }, 300);
+}
+
+function searchSectionHeader(title) {
+  return `<div class="px-2 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">${title}</div>`;
+}
+
+function searchedRoomRow(room) {
+  return `<button type="button" onclick="openSearchedRoom(${room.id})" class="w-full flex items-center gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-left">
+    ${renderRoomAvatar(room, 28)}
+    <span class="min-w-0 flex-1">
+      <span class="block text-xs font-semibold truncate">${escapeHtml(room.name)}</span>
+      <span class="block text-[10px] text-slate-500 truncate">${Number(room.member_count || 0)} thành viên · bấm để tham gia</span>
+    </span>
+  </button>`;
+}
+
+function searchedUserRow(user) {
+  return `<button type="button" onclick="openUserProfile(${user.id})" class="w-full flex items-center gap-2 p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-left">${renderAvatar(user, 28)}<span class="min-w-0"><span class="block text-xs font-semibold truncate">${escapeHtml(user.full_name)}</span><span class="block text-[10px] text-slate-500 truncate">@${escapeHtml(user.username)}</span></span></button>`;
+}
+
+async function openSearchedRoom(roomId) {
+  if (!searchedRooms.has(roomId)) return;
+  try {
+    await api.joinRoom(roomId);
+  } catch (err) {
+    toast(err.message, "error");
+    return;
+  }
+  const input = document.getElementById("room-search");
+  if (input) input.value = "";
+  roomSearchQuery = "";
+  searchedRooms = new Map();
+  document.getElementById("room-search-suggestions")?.classList.add("hidden");
+  // Nạp lại để phòng vừa tham gia có đủ vai trò, số thành viên, tin cuối
+  await loadRooms();
+  selectRoomById(roomId);
 }
 
 function selectRoomById(roomId) {
