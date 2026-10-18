@@ -17,16 +17,15 @@ router = APIRouter(tags=["Realtime"])
 
 
 def _can_access_room(user_id: int, room_id: int) -> bool:
-    """Chỉ cho theo dõi phòng công khai, hoặc phòng riêng tư mà mình là thành viên."""
+    """Chỉ thành viên mới được theo dõi phòng, kể cả phòng công khai.
+
+    Trước đây ai cũng đăng ký theo dõi được phòng công khai, nên người vừa bị
+    xóa chỉ cần gửi lại lệnh subscribe là tiếp tục đọc được tin nhắn mới.
+    Giao diện luôn tham gia phòng trước rồi mới subscribe, nên không bị ảnh hưởng.
+    """
     db = SessionLocal()
     try:
-        repo = RoomRepository(db)
-        room = repo.get_by_id(room_id)
-        if not room:
-            return False
-        if not room.is_private:
-            return True
-        return repo.get_member(room_id, user_id) is not None
+        return RoomRepository(db).get_member(room_id, user_id) is not None
     finally:
         db.close()
 

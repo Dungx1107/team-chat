@@ -1,8 +1,10 @@
-# Team Chat - Tài liệu kỹ thuật
+# Team Chat — Tài liệu kỹ thuật
 
-Bộ tài liệu này mô tả implementation hiện tại của hệ thống Team Chat. Nguồn kiểm chứng là source code trong `backend/`, `frontend/`, `deploy/`, `docker-compose.yml` và các tài liệu gốc ở root.
+Bộ tài liệu mô tả hệ thống **đúng như code hiện tại**. Mọi khẳng định đều có thể lần
+ngược về file nguồn được nhắc tên. Khi tài liệu và code mâu thuẫn, code là đúng — hãy
+sửa tài liệu.
 
-## Hệ thống là gì?
+## Hệ thống là gì
 
 Team Chat là ứng dụng chat nội bộ theo phòng, hỗ trợ tài khoản, phân quyền thành viên, tin nhắn văn bản/file, reaction, pin, trạng thái online/typing và cuộc gọi WebRTC. Backend lưu dữ liệu trong Supabase PostgreSQL, file trong Supabase Storage, còn các cập nhật tức thời đi qua WebSocket.
 

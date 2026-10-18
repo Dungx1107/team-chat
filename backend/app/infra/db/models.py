@@ -100,6 +100,26 @@ class RoomInviteModel(Base):
     )
 
 
+class RoomBanModel(Base):
+    """Người đã bị quản trị viên xóa khỏi phòng.
+
+    Xóa thành viên chỉ là xóa một dòng trong room_members, nên với phòng công khai
+    người đó bấm tham gia là vào lại ngay. Bảng này ghi nhớ việc bị xóa để chặn
+    tự tham gia lại; chỉ khi chủ phòng/quản trị viên chủ động mời lại thì mới gỡ.
+    """
+    __tablename__ = "room_bans"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    room_id = Column(Integer, ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    banned_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("room_id", "user_id", name="uq_room_ban"),
+    )
+
+
 class AttachmentModel(Base):
     __tablename__ = "attachments"
 

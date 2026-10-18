@@ -1,6 +1,21 @@
-# 14. Code flow
+# 14. Luồng hoạt động
 
-## A. Login
+Mỗi luồng được vẽ **qua đủ các tầng**, với tên file và hàm thật, để có thể mở code ra đọc theo.
+Cách các tầng nối với nhau về nguyên tắc: [02](02-architecture.md).
+
+Ký hiệu tầng trong sơ đồ:
+
+| Tiền tố | Tầng | Thư mục |
+|---|---|---|
+| **FE** | Frontend | `frontend/js/` |
+| **API** | Giao tiếp | `backend/app/api/` |
+| **SVC** | Ứng dụng | `backend/app/services/` |
+| **DOM** | Nghiệp vụ lõi | `backend/app/domain/models/` |
+| **REPO / INFRA** | Hạ tầng | `backend/app/repositories/`, `backend/app/infra/` |
+
+---
+
+## 1. Đăng nhập
 
 ```mermaid
 sequenceDiagram
@@ -20,7 +35,15 @@ sequenceDiagram
     F->>F: lưu localStorage
 ```
 
-## B. Send message
+Người gửi nhận tin của chính mình **hai lần**: một lần trong phản hồi `201`, một lần qua
+`message.created`. Frontend bỏ bản trùng theo `id`.
+
+`publish_to_room` được gọi từ code đồng bộ trong threadpool; `ConnectionManager` dùng
+`run_coroutine_threadsafe` đẩy việc gửi sang event loop chính.
+
+---
+
+## 3. Tìm và tham gia phòng công khai
 
 ```mermaid
 sequenceDiagram
@@ -40,21 +63,25 @@ sequenceDiagram
     R-->>F: message response
 ```
 
-WebSocket không thay thế bước persistence; action `call.signal` là signaling riêng. Các loại tín hiệu gồm `offer`, `answer`, `ice` và `media`, trong đó `media` chỉ truyền trạng thái camera/micro chứ không truyền audio/video.
+Thứ tự hai lệnh cuối quan trọng: phát `member_left` **trước** rồi mới thu hồi, nên người bị xóa
+còn kịp biết để đóng phòng. Hai coroutine vào event loop theo thứ tự xếp hàng.
 
-## C. Create room
+Quyền kiểm tra ở hai nơi khác nhau: "có quyền quản lý thành viên không" và "ai cao hơn ai" là
+câu hỏi gửi cho **thực thể** `RoomMember`; còn "người bị xóa không được vào lại" là việc của
+**service**, vì nó cần ghi vào một bảng khác.
 
-`rooms.js -> POST /api/rooms -> rooms.py -> RoomService.create_room() -> room_repo.py -> rooms/room_members -> response + room event -> app.js cập nhật room list`. Owner được tạo cùng membership owner; private/public decision nằm trong request/schema/service.
+---
 
-## D. Upload file
+## 5. Lời mời
 
 `messages.js/profile.js/rooms.js -> multipart API -> router -> service -> SupabaseFileStorage.save() -> Supabase Storage bucket + metadata/attachment repository hoặc avatar field -> response`. Attachment download đi qua `GET /api/attachments/{attachment_id}` và kiểm tra quyền room.
 
-## E. Call
+Toàn bộ luật "được vào không" nằm trong `Call.join()` — service chỉ nạp, gọi, lưu, phát. Âm
+thanh và hình ảnh không bao giờ đi qua backend.
 
-`call.js -> POST /api/calls hoặc /api/calls/group -> CallService -> call_repo.py -> calls/call_participants -> call event qua ConnectionManager`. Sau đó `call.js` gửi `call.signal` (offer/answer/ice/media) qua `/ws`; backend relay signal, còn media chạy browser-to-browser WebRTC mesh hoặc qua ICE/TURN server khi không thể nối trực tiếp.
+---
 
-## Traceability map
+## Tóm tắt: mỗi tầng làm gì trong mọi luồng
 
 | Use case | Entry points | Core implementation |
 | --- | --- | --- |

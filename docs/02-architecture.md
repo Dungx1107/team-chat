@@ -1,8 +1,10 @@
-# 2. Kiến trúc phần mềm
+# 2. Kiến trúc
 
-## Kiến trúc thực tế
+Backend là một **khối nguyên (monolith) phân tầng** theo tinh thần Clean Architecture:
+nghiệp vụ nằm ở giữa và không phụ thuộc vào bất kỳ công nghệ nào; công nghệ (web, ORM,
+WebSocket, ổ đĩa) nằm ở vòng ngoài và phụ thuộc ngược vào nghiệp vụ qua các interface.
 
-Code thể hiện layered architecture kết hợp Service Layer, Repository Pattern và một mức interface/implementation separation. Đây không phải Clean Architecture thuần: `backend/app/api/dependencies.py` trực tiếp khởi tạo SQLAlchemy repositories và service; các router cũng biết một số infrastructure adapter.
+## Bốn tầng
 
 ```text
 Browser
@@ -20,35 +22,38 @@ Browser
 Upload đi theo nhánh `Service -> FileStorage interface -> SupabaseFileStorage -> Supabase Storage bucket`; realtime đi theo nhánh publisher/`ConnectionManager`.
 Cuộc gọi tách thành hai mặt phẳng: signaling và lifecycle đi qua FastAPI/WebSocket/`CallService`, còn audio/video đi trực tiếp giữa các browser theo WebRTC mesh hoặc qua STUN/TURN khi cần.
 
-## Trách nhiệm
+### Đã kiểm chứng bằng `grep`
 
-| Layer | Vị trí | Trách nhiệm |
-| --- | --- | --- |
-| API | `backend/app/api/routers` | HTTP/WebSocket endpoint, status code, gọi service |
-| Schema | `backend/app/api/schemas` | DTO request/response và validation Pydantic |
-| Middleware/dependency | `api/middlewares`, `api/dependencies.py` | bearer auth, tạo session/repository/service |
-| Domain | `backend/app/domain/models` | entity, enum, luật/constant domain |
-| Domain interfaces | `backend/app/domain/interfaces` | contract cho repository, storage, event publisher |
-| Service | `backend/app/services` | use case, authorization nghiệp vụ, phối hợp repo/event/storage |
-| Repository | `backend/repositories` | SQLAlchemy query, mapping ORM <-> domain |
-| Infrastructure | `backend/app/infra` | DB engine/session/model, JWT/hash, storage, realtime |
+Đây không chỉ là ý định — có thể kiểm tra trên code hiện tại:
 
-## Dependency injection
+```bash
+# domain/ chỉ import thư viện chuẩn và chính nó
+grep -rhoE "^(from|import) [a-z_.]+" backend/app/domain/ | sort -u
+# -> abc, datetime, typing, app.domain.*
 
 `get_db()` tạo synchronous SQLAlchemy session từ `backend/app/infra/db/session.py`, kết nối tới Supabase PostgreSQL bằng `DATABASE_URL`. Các dependency trong `api/dependencies.py` dựng `UserRepository`, `RoomRepository`, `MessageRepository`, `CallRepository`, `RefreshTokenRepository`, `SupabaseFileStorage` và service tương ứng. Router nhận các đối tượng này qua `Depends` thay vì tự viết query. WebSocket tạo session riêng cho các thao tác kiểm tra room và signaling call, rồi đóng session sau mỗi thao tác.
 
-## Pattern thể hiện trong code
+Những chỗ hiện **chưa** theo đúng kiến trúc trên. Ghi ra để không ai tưởng là thiết kế
+có chủ đích, và để làm cải tiến pha 2.
 
-- **Service Layer**: `AuthService`, `RoomService`, `MessageService`, `CallService`, `UserService` gom use case.
-- **Repository Pattern**: interface trong `domain/interfaces/*_repo.py`, implementation cùng tên trong `backend/repositories/`.
-- **DTO/Schema**: Pydantic schemas tách request/response khỏi domain entity.
-- **Middleware**: `AuthenticationMiddleware` đặt `request.state.user_id` cho HTTP request.
-- **Observer/event publisher**: `IEventPublisher` và `ConnectionManager` phát event tới client; publisher hỗ trợ gọi từ service đồng bộ bằng cách đưa coroutine vào event loop chính.
-- **Separation of concerns**: persistence, security, storage và realtime nằm ở infrastructure.
+| # | Chỗ | Vấn đề | Hướng sửa |
+|---|---|---|---|
+| 1 | Lời mời thành viên (`routers/rooms.py`: `invite_member`, `accept_invite`, `reject_invite`, `list_invites`) | Toàn bộ nghiệp vụ nằm trong router; `InviteRepository` không có interface, trả thẳng `RoomInviteModel` của SQLAlchemy lên router; router tự gọi `connection_manager` thay vì qua `IEventPublisher` | Thêm thực thể `RoomInvite`, cổng `IInviteRepository`, chuyển logic vào `RoomService` |
+| 2 | Biệt danh (`update_member_nickname`) và thư viện tệp (`list_room_media`) | Logic trong router, gọi thẳng `room_service.room_repo` | Chuyển thành phương thức của `RoomService` |
+| 3 | Nhiều endpoint phòng đọc `room_service.room_repo` để lấy vai trò, đếm thành viên | Router với tay xuyên qua service xuống repository | Service trả về một đối tượng tổng hợp |
+| 4 | `ws.py` tự tạo `RoomRepository` để kiểm tra quyền theo dõi phòng | Kiểm tra quyền nằm ngoài service | Gọi `RoomService.require_membership` |
+| 5 | `main.py` chạy `ALTER TABLE` thô khi khởi động | Thay đổi schema không có phiên bản, không lùi lại được, nằm ngoài mọi tầng | Alembic |
+| 6 | `AuthService` import thẳng `infra.security` và `google.oauth2` | Service phụ thuộc cài đặt cụ thể | Thêm cổng cho băm mật khẩu, cấp token, xác minh Google |
+| 7 | Không có kiểm thử tự động | `NullEventPublisher` đã sẵn sàng nhưng chưa được dùng | `pytest` cho tầng service với repository giả |
 
-Các interface không loại bỏ hoàn toàn coupling: repository implementation vẫn dùng trực tiếp SQLAlchemy và wiring tập trung ở API layer.
+## Giới hạn khi mở rộng
 
-## Ranh giới triển khai
+| Giới hạn | Nguyên nhân | Ảnh hưởng | Hướng cải tiến |
+|---|---|---|---|
+| Chỉ chạy được **một** tiến trình backend | `ConnectionManager` giữ kết nối và đăng ký phòng trong bộ nhớ | Chạy 2 worker là người ở worker 1 không nhận sự kiện từ worker 2 | Bộ chuyển đổi Redis Pub/Sub cho `IEventPublisher` |
+| Gọi nhóm tối đa 6 người | Mesh: mỗi máy tải lên n−1 luồng | Máy yếu hoặc mạng upload kém sẽ giật | SFU (mediasoup, LiveKit) |
+| Tệp nằm trên ổ đĩa một máy | `LocalFileStorage` | Không chia sẻ được giữa nhiều máy chủ | Bộ chuyển đổi S3/MinIO cho `IFileStorage` |
+| Truy vấn danh sách phòng N+1 | Router gọi `get_member`, `count_members`, `get_last_message_summary` cho từng phòng | Chậm khi người dùng ở nhiều phòng | Một truy vấn gộp trong repository |
 
 - `backend` và `web` là hai service Compose chạy mặc định; `turn` là service tùy chọn, bật bằng `docker compose --profile turn up -d`. Database và file storage nằm trên Supabase.
 - Presence, subscription, typing và các event realtime nằm trong memory của một process backend. Không có broker nên không thể mở rộng ngang mà vẫn giữ trạng thái realtime nhất quán.

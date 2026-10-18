@@ -22,6 +22,15 @@ class IEventPublisher(ABC):
     def publish_to_user_rooms(self, user_id: int, event: str, payload: Dict[str, Any]) -> None:
         pass
 
+    @abstractmethod
+    def revoke_room_access(self, user_id: int, room_id: int) -> None:
+        """Ngừng đẩy sự kiện của phòng tới người vừa mất quyền ở trong phòng.
+
+        Kết nối realtime đã đăng ký theo dõi phòng từ trước sẽ vẫn tiếp tục nhận
+        tin nhắn mới nếu không thu hồi, dù người đó đã bị xóa khỏi phòng.
+        """
+        pass
+
 
 class NullEventPublisher(IEventPublisher):
     """Bản cài đặt rỗng, dùng khi chạy unit test tầng Service."""
@@ -33,4 +42,7 @@ class NullEventPublisher(IEventPublisher):
         return None
 
     def publish_to_user_rooms(self, user_id: int, event: str, payload: Dict[str, Any]) -> None:
+        return None
+
+    def revoke_room_access(self, user_id: int, room_id: int) -> None:
         return None

@@ -1,29 +1,70 @@
 # 8. WebSocket và realtime
 
+Một kết nối WebSocket mỗi tab, mở suốt phiên làm việc. Server dùng nó để **chủ động báo**
+cho client; client dùng nó để đăng ký phòng, báo đang gõ, giữ kết nối và chuyển tín hiệu
+WebRTC.
+
+Trước khi có WebSocket, mỗi client hỏi lại API mỗi 2 giây — 30 request/phút/người kể cả khi
+không có gì mới.
+
+## Các thành phần
+
+| Thành phần | File | Vai trò |
+|---|---|---|
+| Endpoint | `backend/app/api/routers/ws.py` | Bắt tay, kiểm tra token, đọc hành động từ client |
+| `ConnectionManager` | `backend/app/infra/realtime/connection_manager.py` | Giữ danh sách kết nối; cài đặt cổng `IEventPublisher` |
+| `IEventPublisher` | `backend/app/domain/interfaces/event_publisher.py` | Cổng mà service dùng để phát sự kiện |
+| `realtime` | `frontend/js/ws.js` | Mở, nối lại, phân phát sự kiện tới bộ xử lý |
+
 ## Kết nối
 
-Client trong `frontend/js/ws.js` mở `wss://host/ws?token=<access_token>` khi chạy HTTPS (hoặc `ws://` khi chạy HTTP trực tiếp). `ws.py` decode token, đăng ký socket với `ConnectionManager`, gửi `connected`, xử lý message loop và unregister khi disconnect. Client gửi `ping` mỗi 30 giây và tự reconnect với backoff tối đa 15 giây; server chờ tối đa 90 giây mặc định (`WS_IDLE_TIMEOUT_SECONDS`) trước khi đóng kết nối im lặng bằng mã `4002`.
-
-## Client actions
-
-```json
-{"action":"subscribe","room_id":1}
-{"action":"unsubscribe","room_id":1}
-{"action":"typing.start","room_id":1}
-{"action":"typing.stop","room_id":1}
-{"action":"call.signal","call_id":1,"to_user_id":2,"signal":{}}
-{"action":"ping"}
+```
+wss://<host>/ws?token=<access_token>
 ```
 
-`signal.type` hỗ trợ `offer`, `answer`, `ice` và `media`. `media` dùng để đồng bộ trạng thái camera/micro của participant, không chứa luồng audio/video.
+Trình duyệt không gửi được header khi mở WebSocket, nên token nằm trong query string.
 
-## Server event
+```mermaid
+sequenceDiagram
+    participant C as Client (ws.js)
+    participant W as ws.py
+    participant M as ConnectionManager
+    C->>W: mở /ws?token=...
+    alt token sai hoặc hết hạn
+        W-->>C: đóng, mã 4001
+    else hợp lệ
+        W->>M: connect(socket, user_id)
+        W-->>C: {"event": "connected"}
+        C->>W: {"action": "subscribe", "room_id": 1}
+        W->>W: có phải thành viên phòng 1?
+        W->>M: subscribe(user_id, 1)
+        M-->>C: "user.online" tới mọi người trong phòng
+        W-->>C: {"event": "subscribed"}
+        loop mỗi 30 giây
+            C->>W: {"action": "ping"}
+            W-->>C: {"event": "pong"}
+        end
+    end
+```
 
-Payload có dạng `{"event":"message.created","data":{...}}`. Event thực tế: `connected`, `subscribed`, `pong`, `error`; `user.online/offline`; `typing.start/stop`; `message.created/updated/deleted/pinned/reaction`; `room.summary_updated/updated/deleted/avatar_updated`; `room.member_joined/member_left/role_changed`; `user.updated`; và nhóm call `call.incoming`, `accepted`, `ended`, `signal`, `participant_joined/left`, `room_started/updated/ended`, `error`.
+### Mã đóng kết nối
 
-## Gửi message và broadcast
+| Mã | Ai đóng | Lý do | Client làm gì |
+|---|---|---|---|
+| `4001` | Server | Token không hợp lệ | Đăng xuất, không nối lại |
+| `4002` | Server | 90 giây không nhận được gì | Nối lại ngay |
+| khác | Mạng | Rớt mạng, server khởi động lại | Nối lại, chờ 1 s → ×1,6 → tối đa 15 s |
 
-REST message service ghi message vào DB rồi publish event. `ConnectionManager` gửi event đến các socket đã subscribe room. `app.js`/`messages.js` cập nhật cache và DOM; client vẫn dùng REST để load lịch sử ban đầu.
+Mã `4001` được gửi **trước khi** bắt tay xong, nên tùy trình duyệt có thể chỉ thấy mã `1006`.
+Vì vậy `ws.js` có thêm lưới an toàn: chưa từng kết nối thành công mà thất bại **4 lần liên
+tiếp** thì coi như phiên đã hết.
+
+### Vì sao có hạn 90 giây
+
+Khi client tắt máy hay rớt mạng, TCP có thể **không báo gì cả** — nhất là khi đi qua proxy
+hoặc đường hầm. Server sẽ tưởng người đó vẫn online mãi, và nếu họ đang trong cuộc gọi thì
+không ai gọi được họ nữa ("đang bận trong cuộc gọi khác"). Client ping mỗi 30 giây, nên 90
+giây là lỡ 3 nhịp mới cắt — đủ rộng cho tab chạy nền bị trình duyệt làm chậm đồng hồ.
 
 ```mermaid
 sequenceDiagram
@@ -40,6 +81,26 @@ sequenceDiagram
     B->>B: app.js/messages.js render
 ```
 
-## Presence và giới hạn
+`publish_to_room(1, ...)` = lấy tập người trong `_room_users[1]`, rồi gửi tới mọi socket
+của từng người. Socket nào gửi lỗi thì bị coi là đã chết và bị dọn.
 
-Online/subscription/typing là process memory. Một user có thể có nhiều socket; manager giữ tập socket theo user. Disconnect xóa socket và phát offline khi không còn connection. Khi socket cuối cùng của user biến mất, router gọi `CallService.end_calls_of_user()` để dọn cuộc gọi đang dang dở. Không có broker nên nhiều replica sẽ có trạng thái/event không nhất quán.
+`revoke_room_access(user_id, room_id)` = bỏ người đó khỏi `_room_users[room_id]`. Được gọi
+**sau** khi phát `room.member_left`; vì các việc được xếp hàng theo thứ tự vào event loop,
+người bị xóa vẫn nhận được thông báo mình bị xóa rồi mới bị cắt.
+
+### Hệ quả của việc nằm trong bộ nhớ
+
+Chạy **hai** tiến trình backend thì mỗi tiến trình có `_room_users` riêng. A nối vào tiến
+trình 1, B nối vào tiến trình 2: B gửi tin, tiến trình 2 chỉ tìm thấy người trong bộ nhớ của
+chính nó, và A không bao giờ nhận được. Vì vậy hiện chỉ chạy **một worker**.
+
+Hướng cải tiến pha 2: viết lớp mới cài đặt `IEventPublisher` bằng **Redis Pub/Sub** — mỗi
+tiến trình đăng ký kênh Redis và tự gửi xuống các socket của mình. Không service nào phải sửa,
+vì chúng chỉ biết `IEventPublisher`.
+
+## Gửi từ code đồng bộ
+
+Service chạy trong threadpool (không có event loop), nhưng gửi WebSocket cần event loop.
+`ConnectionManager._dispatch()` bắc cầu bằng `asyncio.run_coroutine_threadsafe()` tới loop
+chính đã được ghi nhớ lúc khởi động qua `bind_loop()`. Xem
+[02](02-architecture.md#cầu-nối-đồng-bộ--bất-đồng-bộ).
