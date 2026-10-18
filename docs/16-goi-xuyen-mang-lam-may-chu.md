@@ -45,7 +45,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Các service `db`, `backend` và `web` phải ở trạng thái đang chạy. Nếu đây là
+Các service `backend` và `web` phải ở trạng thái đang chạy. Nếu đây là
 lần đầu chạy dự án, hãy tạo dữ liệu mẫu theo [RUN_GUIDE.md](../RUN_GUIDE.md).
 
 Kiểm tra đường dẫn nội bộ trước khi tạo tunnel:
@@ -181,7 +181,7 @@ Xem thêm:
 
 ## 8. Checklist trước khi gửi link cho người khác
 
-- [ ] `docker compose ps` cho thấy `db`, `backend`, `web` đang chạy.
+- [ ] `docker compose ps` cho thấy `backend`, `web` đang chạy; database truy cập được trên Supabase.
 - [ ] `curl http://localhost:8080/health` trả về thành công.
 - [ ] Tiến trình `cloudflared` vẫn đang chạy.
 - [ ] Đã gửi URL `https://...trycloudflare.com`, không gửi `localhost`.
@@ -189,4 +189,3 @@ Xem thêm:
       công ty.
 - [ ] Đã thử một cuộc gọi thật và cấp quyền camera/microphone.
 - [ ] Khi kết thúc demo, dừng tunnel bằng `Ctrl+C`.
-

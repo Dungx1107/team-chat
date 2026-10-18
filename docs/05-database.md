@@ -1,7 +1,8 @@
 # 5. Thực thể và database
 
-Hệ thống có hai mô hình dữ liệu song song, và tài liệu này mô tả cả hai cùng cách chúng
-nối với nhau:
+ORM nằm trong `backend/app/infra/db/models.py`; domain entities nằm trong `backend/app/domain/models/`. SQLAlchemy kết nối Supabase PostgreSQL qua `DATABASE_URL` và tạo bảng thiếu ở startup bằng `Base.metadata.create_all()`.
+
+Supabase chỉ cung cấp PostgreSQL managed; schema nghiệp vụ vẫn do SQLAlchemy model của ứng dụng quản lý. Không có PostgreSQL container hoặc volume database local trong `docker-compose.yml`.
 
 - **Thực thể domain** (`backend/app/domain/models/`) — lớp Python thuần, mang quy tắc nghiệp vụ.
 - **Bảng** (`backend/app/infra/db/models.py`) — model SQLAlchemy, mô tả cách lưu.
@@ -370,18 +371,4 @@ trong kết quả và biến mất khi tải lại trang.
 
 Không có framework migration. Hai cơ chế hiện có:
 
-1. **Bảng mới:** `create_all()` tự tạo khi backend khởi động. Không phải làm gì.
-2. **Cột mới trên bảng cũ:** `create_all()` **không** làm. Phải thêm vào khối `ALTER TABLE` trong
-   `main.py`, dùng `IF NOT EXISTS` để chạy lại nhiều lần vẫn an toàn.
-
-Hiện khối đó gồm: `password_hash` bỏ NOT NULL; thêm `rooms.theme_color`; thêm
-`room_members.nickname`.
-
-Xóa sạch và tạo lại từ đầu (mất toàn bộ dữ liệu):
-
-```bash
-docker compose down
-docker volume rm team-chat_pgdata
-docker compose up -d
-docker compose exec backend python seed_users.py
-```
+Không có migration file. `create_all()` chỉ tạo bảng thiếu, không quản lý thay đổi schema hiện hữu; khi thay đổi schema trên project Supabase cần chạy migration/SQL thủ công trên Supabase trước khi deploy. Chi tiết column type/default cần mở trực tiếp `models.py`.

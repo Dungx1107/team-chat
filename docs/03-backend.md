@@ -87,13 +87,12 @@ flowchart TB
     R --> S[JSON]
 ```
 
-**Đường dẫn công khai** (không cần token), khai báo ở `auth_middleware.py`:
+- `infra/security/jwt.py`, `password.py`: token và password.
+- `infra/storage/supabase_storage.py`: upload/download file với tên UUID trên Supabase Storage.
+- `infra/realtime/connection_manager.py`: socket/subscription/presence/typing in-memory và event publisher.
+- `infra/db/models.py`, `session.py`: persistence.
 
-- Mọi phương thức: `/docs`, `/redoc`, `/api/openapi.json`, `/health`,
-  `/api/auth/login`, `/api/auth/register`, `/api/auth/google`, `/api/auth/refresh`, `/ws`
-- **Chỉ GET:** `/api/users/{id}/avatar`, `/api/rooms/{id}/avatar` — vì thẻ `<img>` không gửi
-  kèm được header `Authorization`. Giới hạn GET để không ai `POST` lên đường dẫn này mà lọt
-  qua xác thực.
+Không có background worker hoặc async database layer được xác định từ source. Migration schema cũng không có; startup chỉ `create_all()` trên Supabase PostgreSQL.
 
 `/ws` công khai ở tầng middleware vì WebSocket không đi qua HTTP middleware; nó tự kiểm tra
 token trong query string — xem [08](08-websocket-realtime.md).

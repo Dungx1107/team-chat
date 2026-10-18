@@ -2,46 +2,21 @@
 
 ## Ba loại tệp, một chỗ lưu
 
-| Loại | Tải lên qua | Giới hạn | Định dạng | Ai xem được |
-|---|---|---|---|---|
-| Tệp đính kèm tin nhắn | `POST /api/rooms/{id}/messages/upload` | 25 MB | Bất kỳ | Thành viên phòng chứa tin |
-| Ảnh đại diện người dùng | `POST /api/users/me/avatar` | 5 MB | JPEG, PNG, GIF, WEBP | **Công khai** (chỉ GET) |
-| Ảnh đại diện phòng | `POST /api/rooms/{id}/avatar` | 5 MB | JPEG, PNG, GIF, WEBP | **Công khai** (chỉ GET) |
+`backend/app/domain/interfaces/file_storage.py` định nghĩa abstraction; `backend/app/infra/storage/supabase_storage.py` triển khai lưu trên Supabase Storage. File được đặt bằng UUID và chỉ giữ extension gốc, tránh dùng trực tiếp filename do client cung cấp.
 
 Cả ba đều nằm phẳng trong một thư mục: `/app/uploads` trong container `backend`, gắn với
 Docker volume **`uploads`**. Volume tách khỏi mã nguồn và khỏi dữ liệu PostgreSQL, nên dựng
 lại container không mất tệp.
 
-## Kiến trúc: cổng `IFileStorage`
-
-Service không biết tệp nằm ở đâu. Nó chỉ dùng cổng:
-
-```python
-class IFileStorage(ABC):
-    def save(self, file_obj, original_filename) -> Tuple[str, int]  # (tên đã lưu, kích thước)
-    def open_stream(self, stored_name) -> BinaryIO
-    def exists(self, stored_name) -> bool
-    def delete(self, stored_name) -> bool
-```
-
-Bộ chuyển đổi hiện tại là `LocalFileStorage` (`infra/storage/local_storage.py`), ghi xuống ổ
-đĩa. Thay bằng S3 hay MinIO chỉ cần viết một lớp mới cài đặt bốn phương thức này và đổi một
-dòng trong `api/dependencies.py`:
-
-```python
-file_storage = LocalFileStorage(settings.UPLOAD_DIR)   # đổi dòng này
-```
-
-Đây cũng là điều kiện để chạy nhiều máy chủ backend: ổ đĩa local thì mỗi máy một bản, còn
-object storage thì dùng chung.
-
-## Đặt tên tệp
-
-Tệp **không** được lưu bằng tên gốc. `LocalFileStorage.save()` đặt tên mới:
-
-```
-<uuid4 hex 32 ký tự> + <phần mở rộng gốc, tối đa 20 ký tự>
-ví dụ:  3f9a1c...e7b2.png
+```text
+Browser
+ -> api.js multipart upload
+ -> users.py/rooms.py/messages.py
+ -> UserService/RoomService/MessageService
+ -> SupabaseFileStorage.save()
+ -> metadata AttachmentModel hoặc avatar path
+ -> Supabase Storage bucket
+ -> response URL/id
 ```
 
 Lý do:
@@ -56,31 +31,7 @@ Thêm một lớp nữa ở `_safe_path()`: mọi đường dẫn đều cắt c
 kiểm tra đường dẫn tuyệt đối sau khi giải vẫn nằm trong thư mục gốc. Áp dụng cho cả đọc và
 xóa, không chỉ ghi.
 
-Tên gốc được giữ trong bảng `attachments.filename` để hiển thị và đặt tên khi tải về.
-
-## Luồng gửi tệp đính kèm
-
-```mermaid
-sequenceDiagram
-    participant F as messages.js
-    participant R as messages.py
-    participant S as MessageService
-    participant FS as LocalFileStorage
-    participant E as Attachment (thực thể)
-    participant DB as PostgreSQL
-    F->>R: POST .../messages/upload (multipart: file, caption)
-    R->>S: send_file_message(...)
-    S->>S: phải là thành viên phòng
-    S->>FS: save(file) → (uuid.ext, kích thước)
-    S->>E: Attachment(...) — rỗng hoặc > 25 MB thì báo lỗi
-    alt thực thể từ chối
-        S->>FS: delete(uuid.ext)
-        S-->>R: ValueError → 400
-    else hợp lệ
-        S->>DB: INSERT attachments, INSERT messages (FILE)
-        S-->>F: qua WebSocket: message.created
-    end
-```
+Backend dùng `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` và `SUPABASE_STORAGE_BUCKET` để truy cập bucket Supabase. Vì file nằm ngoài container nên không phụ thuộc vòng đời Docker; Compose chỉ bind mount mã nguồn `./backend:/app`.
 
 Lưu ý: tệp được **ghi xong rồi mới** kiểm tra kích thước, vì kích thước thật chỉ biết sau khi
 ghi. Tệp quá lớn bị xóa ngay sau đó. nginx chặn trước ở mức 30 MB (`client_max_body_size`),
@@ -130,5 +81,4 @@ docker volume rm team-chat_uploads
 docker compose up -d
 ```
 
-Xóa volume `uploads` mà giữ DB thì các tin nhắn tệp vẫn còn nhưng hiện "Không tải được tệp
-đính kèm".
+`SupabaseFileStorage.save()` đọc toàn bộ upload trước khi gửi lên Supabase; giới hạn Nginx request là `30m`, lớn hơn giới hạn attachment 25 MB. Bucket cần được tạo trước trong Supabase Dashboard. Hệ thống chưa có virus scanning hoặc content sniffing độc lập được xác định từ source.

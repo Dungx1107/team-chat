@@ -33,27 +33,51 @@ Giới hạn hiện tại: nội dung tin nhắn tối đa **4.000 ký tự tạ
 
 ### 2.1. Chuẩn bị
 
-- Docker Engine/Desktop và Docker Compose đang hoạt động.
-- Các cổng mặc định `80`, `443`, `8000`, `5432` và cổng tunnel trên loopback `8080` còn trống, hoặc đổi cổng trong `.env`.
-- Có mạng để tải image, dependency và các tài nguyên CDN/dịch vụ bên ngoài.
+Hệ thống gồm các thành phần triển khai chính:
 
-Nếu chưa có source:
+```mermaid
+flowchart LR
+    Browser[Trình duyệt]
+    Web[Nginx\nHTTPS :443 / HTTP :80\nTunnel :8080]
+    Backend[FastAPI + Uvicorn\nHTTP :8000\nWebSocket /ws]
+    Database[(Supabase PostgreSQL)]
+    Storage[(Supabase Storage\nbucket)]
 
-```bash
-git clone https://github.com/Dungx1107/team-chat.git
-cd team-chat
+    Browser --> Web
+    Web -->|static frontend, /api, /ws| Backend
+    Backend --> Database
+    Backend --> Storage
 ```
 
 Các lệnh Compose bên dưới chạy tại thư mục chứa `docker-compose.yml`.
 
 ### 2.2. Tạo cấu hình lần đầu
 
-Chỉ sao chép khi chưa có `.env`; giữ cấu hình hiện có nếu project đã được thiết lập.
+```text
+backend/app/
+├── api/                 # Router, schema HTTP, middleware, dependency wiring
+├── domain/              # Entity và interface nghiệp vụ
+├── services/            # Use case và luật nghiệp vụ
+├── repositories/        # Adapter truy cập dữ liệu qua SQLAlchemy
+├── infra/
+│   ├── db/              # Engine, session, ORM model
+│   ├── realtime/        # ConnectionManager cho WebSocket
+│   ├── security/        # JWT và hash mật khẩu
+│   └── storage/         # Adapter Supabase Storage
+└── main.py              # Khởi tạo FastAPI và đăng ký router
+```
 
 PowerShell:
 
-```powershell
-Copy-Item .env.example .env
+```text
+Request
+  -> Middleware xác thực
+  -> Router
+  -> Dependency injection
+  -> Service
+  -> Domain interface / Repository / Infrastructure adapter
+  -> Supabase PostgreSQL hoặc Supabase Storage
+  -> Response schema
 ```
 
 Bash:
@@ -87,20 +111,22 @@ Chứng chỉ mặc định là tự ký; thiết bị demo cần tin cậy/ch�
 
 ### 2.4. Dữ liệu mẫu
 
-Sau khi backend khởi động thành công:
+`docker-compose.yml` định nghĩa hai service chạy mặc định:
 
-```bash
-docker compose exec backend python seed_users.py
-```
+| Service | Công nghệ | Cổng | Persistent data |
+| --- | --- | --- | --- |
+| Supabase | PostgreSQL và Storage managed | Kết nối qua `DATABASE_URL` | Database và bucket ngoài Docker |
+| `backend` | Python 3.11 + Uvicorn | Host `${PORT:-8000}` -> container `8000` | Bind mount mã nguồn |
+| `web` | Nginx Alpine | `${HTTPS_PORT:-443}`, `${HTTP_PORT:-80}`, tunnel `127.0.0.1:${TUNNEL_PORT:-8080}` | Volume `certs` |
 
 Trên DB mới, script tạo các tài khoản dưới đây, dùng chung mật khẩu demo **`password123`**:
 
-| Email | Username | Vai trò trong Phòng Kiến Trúc |
-|---|---|---|
-| `user1@example.com` | `dungx` | OWNER |
-| `user2@example.com` | `namtv` | ADMIN |
-| `user3@example.com` | `anhlh` | MEMBER |
-| `user4@example.com` | `maipt` | Chưa được script thêm vào phòng |
+- Kết nối Supabase PostgreSQL qua `DATABASE_URL`; không có database container local.
+- Chạy bằng user non-root `appuser`.
+- Mount mã nguồn `./backend:/app` trong môi trường phát triển.
+- Lưu file lên bucket Supabase qua `SUPABASE_*`.
+- Frontend được mount read-only vào Nginx và chạy cùng service `web`.
+- Cổng `8080` chỉ bind trên localhost để dùng với Cloudflare Tunnel/ngrok.
 
 Script còn tạo phòng riêng tư **Nhóm Trưởng** cho user1 và user2, cùng tin nhắn mẫu. Script bỏ qua tài khoản/phòng đã tồn tại; không bảo đảm sửa lại mọi trạng thái nếu dữ liệu demo đã bị thay đổi. 
 
@@ -158,10 +184,10 @@ Code chấp nhận dạng ngắn:
 ICE_SERVERS=stun:stun.l.google.com:19302,turn:turn.example.com:3478|USERNAME|PASSWORD
 ```
 
-Hoặc JSON một dòng:
+Khi thay đổi schema database trong Pha 1 (không dùng Alembic), chạy migration/SQL thủ công trên Supabase rồi khởi động lại backend:
 
-```dotenv
-ICE_SERVERS=[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"USERNAME","credential":"PASSWORD"}]
+```bash
+docker compose restart backend
 ```
 
 Để thử coturn kèm project, đặt IP/credential của máy chủ, thêm URL TURN tương ứng vào `ICE_SERVERS`, rồi chạy:
@@ -188,7 +214,11 @@ flowchart LR
     T <-->|Media relay| B
 ```
 
-Nginx phục vụ frontend, kết thúc TLS và proxy `/api`, `/ws`, tài liệu API và health sang backend. Compose cũng publish cổng backend và DB ra host, nên Nginx không phải đường truy cập duy nhất được cấu hình. Backend xử lý nghiệp vụ và signaling; không chuyển tiếp luồng âm thanh/video như SFU.
+- `SupabaseFileStorage` lưu file trong bucket Supabase.
+- Tên vật lý trên đĩa được thay bằng UUID và giữ phần mở rộng.
+- Có kiểm tra path traversal.
+- Attachment lưu metadata trong database.
+- Docker named volume `uploads` giúp dữ liệu file tồn tại qua lần recreate container.
 
 ### 4.2. Phân tầng và hướng phụ thuộc
 
@@ -268,13 +298,20 @@ team-chat/
 
 ### Đăng nhập và gọi API có xác thực
 
-1. Frontend gửi email/mật khẩu tới `POST /api/auth/login`.
-2. Router validate schema và gọi AuthService.
-3. Service lấy user qua repository, kiểm tra mật khẩu bằng bcrypt và trạng thái tài khoản.
-4. Backend cấp access JWT; tạo refresh token ngẫu nhiên và lưu SHA-256 hash vào DB.
-5. Frontend lưu token/user trong localStorage. Request sau gửi `Authorization: Bearer <access_token>`.
-6. Middleware kiểm tra JWT và gắn `request.state.user_id`; endpoint lấy danh tính qua `get_current_user_id`.
-7. Khi request nhận 401, REST client thử refresh và gửi lại một lần. Refresh token cũ bị thu hồi khi rotation thành công.
+| Biến | Mặc định/ý nghĩa |
+| --- | --- |
+| `PROJECT_NAME` | Tên API |
+| `ENVIRONMENT` | Môi trường chạy |
+| `PORT` | Cổng host map vào backend, mặc định `8000` |
+| `DATABASE_URL` | Chuỗi kết nối Supabase PostgreSQL/Pooler cho SQLAlchemy |
+| `SUPABASE_URL` | URL project Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service-role key, chỉ dùng ở backend |
+| `SUPABASE_STORAGE_BUCKET` | Tên bucket Storage, mặc định `attachments` |
+| `JWT_SECRET_KEY` | Secret ký JWT, phải đủ dài và bí mật |
+| `JWT_ALGORITHM` | Thuật toán JWT, mặc định `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Cấu hình thời hạn access token |
+| `MAX_UPLOAD_BYTES` | Kích thước upload tối đa, mặc định 25 MB |
+| `CORS_ORIGINS` | Danh sách origin phân tách bằng dấu phẩy; `*` cho development |
 
 Access token hiện mặc định **60 phút**, refresh token **7 ngày**. Logout phía frontend xóa phiên cục bộ; chưa có endpoint logout thu hồi phiên phía server.
 
@@ -287,9 +324,10 @@ Access token hiện mặc định **60 phút**, refresh token **7 ngày**. Logou
 5. Service phát `message.created` và `room.summary_updated` qua IEventPublisher.
 6. ConnectionManager chuyển event tới các socket đang subscribe; API đồng thời trả response cho người gửi.
 
-### Gửi file
+- Docker Engine và Docker Compose.
+- Cổng `80`, `443` và `8000` không bị tiến trình khác chiếm; backend cần truy cập Internet tới Supabase.
 
-API nhận multipart → service kiểm tra quyền → LocalFileStorage ghi file bằng tên vật lý UUID → Attachment kiểm tra metadata/size → lưu attachment → lưu message loại FILE → phát event. File không hợp lệ được dọn trong nhánh validation; lỗi DB ở bước sau chưa có cơ chế rollback chung với filesystem.
+### 7.2. Khởi động backend và kết nối Supabase
 
 ### Tạo phòng và quản lý thành viên
 
@@ -364,8 +402,9 @@ Có **47 endpoint REST nghiệp vụ**: Auth 4, Rooms 16, Messages 10, Users 7, 
 
 Các API dùng JSON, trừ upload multipart và response stream/file. Header cho request cần danh tính:
 
-```http
-Authorization: Bearer <access_token>
+```bash
+ss -ltnp | grep -E ':(80|443|8000)'
+kill <PID>
 ```
 
 Ký hiệu **JWT** dưới đây nghĩa là cần danh tính; quyền tài nguyên vẫn được kiểm tra ở bước nghiệp vụ. **Public** nghĩa là không cần access JWT.
@@ -450,15 +489,12 @@ Middleware JWT chưa khai báo thành security scheme trong OpenAPI; Swagger hi�
 
 Qua Nginx, URL socket là `wss://<host>/ws?token=<access_token>`. Frontend dùng cùng origin với trang khi không chạy ở cổng 3000. Khi frontend chạy riêng ở cổng 3000, code chuyển sang backend `http://<hostname>:8000` và `ws://<hostname>:8000`.
 
-Các action client gửi:
+```bash
+# Dừng container; dữ liệu Supabase không bị xóa
+docker compose down
 
-```json
-{"action":"subscribe","room_id":1}
-{"action":"unsubscribe","room_id":1}
-{"action":"typing.start","room_id":1}
-{"action":"typing.stop","room_id":1}
-{"action":"ping"}
-{"action":"call.signal","call_id":1,"to_user_id":2,"signal":{"type":"offer","sdp":"..."}}
+# Chỉ xóa các volume Docker của web (nếu có); dữ liệu Supabase vẫn giữ nguyên
+docker compose down -v
 ```
 
 Mỗi dòng là một thông điệp riêng; ID và SDP ở trên chỉ minh họa hình dạng. Server dùng envelope:
@@ -477,7 +513,13 @@ Payload đầy đủ phụ thuộc event; ví dụ trên được rút gọn. C�
 | User/typing | `user.updated`, `user.online`, `user.offline`, `typing.start`, `typing.stop` |
 | Cuộc gọi | `call.incoming`, `call.accepted`, `call.ended`, `call.signal`, `call.error`, `call.room_started`, `call.room_updated`, `call.room_ended`, `call.participant_joined`, `call.participant_left` |
 
-Token được kiểm tra lúc handshake. Server chờ frame với timeout mặc định 90 giây; frontend gửi ping định kỳ. Khi socket cuối cùng của một user mất kết nối, server có logic dọn call dở dang.
+- CORS mặc định là `*`, phù hợp development nhưng cần giới hạn origin khi production.
+- Frontend hiện dùng `http://` và `ws://`; khi triển khai HTTPS cần reverse proxy và `https://`/`wss://` tương ứng.
+- Presence và WebSocket chỉ lưu trong memory của một backend process; chưa có Redis Pub/Sub, vì vậy chưa phù hợp scale ngang nhiều instance.
+- Chưa có migration framework. Thay đổi schema cần có quy trình migration riêng hoặc reset database trong development.
+- Backend container map cổng host theo `PORT`, trong khi Uvicorn bên trong container vẫn lắng nghe cổng `8000`.
+- Attachment cần Bearer token khi truy cập. Quyền truy cập attachment nên được rà soát thêm nếu triển khai production nhiều tenant/phòng.
+- Secret JWT, Supabase service-role key và tài khoản demo phải được thay đổi/bảo vệ trong môi trường thật.
 
 Vòng đời gọi trực tiếp: `RINGING → ACTIVE → ENDED`, với các nhánh `REJECTED`, `MISSED`, `CANCELED`. Gọi nhóm mở ở `ACTIVE`; người cuối rời làm kết thúc call. Participant có trạng thái `INVITED`, `JOINED`, `DECLINED`, `LEFT`. Giá trị đổ chuông 30 giây được trả qua API config và frontend sử dụng; không có dịch vụ scheduler timeout cuộc gọi độc lập.
 

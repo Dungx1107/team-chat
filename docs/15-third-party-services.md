@@ -214,7 +214,7 @@ Thực hành nên theo:
 
 ## F. Checklist trước khi demo gọi qua Internet
 
-- [ ] `docker compose ps` — ba service `Up`, `db` là `healthy`
+- [ ] `docker compose ps` — `backend` và `web` ở trạng thái `Up`; database truy cập được trên Supabase
 - [ ] `docker compose exec backend python check_turn.py` — các máy chủ TURN đều ✓
 - [ ] Mở `https://localhost/?relay=1`, gọi thử, thấy dòng *"Đang chuyển tiếp qua máy chủ trung gian"*
 - [ ] `cloudflared tunnel --url http://localhost:8080` đang chạy, đã copy địa chỉ mới nhất

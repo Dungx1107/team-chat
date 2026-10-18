@@ -8,8 +8,12 @@ pha 2 cải tiến kiến trúc và đo hiệu năng trước/sau. Vì vậy cod
 
 ## Các thành phần chạy
 
-Hệ thống gồm ba container chạy mặc định và một container tùy chọn, định nghĩa trong
-`docker-compose.yml`:
+- **User/browser**: render `frontend/index.html`, gọi REST, duy trì WebSocket và thực hiện WebRTC ở client.
+- **Nginx (`web`)**: terminate HTTPS, phục vụ frontend tĩnh, proxy `/api`, `/ws`, `/docs`, `/redoc`, `/health`.
+- **FastAPI (`backend`)**: xác thực, use case, REST, WebSocket, signaling và truy cập persistence.
+- **Supabase PostgreSQL**: dữ liệu user, room, message, call, token và metadata file; backend kết nối qua `DATABASE_URL` (Supavisor/Pooler).
+- **Supabase Storage**: file đính kèm và ảnh đại diện trong bucket được cấu hình bởi `SUPABASE_STORAGE_BUCKET`.
+- **STUN/TURN**: STUN mặc định giúp tìm đường kết nối; TURN bên ngoài hoặc service `turn` tùy chọn chuyển tiếp media khi WebRTC không thể kết nối trực tiếp.
 
 | Container | Image | Vai trò | Cổng |
 |---|---|---|---|
@@ -27,21 +31,19 @@ dịch vụ TURN bên ngoài (Metered) và Cloudflare Tunnel. Xem [15](15-third-
 hợp với một loại việc.
 
 ```mermaid
-flowchart LR
-    subgraph Trình duyệt A
-        UA[Giao diện]
-    end
-    subgraph Máy chủ
-        API[REST /api]
-        WS[WebSocket /ws]
-    end
-    subgraph Trình duyệt B
-        UB[Giao diện]
-    end
-    UA -->|1. REST: yêu cầu - phản hồi| API
-    WS -->|2. WebSocket: server chủ động đẩy| UA
-    WS -->|2.| UB
-    UA <-->|3. WebRTC: âm thanh/hình ảnh<br/>không đi qua máy chủ| UB
+sequenceDiagram
+    participant U as Browser
+    participant N as Nginx
+    participant A as FastAPI
+    participant D as Supabase PostgreSQL
+    participant F as Supabase Storage
+    U->>N: HTTPS GET frontend / REST / WebSocket upgrade
+    N->>A: proxy /api, /ws, /docs, /health
+    A->>D: SQLAlchemy session qua DATABASE_URL
+    A->>F: upload/download attachment hoặc avatar
+    A-->>N: response/event
+    N-->>U: HTTPS response or WebSocket event
+    U<<->>S: WebRTC media (direct hoặc qua TURN)
 ```
 
 | Kênh | Dùng cho | Vì sao chọn kênh này |
@@ -99,29 +101,21 @@ Ví dụ: người dùng gửi tin "chào" vào phòng 1.
 
 ```mermaid
 sequenceDiagram
-    participant B as Trình duyệt
-    participant N as nginx
-    participant M as AuthMiddleware
-    participant R as Router messages.py
-    participant S as MessageService
-    participant E as Message (entity)
-    participant P as MessageRepository
-    participant D as PostgreSQL
-    participant W as ConnectionManager
-    B->>N: POST /api/rooms/1/messages (HTTPS)
-    N->>M: chuyển tiếp (HTTP nội bộ)
-    M->>M: giải mã JWT → request.state.user_id
-    M->>R: cho qua
-    R->>R: Pydantic kiểm tra body
-    R->>S: send_message(room_id, user_id, content)
-    S->>P: get_member() — có phải thành viên?
-    S->>E: Message(...) — nội dung rỗng thì báo lỗi
-    S->>P: create(message)
-    P->>D: INSERT
-    S->>W: publish_to_room("message.created")
-    W-->>B: sự kiện qua WebSocket (mọi thành viên)
-    R-->>B: 201 + tin nhắn
+    participant C1 as Client A
+    participant WS as /ws + ConnectionManager
+    participant S as Service
+    participant DB as Supabase PostgreSQL
+    participant C2 as Client B
+    C1->>WS: action subscribe / typing / call.signal
+    WS->>S: kiểm tra user/room hoặc chuyển signaling
+    S->>DB: ghi dữ liệu nếu là use case bền vững
+    S->>WS: publish event
+    WS-->>C1: event
+    WS-->>C2: event tới socket đã subscribe
 ```
 
-Luồng này đi qua cả bốn tầng; [02](02-architecture.md) giải thích vì sao chia như vậy, còn
-[14](14-code-flow.md) có thêm các luồng khác.
+`ConnectionManager` giữ socket, subscription, online và typing trong memory của một process. Vì vậy realtime không tự đồng bộ giữa nhiều backend process.
+
+## Phạm vi đã xác định
+
+Có authentication, refresh token, profile/avatar, room/member role, message CRUD mềm, attachment, reaction, pin, presence/typing và calls. Call dùng WebRTC mesh ở browser; backend chỉ lưu lifecycle và làm signaling, không vận chuyển media. Có STUN mặc định và hỗ trợ TURN bên ngoài hoặc coturn qua Compose profile `turn`; không có SFU, Redis/PubSub hay migration framework. PostgreSQL và object storage được cung cấp bởi Supabase, không chạy local trong Compose.
