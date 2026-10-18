@@ -21,7 +21,7 @@ Tài liệu dành cho thành viên trong nhóm: clone về là chạy được, 
 
 ## Lệnh nhanh nhất cho người đã có cấu hình
 
-Nếu bạn đã có file `.env`, Docker volume và cấu hình từ trước, **không chạy lại `cp .env.example .env` và không chạy `seed_users.py`**:
+Nếu bạn đã có file `.env` và cấu hình Supabase từ trước, **không chạy lại `cp .env.example .env` và không chạy `seed_users.py`**:
 
 ```bash
 cd <thư-mục-team-chat>
@@ -36,8 +36,8 @@ Sau đó mở `https://localhost`.
 
 | Trường hợp | Cần làm |
 | --- | --- |
-| Người mới, chưa có `.env` và chưa có Docker volume | Làm theo [mục 2](#2-chạy-lần-đầu-cho-người-mới) |
-| Đã chạy dự án trước đây, còn `.env` và dữ liệu Docker | Chạy `docker compose up -d --build`, rồi mở `https://localhost` |
+| Người mới, chưa có `.env` hoặc Supabase project | Làm theo [mục 2](#2-chạy-lần-đầu-cho-người-mới) |
+| Đã chạy dự án trước đây, còn `.env` và Supabase project | Chạy `docker compose up -d --build`, rồi mở `https://localhost` |
 | Chỉ sửa code frontend | Chỉ refresh trình duyệt |
 | Sửa code backend hoặc thêm dependency | Chạy `docker compose up -d --build` |
 | Muốn giữ dữ liệu cũ | Không dùng `docker compose down -v` |
@@ -48,7 +48,7 @@ Sau đó mở `https://localhost`.
 
 ## Cần cài sẵn
 
-Chỉ cần **Docker Desktop**. Không cần cài Python, Node hay PostgreSQL — mọi thứ chạy trong container.
+Chỉ cần **Docker Desktop** và một project **Supabase** đã sẵn sàng. Không cần cài Python, Node hay PostgreSQL — backend chạy trong container, database và file storage chạy trên Supabase.
 
 Trên Windows, Docker Desktop đòi hỏi **WSL2**. Nếu chưa có, mở PowerShell **quyền Administrator**:
 
@@ -67,7 +67,7 @@ cd team-chat
 
 ## Bước 2: Tạo file `.env`
 
-**Đây là bước hay bị quên nhất.** File `.env` chứa mật khẩu nên không được đẩy lên Git, mỗi người phải tự tạo. Thiếu nó thì `docker compose` báo lỗi biến rỗng.
+**Đây là bước hay bị quên nhất.** File `.env` chứa secret nên không được đẩy lên Git, mỗi người phải tự tạo. Thiếu hoặc sai biến Supabase thì backend không kết nối được database/storage.
 
 Windows (PowerShell):
 
@@ -81,14 +81,16 @@ Linux/macOS:
 cp .env.example .env
 ```
 
-Sau đó mở `.env` và sửa **hai dòng**:
+Sau đó mở `.env` và cấu hình các biến Supabase (giữ nguyên các biến khác trong `.env.example`):
 
 ```ini
-POSTGRES_PASSWORD=dat-mot-mat-khau-bat-ky
-DATABASE_URL=postgresql://postgres:dat-mot-mat-khau-bat-ky@db:5432/teamchat_db
+DATABASE_URL=postgresql+psycopg://postgres.<project-ref>:<db-password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+SUPABASE_STORAGE_BUCKET=attachments
 ```
 
-Mật khẩu ở hai dòng phải **giống hệt nhau**. Nên sửa thêm `JWT_SECRET_KEY` thành một chuỗi ngẫu nhiên dài trên 32 ký tự.
+Lấy các giá trị này trong Supabase Dashboard: **Connect** (Pooler connection string), **Project Settings → API** và **Storage**. Tạo bucket `attachments` (hoặc dùng tên khác và cập nhật `SUPABASE_STORAGE_BUCKET`). Không đưa `SUPABASE_SERVICE_ROLE_KEY` lên frontend hoặc Git. Nên sửa `JWT_SECRET_KEY` thành một chuỗi ngẫu nhiên dài trên 32 ký tự.
 
 Để bật **Đăng nhập bằng Google**, thêm hoặc kiểm tra dòng sau trong `.env`:
 
@@ -114,15 +116,15 @@ Lần đầu mất khoảng 2–5 phút vì phải tải image và build. Kiểm
 docker compose ps
 ```
 
-Cả ba service `db`, `backend`, `web` phải ở trạng thái `Up`, riêng `db` phải `(healthy)`.
+Các service `backend`, `web` phải ở trạng thái `Up`; nếu bật TURN thì service `turn` cũng phải chạy. Database không hiển thị trong `docker compose ps` vì nằm trên Supabase.
 
-## Bước 4: Nạp dữ liệu mẫu
+## Bước 4: Nạp schema và dữ liệu mẫu
 
 ```bash
 docker compose exec backend python seed_users.py
 ```
 
-Lệnh này tạo 4 tài khoản, một phòng công khai và một phòng riêng tư.
+Ứng dụng tự gọi `Base.metadata.create_all()` khi khởi động để tạo các bảng còn thiếu trên Supabase. Lệnh seed tạo 4 tài khoản, một phòng công khai và một phòng riêng tư.
 
 ## Bước 5: Mở trình duyệt
 
@@ -279,7 +281,7 @@ cd <thư-mục-team-chat>
 docker compose up -d
 ```
 
-Rồi vào `https://localhost`. **Không cần seed lại**, dữ liệu nằm trong Docker volume.
+Rồi vào `https://localhost`. **Không cần seed lại**, dữ liệu nằm trên Supabase.
 
 Docker Desktop không tự bật cùng Windows, nên phải mở thủ công trước.
 
@@ -532,26 +534,24 @@ docker compose --profile turn up -d
 | Dừng (giữ dữ liệu) | `docker compose down` |
 | Bật lại | `docker compose up -d` |
 | Build lại sau khi sửa code | `docker compose up -d --build` |
-| Xem dữ liệu trong DB | `docker compose exec db psql -U postgres -d teamchat_db` |
+| Xem dữ liệu trong DB | Mở SQL Editor hoặc Table Editor trên Supabase Dashboard |
 
 Sửa code Python trong `backend/` thì chỉ cần `docker compose restart backend`, không phải build lại (thư mục được mount vào container).
 
 Sửa file trong `frontend/` thì **không cần làm gì cả** — chỉ cần `Ctrl + F5` trên trình duyệt.
 
-Nếu database được tạo từ phiên bản cũ, cập nhật thủ công một lần bằng lệnh sau
-(backend mới cũng tự thực hiện lệnh tương tự khi khởi động):
+Nếu schema Supabase được tạo từ phiên bản cũ, chạy migration/SQL tương ứng trong
+Supabase SQL Editor trước khi khởi động lại backend. `create_all()` chỉ tạo bảng
+còn thiếu và không tự thay đổi cột hiện hữu.
 
 ```bash
-docker compose exec -T db psql -U postgres -d teamchat_db \
-  -c 'ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;'
 docker compose restart backend
 ```
 
-## Reset toàn bộ dữ liệu
+## Reset dữ liệu demo
 
 ```bash
-docker compose down -v
-docker compose up -d
+docker compose restart backend
 docker compose exec backend python seed_users.py
 ```
 
@@ -616,7 +616,7 @@ Trình duyệt dùng lại file JS trong cache. Nhấn `Ctrl + F5` (Windows) ho�
 **Chuẩn bị**
 
 - [ ] Docker Desktop đang chạy
-- [ ] `docker compose ps` — cả ba service `Up`, `db` là `healthy`
+- [ ] `docker compose ps` — `backend` và `web` ở trạng thái `Up`
 - [ ] Đã seed dữ liệu, đăng nhập được `user1@example.com`
 - [ ] Đã bấm "Tiếp tục" qua cảnh báo chứng chỉ trên **mọi** máy sẽ dùng để demo
 - [ ] Tắt Zoom, Teams, và các tab đang chiếm camera
@@ -643,8 +643,8 @@ Trình duyệt dùng lại file JS trong cache. Nhấn `Ctrl + F5` (Windows) ho�
 Cách cũ, giữ lại để tham khảo. Cần cài sẵn Python trên máy.
 
 ```bash
-# Cửa sổ 1 - backend + database
-docker compose up -d db backend
+# Cửa sổ 1 - backend (database dùng Supabase)
+docker compose up -d backend
 
 # Cửa sổ 2 - frontend, phải giữ mở
 cd frontend
@@ -666,7 +666,7 @@ Chạy lần đầu:
 ```bash
 git clone https://github.com/Dungx1107/team-chat.git
 cd team-chat
-cp .env.example .env          # rồi sửa POSTGRES_PASSWORD và DATABASE_URL
+cp .env.example .env          # rồi cấu hình DATABASE_URL và các biến SUPABASE_*
 docker compose up -d --build
 docker compose exec backend python seed_users.py
 ```

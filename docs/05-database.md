@@ -1,6 +1,8 @@
 # 5. Database
 
-ORM nằm trong `backend/app/infra/db/models.py`; domain entities nằm trong `backend/app/domain/models/`. SQLAlchemy tạo bảng ở startup bằng `Base.metadata.create_all()`.
+ORM nằm trong `backend/app/infra/db/models.py`; domain entities nằm trong `backend/app/domain/models/`. SQLAlchemy kết nối Supabase PostgreSQL qua `DATABASE_URL` và tạo bảng thiếu ở startup bằng `Base.metadata.create_all()`.
+
+Supabase chỉ cung cấp PostgreSQL managed; schema nghiệp vụ vẫn do SQLAlchemy model của ứng dụng quản lý. Không có PostgreSQL container hoặc volume database local trong `docker-compose.yml`.
 
 ## Entity và quan hệ
 
@@ -36,4 +38,4 @@ erDiagram
 
 Role có `OWNER`, `ADMIN`, `MEMBER`. Foreign key/cascade được khai báo cho user, room, message, reaction và call participant; attachment reference dùng `ON DELETE SET NULL`. Message delete là soft delete ở service: nội dung được thay bằng chuỗi rỗng/metadata deleted thay vì xóa ngay bản ghi.
 
-Không có migration file. `create_all()` chỉ tạo bảng thiếu, không quản lý thay đổi schema hiện hữu; chi tiết column type/default cần mở trực tiếp `models.py` nếu cần migration production.
+Không có migration file. `create_all()` chỉ tạo bảng thiếu, không quản lý thay đổi schema hiện hữu; khi thay đổi schema trên project Supabase cần chạy migration/SQL thủ công trên Supabase trước khi deploy. Chi tiết column type/default cần mở trực tiếp `models.py`.

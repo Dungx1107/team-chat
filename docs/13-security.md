@@ -7,7 +7,7 @@
 - Refresh token random, backend lưu SHA-256 hash và rotate khi refresh.
 - Service kiểm tra room membership/role cho room, message, attachment và call.
 - Pydantic schema validate request; message tối đa 4000, attachment 25 MB, avatar 5 MB.
-- `LocalFileStorage` dùng UUID filename và chống path traversal.
+- `SupabaseFileStorage` dùng UUID filename; service không dùng trực tiếp filename do client cung cấp.
 - `ui.js.escapeHtml()` escape dữ liệu trước khi đưa vào HTML.
 - Nginx redirect HTTP->HTTPS; certificate hiện là self-signed.
 - WebSocket yêu cầu access token query parameter và kiểm tra subscribe/call action.
@@ -24,6 +24,6 @@
 6. Upload ghi hết stream trước khi domain kiểm tra size; cần streaming limit nếu muốn từ chối sớm.
 7. `MAX_UPLOAD_BYTES` trong settings không điều khiển giới hạn hardcode 25 MB.
 8. CORS/CSRF policy riêng biệt không được xác định trong source; cần kiểm chứng thêm trước khi public deployment.
-9. Không thấy virus scanning, object storage policy hay TURN authentication trong repository.
+9. Bucket Supabase dùng service-role key ở backend; tuyệt đối không đưa key này vào frontend hoặc commit vào repository. Không thấy virus scanning hay TURN authentication trong repository.
 
 Không nên mô tả các cải thiện trên như tính năng hiện tại.

@@ -14,10 +14,10 @@ Browser
   -> Domain interface (backend/app/domain/interfaces)
   -> Repository implementation (backend/repositories)
   -> SQLAlchemy session/model (backend/app/infra/db)
-  -> PostgreSQL
+  -> Supabase PostgreSQL qua `DATABASE_URL`
 ```
 
-Upload đi theo nhánh `Service -> FileStorage interface -> LocalFileStorage -> filesystem`; realtime đi theo nhánh publisher/`ConnectionManager`.
+Upload đi theo nhánh `Service -> FileStorage interface -> SupabaseFileStorage -> Supabase Storage bucket`; realtime đi theo nhánh publisher/`ConnectionManager`.
 Cuộc gọi tách thành hai mặt phẳng: signaling và lifecycle đi qua FastAPI/WebSocket/`CallService`, còn audio/video đi trực tiếp giữa các browser theo WebRTC mesh hoặc qua STUN/TURN khi cần.
 
 ## Trách nhiệm
@@ -35,7 +35,7 @@ Cuộc gọi tách thành hai mặt phẳng: signaling và lifecycle đi qua Fas
 
 ## Dependency injection
 
-`get_db()` tạo synchronous SQLAlchemy session từ `backend/app/infra/db/session.py`. Các dependency trong `api/dependencies.py` dựng `UserRepository`, `RoomRepository`, `MessageRepository`, `CallRepository`, `RefreshTokenRepository`, `LocalFileStorage` và service tương ứng. Router nhận các đối tượng này qua `Depends` thay vì tự viết query. WebSocket tạo session riêng cho các thao tác kiểm tra room và signaling call, rồi đóng session sau mỗi thao tác.
+`get_db()` tạo synchronous SQLAlchemy session từ `backend/app/infra/db/session.py`, kết nối tới Supabase PostgreSQL bằng `DATABASE_URL`. Các dependency trong `api/dependencies.py` dựng `UserRepository`, `RoomRepository`, `MessageRepository`, `CallRepository`, `RefreshTokenRepository`, `SupabaseFileStorage` và service tương ứng. Router nhận các đối tượng này qua `Depends` thay vì tự viết query. WebSocket tạo session riêng cho các thao tác kiểm tra room và signaling call, rồi đóng session sau mỗi thao tác.
 
 ## Pattern thể hiện trong code
 
@@ -50,7 +50,7 @@ Các interface không loại bỏ hoàn toàn coupling: repository implementatio
 
 ## Ranh giới triển khai
 
-- `db`, `backend` và `web` là ba service Compose chạy mặc định; `turn` là service tùy chọn, bật bằng `docker compose --profile turn up -d`.
+- `backend` và `web` là hai service Compose chạy mặc định; `turn` là service tùy chọn, bật bằng `docker compose --profile turn up -d`. Database và file storage nằm trên Supabase.
 - Presence, subscription, typing và các event realtime nằm trong memory của một process backend. Không có broker nên không thể mở rộng ngang mà vẫn giữ trạng thái realtime nhất quán.
 - Startup gọi `Base.metadata.create_all()`; chưa có migration có version.
 - Nginx là cổng vào duy nhất trong topology chuẩn: phục vụ static frontend, terminate TLS và proxy REST/WebSocket. Backend không tự phục vụ frontend.

@@ -9,7 +9,7 @@ sequenceDiagram
     participant S as AuthService
     participant U as user_repo.py
     participant T as refresh_token_repo.py
-    participant DB as PostgreSQL
+    participant DB as Supabase PostgreSQL
     F->>R: POST /api/auth/login
     R->>S: login(LoginRequest)
     S->>U: find user
@@ -28,7 +28,7 @@ sequenceDiagram
     participant R as messages.py
     participant S as MessageService
     participant M as message_repo.py
-    participant DB as PostgreSQL
+    participant DB as Supabase PostgreSQL
     participant W as event publisher/ConnectionManager
     participant C as other clients
     F->>R: POST /api/rooms/{id}/messages
@@ -48,7 +48,7 @@ WebSocket không thay thế bước persistence; action `call.signal` là signal
 
 ## D. Upload file
 
-`messages.js/profile.js/rooms.js -> multipart API -> router -> service -> LocalFileStorage.save() -> metadata/attachment repository hoặc avatar field -> uploads volume -> response`. Attachment download đi qua `GET /api/attachments/{attachment_id}` và kiểm tra quyền room.
+`messages.js/profile.js/rooms.js -> multipart API -> router -> service -> SupabaseFileStorage.save() -> Supabase Storage bucket + metadata/attachment repository hoặc avatar field -> response`. Attachment download đi qua `GET /api/attachments/{attachment_id}` và kiểm tra quyền room.
 
 ## E. Call
 
@@ -64,4 +64,4 @@ WebSocket không thay thế bước persistence; action `call.signal` là signal
 | Realtime | `frontend/js/ws.js` | `ws.py`, `connection_manager.py`, event publisher |
 | Profile | `frontend/js/profile.js` | `users.py`, `user_service.py`, `user_repo.py` |
 | Call | `frontend/js/call.js` | `calls.py`, `call_service.py`, `call_repo.py` |
-| Files | `frontend/js/api.js` and feature modules | `file_storage.py`, `local_storage.py`, attachment/avatar routes |
+| Files | `frontend/js/api.js` and feature modules | `file_storage.py`, `supabase_storage.py`, attachment/avatar routes |

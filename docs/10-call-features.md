@@ -17,7 +17,7 @@ Backend không vận chuyển media. `frontend/js/call.js` dùng browser WebRTC 
 sequenceDiagram
     participant A as Caller browser
     participant API as calls.py/CallService
-    participant DB as PostgreSQL
+    participant DB as Supabase PostgreSQL
     participant WS as ConnectionManager
     participant B as Callee browser
     A->>API: POST /api/calls

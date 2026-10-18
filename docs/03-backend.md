@@ -17,10 +17,10 @@ Service kiểm tra membership/role, tạo entity, gọi repository, commit dữ 
 ## Infrastructure
 
 - `infra/security/jwt.py`, `password.py`: token và password.
-- `infra/storage/local_storage.py`: file local với tên UUID.
+- `infra/storage/supabase_storage.py`: upload/download file với tên UUID trên Supabase Storage.
 - `infra/realtime/connection_manager.py`: socket/subscription/presence/typing in-memory và event publisher.
 - `infra/db/models.py`, `session.py`: persistence.
 
-Không có background worker hoặc async database layer được xác định từ source. Migration schema cũng không có; startup chỉ `create_all()`.
+Không có background worker hoặc async database layer được xác định từ source. Migration schema cũng không có; startup chỉ `create_all()` trên Supabase PostgreSQL.
 
 WebSocket server nhận heartbeat `ping` từ client mỗi 30 giây. Nếu quá `WS_IDLE_TIMEOUT_SECONDS` (mặc định 90 giây) không nhận được dữ liệu, server đóng socket bằng mã `4002`, giải phóng presence và kết thúc các cuộc gọi còn dang dở của user nếu đó là kết nối cuối cùng. Client tự kết nối lại; mã `4001` dành cho token không hợp lệ.

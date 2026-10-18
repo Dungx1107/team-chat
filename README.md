@@ -28,15 +28,15 @@ Tài liệu này mô tả kiến trúc, đặc tả kỹ thuật, giao diện AP
 
 ## 2. Kiến trúc hệ thống
 
-Hệ thống gồm ba thành phần triển khai chính:
+Hệ thống gồm các thành phần triển khai chính:
 
 ```mermaid
 flowchart LR
     Browser[Trình duyệt]
     Web[Nginx\nHTTPS :443 / HTTP :80\nTunnel :8080]
     Backend[FastAPI + Uvicorn\nHTTP :8000\nWebSocket /ws]
-    Database[(PostgreSQL 16)]
-    Storage[(Docker volume\nuploads)]
+    Database[(Supabase PostgreSQL)]
+    Storage[(Supabase Storage\nbucket)]
 
     Browser --> Web
     Web -->|static frontend, /api, /ws| Backend
@@ -58,7 +58,7 @@ backend/app/
 │   ├── db/              # Engine, session, ORM model
 │   ├── realtime/        # ConnectionManager cho WebSocket
 │   ├── security/        # JWT và hash mật khẩu
-│   └── storage/         # Lưu file cục bộ
+│   └── storage/         # Adapter Supabase Storage
 └── main.py              # Khởi tạo FastAPI và đăng ký router
 ```
 
@@ -71,7 +71,7 @@ Request
   -> Dependency injection
   -> Service
   -> Domain interface / Repository / Infrastructure adapter
-  -> PostgreSQL hoặc file storage
+  -> Supabase PostgreSQL hoặc Supabase Storage
   -> Response schema
 ```
 
@@ -109,20 +109,20 @@ qua Nginx, không truy cập trực tiếp frontend bằng Python HTTP Server.
 
 ### 2.3. Docker và triển khai
 
-`docker-compose.yml` định nghĩa ba service chạy mặc định:
+`docker-compose.yml` định nghĩa hai service chạy mặc định:
 
 | Service | Công nghệ | Cổng | Persistent data |
 | --- | --- | --- | --- |
-| `db` | PostgreSQL 16 Alpine | Host `5432` -> container `5432` | Volume `pgdata` |
-| `backend` | Python 3.11 + Uvicorn | Host `${PORT:-8000}` -> container `8000` | Volume `uploads` |
+| Supabase | PostgreSQL và Storage managed | Kết nối qua `DATABASE_URL` | Database và bucket ngoài Docker |
+| `backend` | Python 3.11 + Uvicorn | Host `${PORT:-8000}` -> container `8000` | Bind mount mã nguồn |
 | `web` | Nginx Alpine | `${HTTPS_PORT:-443}`, `${HTTP_PORT:-80}`, tunnel `127.0.0.1:${TUNNEL_PORT:-8080}` | Volume `certs` |
 
 Đặc điểm container backend:
 
-- Chờ database đạt trạng thái healthy trước khi khởi động.
+- Kết nối Supabase PostgreSQL qua `DATABASE_URL`; không có database container local.
 - Chạy bằng user non-root `appuser`.
 - Mount mã nguồn `./backend:/app` trong môi trường phát triển.
-- Lưu file tại `/app/uploads` và ánh xạ vào named volume `uploads`.
+- Lưu file lên bucket Supabase qua `SUPABASE_*`.
 - Frontend được mount read-only vào Nginx và chạy cùng service `web`.
 - Cổng `8080` chỉ bind trên localhost để dùng với Cloudflare Tunnel/ngrok.
 
@@ -250,11 +250,10 @@ Các event server phát:
 
 `ConnectionManager` lưu kết nối, subscription và trạng thái online trong memory của process backend hiện tại.
 
-Khi thay đổi schema database trong Pha 1 (không dùng Alembic), reset volume rồi dựng lại:
+Khi thay đổi schema database trong Pha 1 (không dùng Alembic), chạy migration/SQL thủ công trên Supabase rồi khởi động lại backend:
 
 ```bash
-docker compose down -v
-docker compose up --build
+docker compose restart backend
 ```
 
 ## 4. Xác thực và bảo mật
@@ -274,7 +273,7 @@ Access token hiện được tạo với thời hạn 60 phút trong `backend/ap
 
 ### 4.2. Lưu trữ file
 
-- `LocalFileStorage` lưu file trong `UPLOAD_DIR`.
+- `SupabaseFileStorage` lưu file trong bucket Supabase.
 - Tên vật lý trên đĩa được thay bằng UUID và giữ phần mở rộng.
 - Có kiểm tra path traversal.
 - Attachment lưu metadata trong database.
@@ -364,16 +363,13 @@ Tạo file `.env` từ `.env.example` và thay các giá trị bí mật trướ
 | `PROJECT_NAME` | Tên API |
 | `ENVIRONMENT` | Môi trường chạy |
 | `PORT` | Cổng host map vào backend, mặc định `8000` |
-| `POSTGRES_USER` | User PostgreSQL |
-| `POSTGRES_PASSWORD` | Mật khẩu PostgreSQL |
-| `POSTGRES_DB` | Tên database |
-| `POSTGRES_HOST` | Host database |
-| `POSTGRES_PORT` | Cổng database |
-| `DATABASE_URL` | Chuỗi kết nối SQLAlchemy |
+| `DATABASE_URL` | Chuỗi kết nối Supabase PostgreSQL/Pooler cho SQLAlchemy |
+| `SUPABASE_URL` | URL project Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service-role key, chỉ dùng ở backend |
+| `SUPABASE_STORAGE_BUCKET` | Tên bucket Storage, mặc định `attachments` |
 | `JWT_SECRET_KEY` | Secret ký JWT, phải đủ dài và bí mật |
 | `JWT_ALGORITHM` | Thuật toán JWT, mặc định `HS256` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Cấu hình thời hạn access token |
-| `UPLOAD_DIR` | Thư mục lưu file, mặc định `/app/uploads` |
 | `MAX_UPLOAD_BYTES` | Kích thước upload tối đa, mặc định 25 MB |
 | `CORS_ORIGINS` | Danh sách origin phân tách bằng dấu phẩy; `*` cho development |
 
@@ -384,9 +380,9 @@ Không commit `.env` hoặc secret thật vào repository.
 ### 7.1. Điều kiện
 
 - Docker Engine và Docker Compose.
-- Cổng `80`, `443`, `5432` và `8000` không bị tiến trình khác chiếm.
+- Cổng `80`, `443` và `8000` không bị tiến trình khác chiếm; backend cần truy cập Internet tới Supabase.
 
-### 7.2. Khởi động backend và database
+### 7.2. Khởi động backend và kết nối Supabase
 
 ```bash
 docker compose up -d --build
@@ -454,17 +450,17 @@ Xem hướng dẫn đầy đủ tại
 Nếu gặp `Address already in use`, kiểm tra tiến trình đang chiếm cổng:
 
 ```bash
-ss -ltnp | grep -E ':(80|443|5432|8000)'
+ss -ltnp | grep -E ':(80|443|8000)'
 kill <PID>
 ```
 
 ### 7.4. Dừng hoặc reset dữ liệu
 
 ```bash
-# Dừng container, giữ nguyên volume
+# Dừng container; dữ liệu Supabase không bị xóa
 docker compose down
 
-# Xóa cả volume database và upload; dữ liệu sẽ mất
+# Chỉ xóa các volume Docker của web (nếu có); dữ liệu Supabase vẫn giữ nguyên
 docker compose down -v
 ```
 
@@ -501,7 +497,7 @@ team-chat/
 - Chưa có migration framework. Thay đổi schema cần có quy trình migration riêng hoặc reset database trong development.
 - Backend container map cổng host theo `PORT`, trong khi Uvicorn bên trong container vẫn lắng nghe cổng `8000`.
 - Attachment cần Bearer token khi truy cập. Quyền truy cập attachment nên được rà soát thêm nếu triển khai production nhiều tenant/phòng.
-- Secret JWT, mật khẩu PostgreSQL và tài khoản demo phải được thay đổi trong môi trường thật.
+- Secret JWT, Supabase service-role key và tài khoản demo phải được thay đổi/bảo vệ trong môi trường thật.
 
 ## 10. Tài liệu liên quan
 

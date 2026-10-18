@@ -2,7 +2,7 @@
 
 ## Adapter
 
-`backend/app/domain/interfaces/file_storage.py` định nghĩa abstraction; `backend/app/infra/storage/local_storage.py` triển khai lưu local dưới `UPLOAD_DIR`. File vật lý được đặt bằng UUID và chỉ giữ extension gốc, tránh dùng trực tiếp filename do client cung cấp. Adapter có kiểm tra path traversal.
+`backend/app/domain/interfaces/file_storage.py` định nghĩa abstraction; `backend/app/infra/storage/supabase_storage.py` triển khai lưu trên Supabase Storage. File được đặt bằng UUID và chỉ giữ extension gốc, tránh dùng trực tiếp filename do client cung cấp.
 
 ## Upload flow
 
@@ -11,9 +11,9 @@ Browser
  -> api.js multipart upload
  -> users.py/rooms.py/messages.py
  -> UserService/RoomService/MessageService
- -> LocalFileStorage.save()
+ -> SupabaseFileStorage.save()
  -> metadata AttachmentModel hoặc avatar path
- -> uploads volume
+ -> Supabase Storage bucket
  -> response URL/id
 ```
 
@@ -23,8 +23,8 @@ Attachment tối đa 25 MB (`Attachment.MAX_SIZE_BYTES`). Avatar user/room chỉ
 
 ## Deployment persistence
 
-Compose đặt `UPLOAD_DIR=/app/uploads` và mount named volume `uploads:/app/uploads`. Vì vậy file sống độc lập với container backend; mã nguồn được bind mount `./backend:/app`.
+Backend dùng `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` và `SUPABASE_STORAGE_BUCKET` để truy cập bucket Supabase. Vì file nằm ngoài container nên không phụ thuộc vòng đời Docker; Compose chỉ bind mount mã nguồn `./backend:/app`.
 
 ## Considerations
 
-`LocalFileStorage.save()` ghi toàn bộ upload trước khi kiểm tra giới hạn domain; giới hạn Nginx request là `30m`, lớn hơn giới hạn attachment 25 MB. Hệ thống chưa có object storage, virus scanning hoặc content sniffing độc lập được xác định từ source.
+`SupabaseFileStorage.save()` đọc toàn bộ upload trước khi gửi lên Supabase; giới hạn Nginx request là `30m`, lớn hơn giới hạn attachment 25 MB. Bucket cần được tạo trước trong Supabase Dashboard. Hệ thống chưa có virus scanning hoặc content sniffing độc lập được xác định từ source.

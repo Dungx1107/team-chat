@@ -30,7 +30,7 @@ sequenceDiagram
     participant A as Client A
     participant W as ws.py/ConnectionManager
     participant S as MessageService
-    participant D as PostgreSQL
+    participant D as Supabase PostgreSQL
     participant B as Client B
     A->>S: POST message qua api.js
     S->>D: persist message

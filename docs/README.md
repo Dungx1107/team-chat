@@ -4,7 +4,7 @@ Bộ tài liệu này mô tả implementation hiện tại của hệ thống Te
 
 ## Hệ thống là gì?
 
-Team Chat là ứng dụng chat nội bộ theo phòng, hỗ trợ tài khoản, phân quyền thành viên, tin nhắn văn bản/file, reaction, pin, trạng thái online/typing và cuộc gọi WebRTC. Backend lưu dữ liệu trong PostgreSQL, file trong filesystem/volume, còn các cập nhật tức thời đi qua WebSocket.
+Team Chat là ứng dụng chat nội bộ theo phòng, hỗ trợ tài khoản, phân quyền thành viên, tin nhắn văn bản/file, reaction, pin, trạng thái online/typing và cuộc gọi WebRTC. Backend lưu dữ liệu trong Supabase PostgreSQL, file trong Supabase Storage, còn các cập nhật tức thời đi qua WebSocket.
 
 ## Sơ đồ tổng thể
 
@@ -13,8 +13,8 @@ flowchart LR
     Browser[Browser]
     Web[Nginx web container\nHTTPS + static frontend]
     API[FastAPI/Uvicorn\n/api + /ws]
-    DB[(PostgreSQL 16)]
-    Files[(uploads volume)]
+    DB[(Supabase PostgreSQL)]
+    Files[(Supabase Storage)]
     Browser --> Web
     Web -->|/api, /health, /docs| API
     Web -->|/ws upgrade| API
@@ -22,7 +22,7 @@ flowchart LR
     API --> Files
 ```
 
-`docker-compose.yml` định nghĩa ba service chạy mặc định: `db`, `backend`, `web`. Có thêm service `turn` dùng profile tùy chọn để thử coturn trong LAN; service này không chạy mặc định. Không có Redis, message broker, migration runner hoặc SFU/media server xử lý cuộc gọi tập trung trong repository.
+`docker-compose.yml` định nghĩa hai service chạy mặc định: `backend`, `web`. Có thêm service `turn` dùng profile tùy chọn để thử coturn trong LAN; service này không chạy mặc định. Database và file storage do Supabase cung cấp. Không có Redis, message broker, migration runner hoặc SFU/media server xử lý cuộc gọi tập trung trong repository.
 
 ## Mục lục
 
@@ -53,4 +53,4 @@ flowchart LR
 
 ## Ghi chú độ chính xác
 
-`README.md` root có một số mô tả cũ, như frontend chạy riêng ở port 3000 và Compose chỉ có hai service. Tài liệu này ưu tiên `docker-compose.yml`, `deploy/nginx/` và code runtime. Không có migration framework hoặc automated test suite được tìm thấy trong repository.
+Tài liệu này ưu tiên `docker-compose.yml`, `deploy/nginx/`, `.env.example` và code runtime. Không có migration framework hoặc automated test suite được tìm thấy trong repository.
