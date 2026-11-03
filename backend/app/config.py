@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
     SUPABASE_STORAGE_BUCKET: str = "teamchat-files"
+    # "supabase" khi chạy thật; "local" chỉ cho môi trường đo (docker-compose.bench.yml),
+    # để tệp thử tải lên nằm trong volume thay vì đổ vào bucket thật
+    STORAGE_BACKEND: str = "supabase"
     JWT_SECRET_KEY: str = "super-secret-key-change-it-in-production-min-32-chars"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440

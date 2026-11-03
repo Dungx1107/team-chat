@@ -1,6 +1,6 @@
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from app.domain.interfaces import IRoomRepository
 from app.domain.models import Room, RoomMember, User
 from app.infra.db.models import (
@@ -261,6 +261,77 @@ class RoomRepository(IRoomRepository):
             .first()
         ) is not None
 
+    def summarize_rooms(self, room_ids: List[int], user_id: int) -> Dict[int, dict]:
+        """Vai trò của user, số thành viên và tin cuối cho nhiều phòng cùng lúc.
+
+        Luôn 3 truy vấn dù có bao nhiêu phòng -- thay cho việc gọi get_member,
+        count_members, get_last_message_summary trong vòng lặp (1 + 4N truy vấn).
+        """
+        summaries = {
+            rid: {"my_role": None, "member_count": 0, "last_message": None}
+            for rid in room_ids
+        }
+        if not room_ids:
+            return summaries
+
+        roles = (
+            self.db.query(RoomMemberModel.room_id, RoomMemberModel.role)
+            .filter(RoomMemberModel.room_id.in_(room_ids), RoomMemberModel.user_id == user_id)
+            .all()
+        )
+        for rid, role in roles:
+            summaries[rid]["my_role"] = role
+
+        counts = (
+            self.db.query(RoomMemberModel.room_id, func.count(RoomMemberModel.id))
+            .filter(RoomMemberModel.room_id.in_(room_ids))
+            .group_by(RoomMemberModel.room_id)
+            .all()
+        )
+        for rid, count in counts:
+            summaries[rid]["member_count"] = count
+
+        # Đánh số tin trong từng phòng, mới nhất là 1, rồi chỉ lấy hàng số 1
+        ranked = (
+            self.db.query(
+                MessageModel.id.label("message_id"),
+                func.row_number().over(
+                    partition_by=MessageModel.room_id,
+                    order_by=(MessageModel.created_at.desc(), MessageModel.id.desc()),
+                ).label("rn"),
+            )
+            .filter(MessageModel.room_id.in_(room_ids))
+            .subquery()
+        )
+        sender = aliased(RoomMemberModel)
+        rows = (
+            self.db.query(MessageModel, UserModel, AttachmentModel, sender.nickname)
+            .join(ranked, (ranked.c.message_id == MessageModel.id) & (ranked.c.rn == 1))
+            .join(UserModel, UserModel.id == MessageModel.user_id)
+            .outerjoin(AttachmentModel, AttachmentModel.id == MessageModel.attachment_id)
+            .outerjoin(
+                sender,
+                (sender.room_id == MessageModel.room_id) & (sender.user_id == MessageModel.user_id),
+            )
+            .all()
+        )
+        for message, user, attachment, nickname in rows:
+            summaries[message.room_id]["last_message"] = self._message_summary(
+                message, user, attachment, nickname
+            )
+        return summaries
+
+    def _message_summary(self, message, user, attachment, nickname) -> dict:
+        return {
+            "id": message.id,
+            "content": "" if message.is_deleted else message.content,
+            "sender_name": nickname or f"{user.last_name} {user.first_name}".strip(),
+            "created_at": message.created_at,
+            "type": message.message_type,
+            "is_deleted": message.is_deleted,
+            "attachment_filename": attachment.filename if attachment else None,
+        }
+
     def get_last_message_summary(self, room_id: int) -> Optional[dict]:
         row = (
             self.db.query(MessageModel, UserModel, AttachmentModel)
@@ -281,12 +352,4 @@ class RoomRepository(IRoomRepository):
             )
             .scalar()
         )
-        return {
-            "id": message.id,
-            "content": "" if message.is_deleted else message.content,
-            "sender_name": nickname or f"{user.last_name} {user.first_name}".strip(),
-            "created_at": message.created_at,
-            "type": message.message_type,
-            "is_deleted": message.is_deleted,
-            "attachment_filename": attachment.filename if attachment else None,
-        }
+        return self._message_summary(message, user, attachment, nickname)

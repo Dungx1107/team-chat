@@ -44,4 +44,12 @@ auth_res.json
 backend/uploads/
 uploads/
 
-.jtl
+# Sao lưu .env (chứa mật khẩu thật)
+.env.bak*
+
+# Đo hiệu năng: dữ liệu sinh ra (token, tệp mẫu) và tệp tạm của JMeter
+benchmark/shared/data/
+benchmark/**/data/
+*.jtl
+temp_html_*/
+temp_tokens_*.csv

@@ -1,0 +1,10 @@
+===== SEND: 50 người dùng =====
+-> 47.68 req/s | trung bình 41.55 ms | p95 139.5 ms | lỗi 0.0%
+===== SEND: 100 người dùng =====
+-> 73.22 req/s | trung bình 352.4 ms | p95 1005.22 ms | lỗi 0.0%
+===== SEND: 200 người dùng =====
+   lỗi x1: Không request nào hoàn thành trong thời gian đo (server nghẽn)
+-> Lỗi vượt 50.0%, dừng ở mức 200 người dùng
+=== XONG! Kết quả: benchmark\experiments\01_redis_pubsub\results\before.json ===
+
+[exited with code 0]

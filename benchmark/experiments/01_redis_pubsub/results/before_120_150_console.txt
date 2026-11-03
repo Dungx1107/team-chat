@@ -1,0 +1,71 @@
+
+===== SEND: 120 người dùng =====
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+POST     POST message                                                                    3529     0(0.00%) |    543     114    2339    480 |   73.36        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      3529     0(0.00%) |    543     114    2339    480 |   73.36        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+POST     POST message                                                                          480    580    660    720    920   1100   1300   1500   2100   2300   2300   3529
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                            480    580    660    720    920   1100   1300   1500   2100   2300   2300   3529
+
+-> 74.36 req/s | trung bình 558.79 ms | p95 1120.9 ms | lỗi 0.0%
+
+===== SEND: 150 người dùng =====
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+POST     POST message                                                                     150 150(100.00%) |  56976   47848   60039  60000 |    2.34        2.34
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                       150 150(100.00%) |  56976   47848   60039  60000 |    2.34        2.34
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+POST     POST message                                                                        60000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000    150
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                          60000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000    150
+
+Error report
+# occurrences      Error                                                                                               
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+40                 POST POST message: LocustBadStatusCode(code=500)                                                    
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/2/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/12/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/16/messages', 0, original=timed out)
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/10/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/14/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/18/messages', 0, original=timed out)
+4                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/20/messages', 0, original=timed out)
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/7/messages', 0, original=timed out)
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/3/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/13/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/1/messages', 0, original=timed out)
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/5/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/9/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/11/messages', 0, original=timed out)
+4                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/15/messages', 0, original=timed out)
+4                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/19/messages', 0, original=timed out)
+4                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/17/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/8/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/6/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/24/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/28/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/26/messages', 0, original=timed out)
+4                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/30/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/22/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/21/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/25/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/23/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/27/messages', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/29/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/31/messages', 0, original=timed out)
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+
+   lỗi x1: Không request nào hoàn thành trong thời gian đo (server nghẽn)
+-> Lỗi vượt 50.0%, dừng ở mức 150 người dùng
+
+=== XONG! Kết quả: C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\experiments\01_redis_pubsub\results\before_120_150.json ===

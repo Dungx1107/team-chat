@@ -1,0 +1,59 @@
+# Môi trường ĐO HIỆU NĂNG -- tách hẳn khỏi production (docker-compose.yml, Supabase).
+#
+#   docker compose -f docker-compose.bench.yml up -d --build
+#   docker compose -f docker-compose.bench.yml run --rm backend python /benchmark/shared/seed_data.py
+#
+# Khác production:
+#   - DB Postgres local chứa user ảo, không đụng Supabase
+#   - Tệp tải lên ghi vào volume bench_uploads, không đổ vào bucket thật
+#   - KHÔNG đọc .env: key JWT riêng nên token đo không dùng được trên production
+#   - Không nginx, không TURN: công cụ đo gọi thẳng backend ở cổng 8001
+#
+# Chạy song song được với production vì khác tên project, tên container và cổng.
+name: team-chat-bench
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: teamchat_bench_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: teamchat_bench
+    # pg_stat_statements phải nạp lúc khởi động; bật sẵn để sau này xem truy vấn chậm
+    command: postgres -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all
+    ports:
+      - "${BENCH_DB_PORT:-5433}:5432"
+    volumes:
+      - bench_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d teamchat_bench"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: teamchat_bench_backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/teamchat_bench
+      JWT_SECRET_KEY: bench-only-secret-never-use-in-production-0123456789
+      STORAGE_BACKEND: local
+      UPLOAD_DIR: /app/uploads
+    # Số worker đổi được để đo cải tiến nhiều worker (Redis Pub/Sub)
+    command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${BENCH_WORKERS:-1}"
+    ports:
+      - "${BENCH_PORT:-8001}:8000"
+    volumes:
+      - ./backend:/app
+      - ./benchmark:/benchmark
+      - bench_uploads:/app/uploads
+
+volumes:
+  bench_pgdata:
+  bench_uploads:

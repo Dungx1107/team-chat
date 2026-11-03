@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from app.domain.models import Room, RoomMember, User
 
 class IRoomRepository(ABC):
@@ -81,6 +81,11 @@ class IRoomRepository(ABC):
 
     @abstractmethod
     def is_banned(self, room_id: int, user_id: int) -> bool:
+        pass
+
+    @abstractmethod
+    def summarize_rooms(self, room_ids: List[int], user_id: int) -> Dict[int, dict]:
+        """{room_id: {my_role, member_count, last_message}} trong số truy vấn cố định."""
         pass
 
     @abstractmethod

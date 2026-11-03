@@ -1,0 +1,21 @@
+-> Bố trí: {'groups': 40, 'group_size': 50, 'rooms_per_group': 10, 'messages': 250, 'attachments': 5} => 2000 user, 400 phòng
+-> Xóa sạch DB đo và thư mục tệp
+-> Tạo 2000 user, 400 phòng, 20000 lượt thành viên
+-> Tạo 100000 tin nhắn, 2000 tệp đính kèm
+-> Sinh 2000 token (7 ngày, key của môi trường đo)
+=== XONG! {'users': 2000, 'rooms': 400, 'memberships': 20000, 'messages': 100000, 'attachments': 2000} -> /benchmark/shared/data ===
+-> User 2005: 10 phòng x 20 tin
+-> User 2006: 50 phòng x 20 tin
+-> User 2007: 100 phòng x 20 tin
+-> User 2008: 200 phòng x 20 tin
+=== XONG! Token ghi ra /benchmark/experiments/04_rooms_n_plus_1/data/tokens_rooms.csv ===
+  10 phòng | trước:   41 truy vấn,    57.87 ms | sau: 4 truy vấn,    6.31 ms | nhanh hơn 9.2x
+  50 phòng | trước:  201 truy vấn,   174.10 ms | sau: 4 truy vấn,    7.44 ms | nhanh hơn 23.4x
+ 100 phòng | trước:  401 truy vấn,   431.63 ms | sau: 4 truy vấn,   28.72 ms | nhanh hơn 15.0x
+ 200 phòng | trước:  801 truy vấn,  1015.71 ms | sau: 4 truy vấn,   14.54 ms | nhanh hơn 69.9x
+=== Đã lưu /benchmark/experiments/04_rooms_n_plus_1/results/queries_rtt0ms.json ===
+  10 phòng | trước:   41 truy vấn,  1331.09 ms | sau: 4 truy vấn,  132.00 ms | nhanh hơn 10.1x
+  50 phòng | trước:  201 truy vấn,  6559.60 ms | sau: 4 truy vấn,  146.84 ms | nhanh hơn 44.7x
+ 100 phòng | trước:  401 truy vấn, 13152.16 ms | sau: 4 truy vấn,  152.34 ms | nhanh hơn 86.3x
+ 200 phòng | trước:  801 truy vấn, 26174.45 ms | sau: 4 truy vấn,  146.50 ms | nhanh hơn 178.7x
+=== Đã lưu /benchmark/experiments/04_rooms_n_plus_1/results/queries_rtt30ms.json ===

@@ -1,0 +1,55 @@
+{
+  "scenario": "rooms",
+  "note": "router cu (vong lap N+1) tu f406d76, 1 worker uvicorn",
+  "finished_at": "2026-11-03T08:42:44+00:00",
+  "settings": {
+    "host": "http://localhost:8001",
+    "ramp_up_s": 5.0,
+    "skip_s": 10,
+    "hold_s": 60,
+    "rest_s": 15,
+    "think_s": 1.0,
+    "locust_workers": 4
+  },
+  "seed": {
+    "layout": {
+      "groups": 40,
+      "group_size": 50,
+      "rooms_per_group": 10,
+      "messages": 250,
+      "attachments": 5
+    },
+    "random_seed": 42,
+    "password": "Bench@12345",
+    "created_at": "2026-11-03T08:30:44Z",
+    "counts": {
+      "users": 2000,
+      "rooms": 400,
+      "memberships": 20000,
+      "messages": 100000,
+      "attachments": 2000
+    }
+  },
+  "results": [
+    {
+      "users": 50,
+      "samples": 1342,
+      "error_pct": 0.0,
+      "throughput_req_sec": 22.25,
+      "mean_res_time_ms": 1186.15,
+      "median_res_time_ms": 1067.61,
+      "p95_res_time_ms": 1983.3,
+      "p99_res_time_ms": 2432.66,
+      "max_res_time_ms": 3388.28,
+      "errors": {}
+    },
+    {
+      "users": 100,
+      "samples": 0,
+      "error_pct": 100.0,
+      "errors": {
+        "Không request nào hoàn thành trong thời gian đo (server nghẽn)": 1
+      }
+    }
+  ]
+}

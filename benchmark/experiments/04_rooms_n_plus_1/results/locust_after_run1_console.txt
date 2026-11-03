@@ -1,0 +1,110 @@
+
+===== ROOMS: 50 người dùng =====
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      GET rooms                                                                       3229     0(0.00%) |     51       9     557     25 |   46.14        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      3229     0(0.00%) |     51       9     557     25 |   46.14        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      GET rooms                                                                              25     38     56     73    130    190    260    320    500    560    560   3229
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                             25     38     56     73    130    190    260    320    500    560    560   3229
+
+-> 47.43 req/s | trung bình 47.61 ms | p95 177.88 ms | lỗi 0.0%
+
+===== ROOMS: 100 người dùng =====
+[2026-11-03 15:45:40,048] DESKTOP-7OG523A/ERROR/root: Uncaught exception in event handler: 
+Traceback (most recent call last):
+  File "C:\Users\DELL\AppData\Roaming\Python\Python311\site-packages\locust\event.py", line 45, in fire
+    handler(**kwargs)
+  File "C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\locustfile.py", line 75, in _on_quit
+    out.write_text(json.dumps(_samples), encoding="utf-8")
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1078, in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\DELL\\AppData\\Local\\Temp\\bench_maw9n2za\\samples_2.json'
+
+[2026-11-03 15:45:40,051] DESKTOP-7OG523A/ERROR/root: Uncaught exception in event handler: 
+Traceback (most recent call last):
+  File "C:\Users\DELL\AppData\Roaming\Python\Python311\site-packages\locust\event.py", line 45, in fire
+    handler(**kwargs)
+  File "C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\locustfile.py", line 75, in _on_quit
+    out.write_text(json.dumps(_samples), encoding="utf-8")
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1078, in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\DELL\\AppData\\Local\\Temp\\bench_maw9n2za\\samples_3.json'
+
+[2026-11-03 15:45:40,051] DESKTOP-7OG523A/ERROR/root: Uncaught exception in event handler: 
+Traceback (most recent call last):
+  File "C:\Users\DELL\AppData\Roaming\Python\Python311\site-packages\locust\event.py", line 45, in fire
+    handler(**kwargs)
+  File "C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\locustfile.py", line 75, in _on_quit
+    out.write_text(json.dumps(_samples), encoding="utf-8")
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1078, in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\DELL\\AppData\\Local\\Temp\\bench_maw9n2za\\samples_1.json'
+
+[2026-11-03 15:45:40,055] DESKTOP-7OG523A/ERROR/root: Uncaught exception in event handler: 
+Traceback (most recent call last):
+  File "C:\Users\DELL\AppData\Roaming\Python\Python311\site-packages\locust\event.py", line 45, in fire
+    handler(**kwargs)
+  File "C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\locustfile.py", line 75, in _on_quit
+    out.write_text(json.dumps(_samples), encoding="utf-8")
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1078, in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\DELL\\AppData\\Local\\Temp\\bench_maw9n2za\\samples_0.json'
+
+[2026-11-03 15:45:40,721] DESKTOP-7OG523A/ERROR/root: Uncaught exception in event handler: 
+Traceback (most recent call last):
+  File "C:\Users\DELL\AppData\Roaming\Python\Python311\site-packages\locust\event.py", line 45, in fire
+    handler(**kwargs)
+  File "C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\locustfile.py", line 75, in _on_quit
+    out.write_text(json.dumps(_samples), encoding="utf-8")
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1078, in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\DELL\\AppData\\Local\\Temp\\bench_maw9n2za\\samples_-1.json'
+
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      GET rooms                                                                       5597     0(0.00%) |    214       9     891    190 |   79.57        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      5597     0(0.00%) |    214       9     891    190 |   79.57        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      GET rooms                                                                             190    250    290    310    380    450    530    570    750    890    890   5597
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                            190    250    290    310    380    450    530    570    750    890    890   5597
+
+Traceback (most recent call last):
+  File "C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\run_load.py", line 163, in <module>
+    main()
+  File "C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\run_load.py", line 137, in main
+    r = run_level(args.scenario, u, args.workers)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\run_load.py", line 113, in run_level
+    os.rmdir(samples_dir)
+FileNotFoundError: [WinError 2] The system cannot find the file specified: 'C:\\Users\\DELL\\AppData\\Local\\Temp\\bench_maw9n2za'

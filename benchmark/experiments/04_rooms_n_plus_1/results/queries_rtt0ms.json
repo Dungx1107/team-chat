@@ -1,0 +1,58 @@
+[
+  {
+    "rooms": 10,
+    "rtt_ms": 0.0,
+    "before": {
+      "queries": 41,
+      "median_ms": 57.87,
+      "p95_ms": 154.42
+    },
+    "after": {
+      "queries": 4,
+      "median_ms": 6.31,
+      "p95_ms": 22.34
+    }
+  },
+  {
+    "rooms": 50,
+    "rtt_ms": 0.0,
+    "before": {
+      "queries": 201,
+      "median_ms": 174.1,
+      "p95_ms": 274.28
+    },
+    "after": {
+      "queries": 4,
+      "median_ms": 7.44,
+      "p95_ms": 16.13
+    }
+  },
+  {
+    "rooms": 100,
+    "rtt_ms": 0.0,
+    "before": {
+      "queries": 401,
+      "median_ms": 431.63,
+      "p95_ms": 931.53
+    },
+    "after": {
+      "queries": 4,
+      "median_ms": 28.72,
+      "p95_ms": 44.3
+    }
+  },
+  {
+    "rooms": 200,
+    "rtt_ms": 0.0,
+    "before": {
+      "queries": 801,
+      "median_ms": 1015.71,
+      "p95_ms": 3381.58
+    },
+    "after": {
+      "queries": 4,
+      "median_ms": 14.54,
+      "p95_ms": 21.08
+    }
+  }
+]
