@@ -70,7 +70,9 @@ def _on_request(name, response_time, exception, start_time=None, **_):
 
 @events.quitting.add_listener
 def _on_quit(environment, **_):
-    if SAMPLES_DIR:
+    # Tiến trình master (chỉ số -1) không gửi request nào: không ghi, tránh ghi chồng
+    # lúc run_load.py đang dọn thư mục tạm
+    if SAMPLES_DIR and WORKER_INDEX >= 0:
         out = Path(SAMPLES_DIR) / f"samples_{WORKER_INDEX}.json"
         out.write_text(json.dumps(_samples), encoding="utf-8")
 

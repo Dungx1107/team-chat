@@ -17,6 +17,7 @@ Mỗi mức u người dùng:
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -107,10 +108,8 @@ def run_level(scenario: str, users: int, workers: int) -> dict:
 
     samples = []
     for f in Path(samples_dir).glob("samples_*.json"):
-        if not f.name.endswith("_-1.json"):
-            samples += json.loads(f.read_text(encoding="utf-8"))
-        f.unlink()
-    os.rmdir(samples_dir)
+        samples += json.loads(f.read_text(encoding="utf-8"))
+    shutil.rmtree(samples_dir, ignore_errors=True)
     return summarize(samples, users)
 
 
