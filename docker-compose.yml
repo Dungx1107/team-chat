@@ -1,23 +1,12 @@
+# Production: DB và tệp nằm trên Supabase (DATABASE_URL, SUPABASE_* trong .env).
+# Môi trường đo hiệu năng có DB local riêng: docker-compose.bench.yml
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: teamchat_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: teamchat_db
-    ports:
-      - "5432:5432"
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: teamchat_backend
     restart: unless-stopped
-    depends_on:
-      - db
     env_file:
       - .env
     ports:

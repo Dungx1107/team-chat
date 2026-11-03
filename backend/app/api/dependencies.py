@@ -15,6 +15,7 @@ from app.repositories.message_repo import (
 
 # Infrastructure adapters
 from app.infra.storage.supabase_storage import SupabaseFileStorage
+from app.infra.storage.local_storage import LocalFileStorage
 from app.infra.realtime.connection_manager import connection_manager
 
 # Services
@@ -27,11 +28,14 @@ from app.repositories.call_repo import CallRepository
 
 
 # Bộ nhớ lưu trữ dùng chung, khởi tạo một lần
-file_storage = SupabaseFileStorage(
-    supabase_url=settings.SUPABASE_URL,
-    supabase_key=settings.SUPABASE_SERVICE_ROLE_KEY,
-    bucket_name=settings.SUPABASE_STORAGE_BUCKET,
-)
+if settings.STORAGE_BACKEND == "local":
+    file_storage = LocalFileStorage(settings.UPLOAD_DIR)
+else:
+    file_storage = SupabaseFileStorage(
+        supabase_url=settings.SUPABASE_URL,
+        supabase_key=settings.SUPABASE_SERVICE_ROLE_KEY,
+        bucket_name=settings.SUPABASE_STORAGE_BUCKET,
+    )
 
 # Lấy User ID đã được Auth Middleware xác thực sẵn
 def get_current_user_id(request: Request) -> int:
