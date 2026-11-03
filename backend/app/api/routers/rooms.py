@@ -76,16 +76,8 @@ def list_rooms(
 ):
     """Những phòng người dùng đang tham gia, cả công khai lẫn riêng tư."""
     rooms = room_service.list_rooms(user_id=current_user_id, limit=limit, offset=offset)
-    result = []
-    for r in rooms:
-        member = room_service.room_repo.get_member(r.id, current_user_id)
-        result.append(_to_response(
-            r,
-            my_role=member.role if member else None,
-            member_count=room_service.room_repo.count_members(r.id),
-            last_message=room_service.room_repo.get_last_message_summary(r.id),
-        ))
-    return result
+    summaries = room_service.room_repo.summarize_rooms([r.id for r in rooms], current_user_id)
+    return [_to_response(r, **summaries[r.id]) for r in rooms]
 
 
 # Phải khai báo trước "/{room_id}", nếu không "search" bị hiểu là room_id và trả 422
@@ -98,15 +90,12 @@ def search_rooms(
 ):
     """Tìm phòng công khai theo tên -- cách duy nhất để thấy phòng mình chưa tham gia."""
     rooms = room_service.search_public_rooms(q, user_id=current_user_id, limit=limit)
-    result = []
-    for r in rooms:
-        member = room_service.room_repo.get_member(r.id, current_user_id)
-        result.append(_to_response(
-            r,
-            my_role=member.role if member else None,
-            member_count=room_service.room_repo.count_members(r.id),
-        ))
-    return result
+    summaries = room_service.room_repo.summarize_rooms([r.id for r in rooms], current_user_id)
+    return [
+        _to_response(r, my_role=s["my_role"], member_count=s["member_count"])
+        for r in rooms
+        for s in [summaries[r.id]]
+    ]
 
 
 @router.get("/{room_id}", response_model=RoomResponse)
