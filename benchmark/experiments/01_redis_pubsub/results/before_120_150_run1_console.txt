@@ -1,0 +1,28 @@
+tee: /before_120_150_console.txt: Permission denied
+===== SEND: 120 người dùng =====
+-> 87.44 req/s | trung bình 343.32 ms | p95 710.71 ms | lỗi 0.0%
+===== SEND: 150 người dùng =====
+   lỗi x1: Không request nào hoàn thành trong thời gian đo (server nghẽn)
+-> Lỗi vượt 50.0%, dừng ở mức 150 người dùng
+/usr/bin/bash: line 1: /before_120_150_backend.log: Permission denied
+total 117
+drwxr-xr-x 1 DELL 197121     0 Nov  3 14:30 .
+drwxr-xr-x 1 DELL 197121     0 Oct 27 22:40 ..
+-rw-r--r-- 1 DELL 197121  1881 Oct 28 22:32 .env
+-rw-r--r-- 1 DELL 197121  1204 Oct  6 20:40 .env.bak-20261006-140645
+-rw-r--r-- 1 DELL 197121  1764 Oct 27 17:37 .env.example
+drwxr-xr-x 1 DELL 197121     0 Nov  3 14:52 .git
+-rw-r--r-- 1 DELL 197121   187 Oct  3 14:09 .gitattributes
+-rw-r--r-- 1 DELL 197121   855 Nov  3 14:29 .gitignore
+-rw-r--r-- 1 DELL 197121 30646 Oct 27 17:37 README.md
+-rw-r--r-- 1 DELL 197121 24785 Oct 27 17:37 RUN_GUIDE.md
+drwxr-xr-x 1 DELL 197121     0 Oct 27 17:37 backend
+drwxr-xr-x 1 DELL 197121     0 Nov  3 14:56 benchmark
+drwxr-xr-x 1 DELL 197121     0 Oct  3 14:09 deploy
+-rw-r--r-- 1 DELL 197121  2183 Nov  3 14:30 docker-compose.bench.yml
+-rw-r--r-- 1 DELL 197121   823 Nov  3 13:42 docker-compose.yml
+drwxr-xr-x 1 DELL 197121     0 Oct 27 17:37 docs
+drwxr-xr-x 1 DELL 197121     0 Oct  6 15:41 frontend
+-rwxr-xr-x 1 DELL 197121  6647 Oct  3 14:09 print_tree.py
+
+[exited with code 0]
