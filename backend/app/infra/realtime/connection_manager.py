@@ -43,7 +43,6 @@ class ConnectionManager(IEventPublisher):
         self._loop = loop
 
     # ---------- Vòng đời kết nối ----------
-
     async def connect(self, websocket: WebSocket, user_id: int) -> None:
         await websocket.accept()
         async with self._lock:

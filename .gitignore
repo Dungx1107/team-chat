@@ -43,3 +43,5 @@ auth_res.json
 # Tep nguoi dung tai len (nam trong Docker volume, khong thuoc ma nguon)
 backend/uploads/
 uploads/
+
+.jtl
