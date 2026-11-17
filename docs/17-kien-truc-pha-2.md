@@ -31,7 +31,7 @@ flowchart LR
         end
     end
 
-    subgraph Supabase["Supabase · Singapore"]
+    subgraph Supabase["Supabase · Seoul (ap-northeast-2)"]
         PG[("PostgreSQL<br/>qua pooler Supavisor")]
         ST[("Storage<br/>tệp đính kèm, ảnh đại diện")]
     end

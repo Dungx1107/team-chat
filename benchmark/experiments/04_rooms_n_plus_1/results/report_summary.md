@@ -59,7 +59,7 @@ lần sau 3 lần khởi động.
 | 200 | 801 | 4 | 1016 ms | 15 ms | 3382 ms | 21 ms |
 
 **Giả lập DB ở xa** (`queries_rtt30ms.json`): thêm 30 ms cho mỗi truy vấn, gần với một
-lượt đi về Supabase ở Singapore. Đo 5 lần.
+lượt đi về Supabase. Đo 5 lần. (Đo sau: độ trễ thật tới máy chủ Supabase của nhóm ở Seoul là khoảng 90 ms, nên con số thực tế còn chênh lệch lớn hơn.)
 
 | Số phòng | Trung vị trước | Trung vị sau | Nhanh hơn |
 |---|---|---|---|
