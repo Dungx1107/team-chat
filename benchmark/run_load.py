@@ -31,10 +31,12 @@ TOKENS_FILE = HERE / "shared" / "data" / "tokens.csv"
 SEED_INFO = HERE / "shared" / "data" / "seed_info.json"
 
 HOST = os.getenv("BENCH_HOST", "http://localhost:8001")
-DEFAULT_STEPS = [50, 100, 200, 500, 1000, 2000]
+# DEFAULT_STEPS = [100, 200, 300, 500, 1000, 2000]
+DEFAULT_STEPS = [600, 700, 800, 900]
+# DEFAULT_STEPS = [500]
 
 # Không để tăng tải 0 s: 2000 kết nối mở trong cùng một tích tắc gây lỗi do chính cách test
-RAMP_UP = float(os.getenv("BENCH_RAMP_UP", "5"))
+RAMP_UP = float(os.getenv("BENCH_RAMP_UP", "20"))
 SKIP_SECONDS = int(os.getenv("BENCH_SKIP_SECONDS", "10"))
 HOLD_SECONDS = int(os.getenv("BENCH_HOLD_SECONDS", "60"))
 REST_SECONDS = int(os.getenv("BENCH_REST_SECONDS", "15"))
