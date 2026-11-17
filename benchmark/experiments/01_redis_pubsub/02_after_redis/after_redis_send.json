@@ -1,0 +1,91 @@
+{
+  "scenario": "send",
+  "note": "4 workers + Redis - Test sập",
+  "finished_at": "2026-11-17T08:49:09+00:00",
+  "settings": {
+    "host": "http://localhost:8001",
+    "ramp_up_s": 5.0,
+    "skip_s": 10,
+    "hold_s": 60,
+    "rest_s": 15,
+    "think_s": 1.0,
+    "locust_workers": 4
+  },
+  "seed": {
+    "layout": {
+      "groups": 40,
+      "group_size": 50,
+      "rooms_per_group": 10,
+      "messages": 250,
+      "attachments": 5
+    },
+    "random_seed": 42,
+    "password": "Bench@12345",
+    "created_at": "2026-11-17T08:41:31Z",
+    "counts": {
+      "users": 2000,
+      "rooms": 400,
+      "memberships": 20000,
+      "messages": 100000,
+      "attachments": 2000
+    }
+  },
+  "results": [
+    {
+      "users": 100,
+      "samples": 5602,
+      "error_pct": 0.0,
+      "throughput_req_sec": 94.26,
+      "mean_res_time_ms": 59.08,
+      "median_res_time_ms": 51.81,
+      "p95_res_time_ms": 125.14,
+      "p99_res_time_ms": 286.01,
+      "max_res_time_ms": 434.22,
+      "errors": {}
+    },
+    {
+      "users": 200,
+      "samples": 11218,
+      "error_pct": 0.0,
+      "throughput_req_sec": 188.32,
+      "mean_res_time_ms": 60.57,
+      "median_res_time_ms": 54.75,
+      "p95_res_time_ms": 132.88,
+      "p99_res_time_ms": 191.84,
+      "max_res_time_ms": 361.8,
+      "errors": {}
+    },
+    {
+      "users": 300,
+      "samples": 17468,
+      "error_pct": 0.0,
+      "throughput_req_sec": 291.66,
+      "mean_res_time_ms": 26.6,
+      "median_res_time_ms": 21.46,
+      "p95_res_time_ms": 70.76,
+      "p99_res_time_ms": 114.41,
+      "max_res_time_ms": 185.29,
+      "errors": {}
+    },
+    {
+      "users": 500,
+      "samples": 25512,
+      "error_pct": 0.0,
+      "throughput_req_sec": 426.02,
+      "mean_res_time_ms": 168.19,
+      "median_res_time_ms": 162.02,
+      "p95_res_time_ms": 292.28,
+      "p99_res_time_ms": 383.97,
+      "max_res_time_ms": 684.33,
+      "errors": {}
+    },
+    {
+      "users": 1000,
+      "samples": 0,
+      "error_pct": 100.0,
+      "errors": {
+        "Không request nào hoàn thành trong thời gian đo (server nghẽn)": 1
+      }
+    }
+  ]
+}

@@ -1,6 +1,14 @@
 # Production: DB và tệp nằm trên Supabase (DATABASE_URL, SUPABASE_* trong .env).
 # Môi trường đo hiệu năng có DB local riêng: docker-compose.bench.yml
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: teamchat_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
   backend:
     build:
       context: ./backend
@@ -9,6 +17,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
     ports:
       - "${PORT:-8000}:8000"
     volumes:
@@ -32,3 +44,4 @@ services:
 
 volumes:
   certs:
+  redis_data:

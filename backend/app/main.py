@@ -44,7 +44,6 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-
 # 1. Xác thực tập trung
 app.add_middleware(AuthenticationMiddleware)
 
@@ -69,15 +68,16 @@ app.include_router(ws_router)  # /ws không nằm dưới /api
 
 @app.on_event("startup")
 async def on_startup():
-    """Gắn event loop chính cho bộ phát sự kiện.
-
-    Các endpoint đồng bộ chạy trong threadpool nên không tự có event loop;
-    ConnectionManager cần tham chiếu này để đẩy sự kiện WebSocket ra ngoài.
-    """
+    """Gắn event loop chính và khởi tạo kết nối Redis."""
     connection_manager.bind_loop(asyncio.get_running_loop())
+    await connection_manager.startup()  # <-- Thêm dòng này để bật Redis
     logging.info("Team Chat API đã sẵn sàng, realtime đang bật")
     logging.info("CORS origins cho phép: %s", settings.cors_origin_list)
 
+@app.on_event("shutdown")
+async def on_shutdown():
+    """Đóng kết nối Redis khi tắt app."""
+    await connection_manager.shutdown()  # <-- Thêm hàm này
 
 @app.get("/health", tags=["Health"])
 def health_check():

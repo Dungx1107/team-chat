@@ -44,6 +44,7 @@ IGNORED_FILE_EXTS = {
     ".swp", ".swo",
     ".tmp",
     ".lock",
+    ".md"
 }
 
 # File cụ thể — bỏ qua mặc định
