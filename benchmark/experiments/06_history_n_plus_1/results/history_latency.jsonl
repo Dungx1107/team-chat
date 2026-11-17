@@ -1,0 +1,2 @@
+{"label": "before (tre DB 90 ms)", "requests": 10, "median_ms": 5319.5, "min_ms": 5304.5, "max_ms": 5333.5}
+{"label": "after (tre DB 90 ms)", "requests": 10, "median_ms": 693.8, "min_ms": 660.0, "max_ms": 732.5}

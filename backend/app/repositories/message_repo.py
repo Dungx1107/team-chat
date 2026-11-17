@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, Iterable, List, Optional
 from sqlalchemy.orm import Session, joinedload
 from app.domain.interfaces import (
     IMessageRepository,
@@ -40,11 +40,38 @@ def _reaction_to_entity(model: ReactionModel) -> Reaction:
     )
 
 
+_UNSET = object()
+
+
 class MessageRepository(IMessageRepository):
     def __init__(self, db: Session):
         self.db = db
 
-    def _to_entity(self, model: MessageModel, sender: Optional[UserModel] = None) -> Message:
+    def _nicknames(self, room_id: int, user_ids: Iterable[int]) -> Dict[int, str]:
+        """Biệt danh trong phòng của nhiều người gửi, một truy vấn cho cả trang tin."""
+        ids = set(user_ids)
+        if not ids:
+            return {}
+        return dict(
+            self.db.query(RoomMemberModel.user_id, RoomMemberModel.nickname)
+            .filter(
+                RoomMemberModel.room_id == room_id,
+                RoomMemberModel.user_id.in_(ids),
+                RoomMemberModel.nickname.isnot(None),
+            )
+            .all()
+        )
+
+    def _to_entities(self, models: List[MessageModel]) -> List[Message]:
+        """Đổi cả trang tin sang thực thể. Biệt danh lấy một lần cho mọi người gửi,
+        thay vì một truy vấn cho mỗi tin (N+1: trang 50 tin từng tốn 50 truy vấn)."""
+        nicknames: Dict[int, str] = {}
+        for room_id in {m.room_id for m in models}:
+            for user_id, nick in self._nicknames(room_id, (m.user_id for m in models if m.room_id == room_id)).items():
+                nicknames[(room_id, user_id)] = nick
+        return [self._to_entity(m, nickname=nicknames.get((m.room_id, m.user_id))) for m in models]
+
+    def _to_entity(self, model: MessageModel, sender: Optional[UserModel] = None, nickname=_UNSET) -> Message:
         user = sender if sender is not None else model.sender
         entity = Message.__new__(Message)  # bỏ qua __init__ để không kích hoạt lại validate
         entity.id = model.id
@@ -62,14 +89,9 @@ class MessageRepository(IMessageRepository):
         entity.pinned_at = model.pinned_at
         entity.pinned_by = model.pinned_by
         entity.deleted_at = model.deleted_at
-        nickname = (
-            self.db.query(RoomMemberModel.nickname)
-            .filter(
-                RoomMemberModel.room_id == model.room_id,
-                RoomMemberModel.user_id == model.user_id,
-            )
-            .scalar()
-        )
+        if nickname is _UNSET:
+            # Gọi lẻ cho một tin (vd. vừa gửi): một truy vấn là chấp nhận được
+            nickname = self._nicknames(model.room_id, [model.user_id]).get(model.user_id)
         entity.sender_name = nickname or (f"{user.last_name} {user.first_name}".strip() if user else None)
         entity.username = user.username if user else None
         entity.avatar_url = user.avatar_url if user else None
@@ -136,7 +158,7 @@ class MessageRepository(IMessageRepository):
             .limit(limit)
             .all()
         )
-        return [self._to_entity(m) for m in reversed(models)]
+        return self._to_entities(list(reversed(models)))
 
     def get_pinned_by_room_id(self, room_id: int) -> List[Message]:
         models = (
@@ -150,7 +172,7 @@ class MessageRepository(IMessageRepository):
             .order_by(MessageModel.pinned_at.desc(), MessageModel.id.desc())
             .all()
         )
-        return [self._to_entity(model) for model in models]
+        return self._to_entities(models)
 
     def set_pinned(self, message_id: int, pinned: bool, user_id: Optional[int]) -> Optional[Message]:
         model = self.db.query(MessageModel).filter(MessageModel.id == message_id).first()
