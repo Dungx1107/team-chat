@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     # để tệp thử tải lên nằm trong volume thay vì đổ vào bucket thật
     STORAGE_BACKEND: str = "supabase"
 
+    # Bể kết nối SQLAlchemy cho MỖI worker. Supabase gói miễn phí chỉ cho ~15 kết nối
+    # qua session pooler, nên tổng (pool + overflow) x số worker phải nằm trong giới hạn đó.
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 30
+
     # Cấu hình Redis cho Pub/Sub (WebSocket đa worker)
     REDIS_URL: str = "redis://localhost:6379/0"
 

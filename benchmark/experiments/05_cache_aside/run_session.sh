@@ -35,6 +35,11 @@ for cfg in $CONFIGS; do
   fi
 
   sh benchmark/shared/db_latency.sh 0 >/dev/null
+  # Sau một mức tải quá sức, backend còn request treo giữ khóa bảng: TRUNCATE của seed
+  # sẽ chờ mãi. Dừng backend và cắt mọi kết nối còn sót trước khi seed.
+  $COMPOSE stop -t 5 backend >/dev/null 2>&1
+  docker exec teamchat_bench_db psql -U postgres -d teamchat_bench -qtAc \
+    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'teamchat_bench' AND pid <> pg_backend_pid()" >/dev/null
   $COMPOSE run --rm backend python /benchmark/shared/seed_data.py 2>&1 | grep XONG
   docker exec teamchat_bench_redis redis-cli -n 1 FLUSHDB >/dev/null
   BENCH_WORKERS=$workers BENCH_CACHE_ENABLED=$cache BENCH_CACHE_BACKEND=$cache_backend BENCH_CACHE_TTL=$TTL \
