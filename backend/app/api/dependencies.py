@@ -17,6 +17,11 @@ from app.repositories.message_repo import (
 from app.infra.storage.supabase_storage import SupabaseFileStorage
 from app.infra.storage.local_storage import LocalFileStorage
 from app.infra.realtime.connection_manager import connection_manager
+from app.infra.cache.memory_cache import InMemoryCache
+
+# Đường đọc (CQRS mức nhẹ) và Cache-Aside
+from app.queries.room_queries import IRoomQueries, RoomQueries, CachedRoomQueries
+from app.queries.cache_invalidation import RoomCacheInvalidator
 
 # Services
 from app.services.auth_service import AuthService
@@ -36,6 +41,13 @@ else:
         supabase_key=settings.SUPABASE_SERVICE_ROLE_KEY,
         bucket_name=settings.SUPABASE_STORAGE_BUCKET,
     )
+
+# Cache dùng chung cho cả tiến trình. Bật cache thì mọi Service phát sự kiện qua
+# RoomCacheInvalidator: nó xóa key liên quan rồi chuyển tiếp cho WebSocket.
+room_cache = InMemoryCache() if settings.CACHE_ENABLED else None
+event_publisher = (
+    RoomCacheInvalidator(connection_manager, room_cache) if room_cache else connection_manager
+)
 
 # Lấy User ID đã được Auth Middleware xác thực sẵn
 def get_current_user_id(request: Request) -> int:
@@ -59,7 +71,7 @@ def get_room_service(db: Session = Depends(get_db)) -> RoomService:
     return RoomService(
         room_repo=RoomRepository(db),
         user_repo=UserRepository(db),
-        event_publisher=connection_manager,
+        event_publisher=event_publisher,
         file_storage=file_storage,
     )
 
@@ -71,12 +83,12 @@ def get_message_service(db: Session = Depends(get_db)) -> MessageService:
         attachment_repo=AttachmentRepository(db),
         reaction_repo=ReactionRepository(db),
         file_storage=file_storage,
-        event_publisher=connection_manager,
+        event_publisher=event_publisher,
     )
 
 
 def get_user_service(db: Session = Depends(get_db)) -> UserService:
-    return UserService(UserRepository(db), file_storage=file_storage, event_publisher=connection_manager)
+    return UserService(UserRepository(db), file_storage=file_storage, event_publisher=event_publisher)
 
 
 def get_call_service(db: Session = Depends(get_db)) -> CallService:
@@ -84,5 +96,14 @@ def get_call_service(db: Session = Depends(get_db)) -> CallService:
         call_repo=CallRepository(db),
         room_repo=RoomRepository(db),
         user_repo=UserRepository(db),
-        event_publisher=connection_manager,
+        event_publisher=event_publisher,
     )
+
+
+# --- Đường đọc ---
+
+def get_room_queries(db: Session = Depends(get_db)) -> IRoomQueries:
+    queries = RoomQueries(RoomRepository(db))
+    if room_cache:
+        return CachedRoomQueries(queries, room_cache, settings.CACHE_TTL_SECONDS)
+    return queries

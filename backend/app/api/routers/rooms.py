@@ -17,9 +17,11 @@ from app.api.dependencies import (
     get_current_user_id,
     get_call_service,
     get_message_service,
+    get_room_queries,
     file_storage,
     get_db,
 )
+from app.queries.room_queries import IRoomQueries
 from app.services.room_service import RoomService
 from app.services.message_service import MessageService
 from app.infra.realtime.connection_manager import connection_manager
@@ -72,12 +74,13 @@ def list_rooms(
     limit: int = 50,
     offset: int = 0,
     current_user_id: int = Depends(get_current_user_id),
-    room_service: RoomService = Depends(get_room_service)
+    room_queries: IRoomQueries = Depends(get_room_queries)
 ):
-    """Những phòng người dùng đang tham gia, cả công khai lẫn riêng tư."""
-    rooms = room_service.list_rooms(user_id=current_user_id, limit=limit, offset=offset)
-    summaries = room_service.room_repo.summarize_rooms([r.id for r in rooms], current_user_id)
-    return [_to_response(r, **summaries[r.id]) for r in rooms]
+    """Những phòng người dùng đang tham gia, cả công khai lẫn riêng tư.
+
+    Đi đường đọc riêng (app/queries), có Cache-Aside khi CACHE_ENABLED.
+    """
+    return [RoomResponse(**item) for item in room_queries.list_rooms(current_user_id, limit, offset)]
 
 
 # Phải khai báo trước "/{room_id}", nếu không "search" bị hiểu là room_id và trả 422

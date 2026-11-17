@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     # "supabase" khi chạy thật; "local" chỉ cho môi trường đo (docker-compose.bench.yml),
     # để tệp thử tải lên nằm trong volume thay vì đổ vào bucket thật
     STORAGE_BACKEND: str = "supabase"
+
+    # Cache-Aside cho đường đọc danh sách phòng (app/queries). Cache nằm trong RAM của
+    # tiến trình nên chỉ đúng khi chạy MỘT worker; nhiều worker cần bản Redis.
+    CACHE_ENABLED: bool = True
+    CACHE_TTL_SECONDS: int = 60
     JWT_SECRET_KEY: str = "super-secret-key-change-it-in-production-min-32-chars"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
