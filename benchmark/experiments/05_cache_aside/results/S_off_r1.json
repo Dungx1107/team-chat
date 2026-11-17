@@ -1,0 +1,711 @@
+{
+  "scenario": "session",
+  "note": "session, cach A: Postgres local + tre 90 ms, CACHE_ENABLED=false, TTL=60s, 1 worker, lich su chat da sua N+1",
+  "finished_at": "2026-11-17T10:33:30+00:00",
+  "settings": {
+    "host": "http://localhost:8001",
+    "ramp_up_s": 5.0,
+    "skip_s": 10,
+    "hold_s": 60,
+    "arrival_s": 60,
+    "steady_s": 240,
+    "rest_s": 15,
+    "think_s": 1.0,
+    "locust_workers": 4
+  },
+  "seed": {
+    "layout": {
+      "groups": 40,
+      "group_size": 50,
+      "rooms_per_group": 10,
+      "messages": 250,
+      "attachments": 5
+    },
+    "random_seed": 42,
+    "password": "Bench@12345",
+    "created_at": "2026-11-17T10:17:10Z",
+    "counts": {
+      "users": 2000,
+      "rooms": 400,
+      "memberships": 20000,
+      "messages": 100000,
+      "attachments": 2000
+    }
+  },
+  "results": [
+    {
+      "users": 100,
+      "samples": 2644,
+      "error_pct": 0.0,
+      "throughput_req_sec": 8.81,
+      "mean_res_time_ms": 751.28,
+      "median_res_time_ms": 660.51,
+      "p95_res_time_ms": 1297.98,
+      "p99_res_time_ms": 1562.52,
+      "max_res_time_ms": 2547.43,
+      "errors": {},
+      "by_request": {
+        "GET me": {
+          "samples": 138,
+          "error_pct": 0.0,
+          "throughput_req_sec": 0.46,
+          "mean_res_time_ms": 362.49,
+          "median_res_time_ms": 297.6,
+          "p95_res_time_ms": 719.33
+        },
+        "GET rooms": {
+          "samples": 138,
+          "error_pct": 0.0,
+          "throughput_req_sec": 0.46,
+          "mean_res_time_ms": 651.84,
+          "median_res_time_ms": 596.96,
+          "p95_res_time_ms": 987.82
+        },
+        "GET invites": {
+          "samples": 137,
+          "error_pct": 0.0,
+          "throughput_req_sec": 0.46,
+          "mean_res_time_ms": 366.38,
+          "median_res_time_ms": 314.77,
+          "p95_res_time_ms": 674.43
+        },
+        "GET history": {
+          "samples": 466,
+          "error_pct": 0.0,
+          "throughput_req_sec": 1.55,
+          "mean_res_time_ms": 704.85,
+          "median_res_time_ms": 670.55,
+          "p95_res_time_ms": 1072.83
+        },
+        "GET pinned": {
+          "samples": 465,
+          "error_pct": 0.0,
+          "throughput_req_sec": 1.55,
+          "mean_res_time_ms": 547.11,
+          "median_res_time_ms": 485.19,
+          "p95_res_time_ms": 882.71
+        },
+        "GET members": {
+          "samples": 465,
+          "error_pct": 0.0,
+          "throughput_req_sec": 1.55,
+          "mean_res_time_ms": 537.09,
+          "median_res_time_ms": 484.62,
+          "p95_res_time_ms": 864.05
+        },
+        "POST reaction": {
+          "samples": 244,
+          "error_pct": 0.0,
+          "throughput_req_sec": 0.81,
+          "mean_res_time_ms": 1196.13,
+          "median_res_time_ms": 1140.4,
+          "p95_res_time_ms": 1536.85
+        },
+        "POST message": {
+          "samples": 563,
+          "error_pct": 0.0,
+          "throughput_req_sec": 1.88,
+          "mean_res_time_ms": 1111.4,
+          "median_res_time_ms": 1049.54,
+          "p95_res_time_ms": 1446.02
+        },
+        "POST upload": {
+          "samples": 28,
+          "error_pct": 0.0,
+          "throughput_req_sec": 0.09,
+          "mean_res_time_ms": 1644.18,
+          "median_res_time_ms": 1543.44,
+          "p95_res_time_ms": 2227.18
+        }
+      },
+      "phases": {
+        "arrival": {
+          "users": 100,
+          "samples": 924,
+          "error_pct": 0.0,
+          "throughput_req_sec": 15.18,
+          "mean_res_time_ms": 659.33,
+          "median_res_time_ms": 586.77,
+          "p95_res_time_ms": 1238.17,
+          "p99_res_time_ms": 1636.44,
+          "max_res_time_ms": 2547.43,
+          "errors": {},
+          "by_request": {
+            "GET me": {
+              "samples": 106,
+              "error_pct": 0.0,
+              "throughput_req_sec": 1.74,
+              "mean_res_time_ms": 376.03,
+              "median_res_time_ms": 300.77,
+              "p95_res_time_ms": 745.35
+            },
+            "GET rooms": {
+              "samples": 105,
+              "error_pct": 0.0,
+              "throughput_req_sec": 1.73,
+              "mean_res_time_ms": 657.14,
+              "median_res_time_ms": 603.03,
+              "p95_res_time_ms": 1018.71
+            },
+            "GET invites": {
+              "samples": 104,
+              "error_pct": 0.0,
+              "throughput_req_sec": 1.71,
+              "mean_res_time_ms": 382.59,
+              "median_res_time_ms": 341.06,
+              "p95_res_time_ms": 688.81
+            },
+            "GET history": {
+              "samples": 162,
+              "error_pct": 0.0,
+              "throughput_req_sec": 2.66,
+              "mean_res_time_ms": 718.62,
+              "median_res_time_ms": 676.02,
+              "p95_res_time_ms": 1112.37
+            },
+            "GET pinned": {
+              "samples": 161,
+              "error_pct": 0.0,
+              "throughput_req_sec": 2.65,
+              "mean_res_time_ms": 573.46,
+              "median_res_time_ms": 542.41,
+              "p95_res_time_ms": 874.17
+            },
+            "GET members": {
+              "samples": 158,
+              "error_pct": 0.0,
+              "throughput_req_sec": 2.6,
+              "mean_res_time_ms": 586.87,
+              "median_res_time_ms": 543.4,
+              "p95_res_time_ms": 914.63
+            },
+            "POST reaction": {
+              "samples": 33,
+              "error_pct": 0.0,
+              "throughput_req_sec": 0.54,
+              "mean_res_time_ms": 1257.5,
+              "median_res_time_ms": 1196.97,
+              "p95_res_time_ms": 1580.56
+            },
+            "POST message": {
+              "samples": 89,
+              "error_pct": 0.0,
+              "throughput_req_sec": 1.46,
+              "mean_res_time_ms": 1195.07,
+              "median_res_time_ms": 1112.11,
+              "p95_res_time_ms": 1649.74
+            },
+            "POST upload": {
+              "samples": 6,
+              "error_pct": 0.0,
+              "throughput_req_sec": 0.1,
+              "mean_res_time_ms": 1873.92,
+              "median_res_time_ms": 1674.19,
+              "p95_res_time_ms": 2547.43
+            }
+          }
+        },
+        "steady": {
+          "users": 100,
+          "samples": 1720,
+          "error_pct": 0.0,
+          "throughput_req_sec": 7.17,
+          "mean_res_time_ms": 800.68,
+          "median_res_time_ms": 681.11,
+          "p95_res_time_ms": 1424.81,
+          "p99_res_time_ms": 1542.48,
+          "max_res_time_ms": 1976.48,
+          "errors": {},
+          "by_request": {
+            "GET invites": {
+              "samples": 33,
+              "error_pct": 0.0,
+              "throughput_req_sec": 0.14,
+              "mean_res_time_ms": 315.31,
+              "median_res_time_ms": 288.3,
+              "p95_res_time_ms": 378.89
+            },
+            "POST message": {
+              "samples": 474,
+              "error_pct": 0.0,
+              "throughput_req_sec": 1.98,
+              "mean_res_time_ms": 1095.69,
+              "median_res_time_ms": 1046.37,
+              "p95_res_time_ms": 1434.14
+            },
+            "GET history": {
+              "samples": 304,
+              "error_pct": 0.0,
+              "throughput_req_sec": 1.27,
+              "mean_res_time_ms": 697.5,
+              "median_res_time_ms": 669.98,
+              "p95_res_time_ms": 1062.65
+            },
+            "GET pinned": {
+              "samples": 304,
+              "error_pct": 0.0,
+              "throughput_req_sec": 1.27,
+              "mean_res_time_ms": 533.15,
+              "median_res_time_ms": 478.8,
+              "p95_res_time_ms": 884.38
+            },
+            "POST reaction": {
+              "samples": 211,
+              "error_pct": 0.0,
+              "throughput_req_sec": 0.88,
+              "mean_res_time_ms": 1186.53,
+              "median_res_time_ms": 1138.45,
+              "p95_res_time_ms": 1531.04
+            },
+            "GET members": {
+              "samples": 307,
+              "error_pct": 0.0,
+              "throughput_req_sec": 1.28,
+              "mean_res_time_ms": 511.48,
+              "median_res_time_ms": 480.3,
+              "p95_res_time_ms": 859.96
+            },
+            "GET me": {
+              "samples": 32,
+              "error_pct": 0.0,
+              "throughput_req_sec": 0.13,
+              "mean_res_time_ms": 317.65,
+              "median_res_time_ms": 292.29,
+              "p95_res_time_ms": 326.35
+            },
+            "GET rooms": {
+              "samples": 33,
+              "error_pct": 0.0,
+              "throughput_req_sec": 0.14,
+              "mean_res_time_ms": 634.99,
+              "median_res_time_ms": 585.94,
+              "p95_res_time_ms": 967.63
+            },
+            "POST upload": {
+              "samples": 22,
+              "error_pct": 0.0,
+              "throughput_req_sec": 0.09,
+              "mean_res_time_ms": 1581.52,
+              "median_res_time_ms": 1519.72,
+              "p95_res_time_ms": 1916.85
+            }
+          }
+        }
+      },
+      "saturated": true,
+      "server_cache": null
+    },
+    {
+      "users": 200,
+      "samples": 1521,
+      "error_pct": 45.63,
+      "throughput_req_sec": 5.07,
+      "mean_res_time_ms": 28450.09,
+      "median_res_time_ms": 4088.1,
+      "p95_res_time_ms": 60020.68,
+      "p99_res_time_ms": 60051.2,
+      "max_res_time_ms": 60122.07,
+      "errors": {
+        "RetriesExceeded: URL http://localhost:8001/api/rooms: 0, original=timed out": 88,
+        "RetriesExceeded: URL http://localhost:8001/api/rooms/notifications/invites: 0, original=timed out": 88,
+        "RetriesExceeded: URL http://localhost:8001/api/users/me: 0, original=timed out": 62,
+        "LocustBadStatusCode: URL http://localhost:8001/api/users/me: code=500": 14,
+        "RetriesExceeded: URL http://localhost:8001/api/rooms/11/messages: 0, original=timed out": 11
+      },
+      "by_request": {
+        "GET me": {
+          "samples": 211,
+          "error_pct": 36.02,
+          "throughput_req_sec": 0.7,
+          "mean_res_time_ms": 23104.02,
+          "median_res_time_ms": 2413.14,
+          "p95_res_time_ms": 60016.83
+        },
+        "GET rooms": {
+          "samples": 210,
+          "error_pct": 43.81,
+          "throughput_req_sec": 0.7,
+          "mean_res_time_ms": 27723.6,
+          "median_res_time_ms": 3343.11,
+          "p95_res_time_ms": 60035.17
+        },
+        "GET invites": {
+          "samples": 208,
+          "error_pct": 45.19,
+          "throughput_req_sec": 0.69,
+          "mean_res_time_ms": 28343.77,
+          "median_res_time_ms": 4002.45,
+          "p95_res_time_ms": 60022.32
+        },
+        "GET history": {
+          "samples": 285,
+          "error_pct": 54.04,
+          "throughput_req_sec": 0.95,
+          "mean_res_time_ms": 33325.0,
+          "median_res_time_ms": 58354.83,
+          "p95_res_time_ms": 60021.76
+        },
+        "GET pinned": {
+          "samples": 197,
+          "error_pct": 38.07,
+          "throughput_req_sec": 0.66,
+          "mean_res_time_ms": 24093.45,
+          "median_res_time_ms": 2339.9,
+          "p95_res_time_ms": 60032.8
+        },
+        "GET members": {
+          "samples": 177,
+          "error_pct": 36.72,
+          "throughput_req_sec": 0.59,
+          "mean_res_time_ms": 22676.83,
+          "median_res_time_ms": 1965.41,
+          "p95_res_time_ms": 60019.63
+        },
+        "POST message": {
+          "samples": 165,
+          "error_pct": 61.82,
+          "throughput_req_sec": 0.55,
+          "mean_res_time_ms": 37153.05,
+          "median_res_time_ms": 60005.7,
+          "p95_res_time_ms": 60019.5
+        },
+        "POST upload": {
+          "samples": 10,
+          "error_pct": 60.0,
+          "throughput_req_sec": 0.03,
+          "mean_res_time_ms": 39975.26,
+          "median_res_time_ms": 60003.16,
+          "p95_res_time_ms": 60021.94
+        },
+        "POST reaction": {
+          "samples": 58,
+          "error_pct": 51.72,
+          "throughput_req_sec": 0.19,
+          "mean_res_time_ms": 32626.38,
+          "median_res_time_ms": 58018.6,
+          "p95_res_time_ms": 60018.36
+        }
+      },
+      "phases": {
+        "arrival": {
+          "users": 200,
+          "samples": 967,
+          "error_pct": 14.68,
+          "throughput_req_sec": 8.07,
+          "mean_res_time_ms": 10642.13,
+          "median_res_time_ms": 1368.55,
+          "p95_res_time_ms": 60012.45,
+          "p99_res_time_ms": 60018.15,
+          "max_res_time_ms": 60050.22,
+          "errors": {
+            "RetriesExceeded: URL http://localhost:8001/api/users/me: 0, original=timed out": 59,
+            "LocustBadStatusCode: URL http://localhost:8001/api/users/me: code=500": 14,
+            "RetriesExceeded: URL http://localhost:8001/api/rooms: 0, original=timed out": 5,
+            "LocustBadStatusCode: URL http://localhost:8001/api/rooms: code=500": 4,
+            "RetriesExceeded: URL http://localhost:8001/api/rooms/1/messages?limit=50&offset=0: 0, original=ti": 3
+          },
+          "by_request": {
+            "GET me": {
+              "samples": 208,
+              "error_pct": 35.1,
+              "throughput_req_sec": 1.74,
+              "mean_res_time_ms": 22571.71,
+              "median_res_time_ms": 2268.08,
+              "p95_res_time_ms": 60016.84
+            },
+            "GET rooms": {
+              "samples": 127,
+              "error_pct": 7.09,
+              "throughput_req_sec": 1.06,
+              "mean_res_time_ms": 6616.79,
+              "median_res_time_ms": 1314.84,
+              "p95_res_time_ms": 58278.9
+            },
+            "GET invites": {
+              "samples": 114,
+              "error_pct": 1.75,
+              "throughput_req_sec": 0.95,
+              "mean_res_time_ms": 2992.26,
+              "median_res_time_ms": 953.83,
+              "p95_res_time_ms": 5266.15
+            },
+            "GET history": {
+              "samples": 153,
+              "error_pct": 14.38,
+              "throughput_req_sec": 1.28,
+              "mean_res_time_ms": 10298.45,
+              "median_res_time_ms": 1337.17,
+              "p95_res_time_ms": 60007.68
+            },
+            "GET pinned": {
+              "samples": 126,
+              "error_pct": 3.17,
+              "throughput_req_sec": 1.05,
+              "mean_res_time_ms": 3850.1,
+              "median_res_time_ms": 1175.43,
+              "p95_res_time_ms": 6405.58
+            },
+            "GET members": {
+              "samples": 120,
+              "error_pct": 6.67,
+              "throughput_req_sec": 1.0,
+              "mean_res_time_ms": 4941.56,
+              "median_res_time_ms": 1235.72,
+              "p95_res_time_ms": 31281.32
+            },
+            "POST message": {
+              "samples": 78,
+              "error_pct": 19.23,
+              "throughput_req_sec": 0.65,
+              "mean_res_time_ms": 13963.38,
+              "median_res_time_ms": 2340.75,
+              "p95_res_time_ms": 60015.79
+            },
+            "POST upload": {
+              "samples": 6,
+              "error_pct": 33.33,
+              "throughput_req_sec": 0.05,
+              "mean_res_time_ms": 26616.63,
+              "median_res_time_ms": 3889.43,
+              "p95_res_time_ms": 60010.9
+            },
+            "POST reaction": {
+              "samples": 35,
+              "error_pct": 20.0,
+              "throughput_req_sec": 0.29,
+              "mean_res_time_ms": 14627.67,
+              "median_res_time_ms": 2780.89,
+              "p95_res_time_ms": 60007.61
+            }
+          }
+        },
+        "steady": {
+          "users": 200,
+          "samples": 554,
+          "error_pct": 99.64,
+          "throughput_req_sec": 2.31,
+          "mean_res_time_ms": 59533.64,
+          "median_res_time_ms": 60013.26,
+          "p95_res_time_ms": 60035.89,
+          "p99_res_time_ms": 60070.14,
+          "max_res_time_ms": 60122.07,
+          "errors": {
+            "RetriesExceeded: URL http://localhost:8001/api/rooms/notifications/invites: 0, original=timed out": 88,
+            "RetriesExceeded: URL http://localhost:8001/api/rooms: 0, original=timed out": 83,
+            "RetriesExceeded: URL http://localhost:8001/api/rooms/11/messages: 0, original=timed out": 11,
+            "RetriesExceeded: URL http://localhost:8001/api/rooms/1/pinned-messages: 0, original=timed out": 8,
+            "RetriesExceeded: URL http://localhost:8001/api/rooms/2/messages: 0, original=timed out": 7
+          },
+          "by_request": {
+            "POST message": {
+              "samples": 87,
+              "error_pct": 100.0,
+              "throughput_req_sec": 0.36,
+              "mean_res_time_ms": 57943.79,
+              "median_res_time_ms": 60010.84,
+              "p95_res_time_ms": 60020.41
+            },
+            "GET invites": {
+              "samples": 94,
+              "error_pct": 97.87,
+              "throughput_req_sec": 0.39,
+              "mean_res_time_ms": 59089.21,
+              "median_res_time_ms": 60013.47,
+              "p95_res_time_ms": 60024.85
+            },
+            "GET history": {
+              "samples": 132,
+              "error_pct": 100.0,
+              "throughput_req_sec": 0.55,
+              "mean_res_time_ms": 60014.87,
+              "median_res_time_ms": 60013.9,
+              "p95_res_time_ms": 60027.85
+            },
+            "GET pinned": {
+              "samples": 71,
+              "error_pct": 100.0,
+              "throughput_req_sec": 0.3,
+              "mean_res_time_ms": 60018.27,
+              "median_res_time_ms": 60012.79,
+              "p95_res_time_ms": 60056.47
+            },
+            "GET rooms": {
+              "samples": 83,
+              "error_pct": 100.0,
+              "throughput_req_sec": 0.35,
+              "mean_res_time_ms": 60019.57,
+              "median_res_time_ms": 60016.75,
+              "p95_res_time_ms": 60052.55
+            },
+            "POST reaction": {
+              "samples": 23,
+              "error_pct": 100.0,
+              "throughput_req_sec": 0.1,
+              "mean_res_time_ms": 60015.73,
+              "median_res_time_ms": 60010.22,
+              "p95_res_time_ms": 60021.76
+            },
+            "GET members": {
+              "samples": 57,
+              "error_pct": 100.0,
+              "throughput_req_sec": 0.24,
+              "mean_res_time_ms": 60014.24,
+              "median_res_time_ms": 60013.48,
+              "p95_res_time_ms": 60023.36
+            },
+            "GET me": {
+              "samples": 3,
+              "error_pct": 100.0,
+              "throughput_req_sec": 0.01,
+              "mean_res_time_ms": 60011.14,
+              "median_res_time_ms": 60012.49,
+              "p95_res_time_ms": 60015.08
+            },
+            "POST upload": {
+              "samples": 4,
+              "error_pct": 100.0,
+              "throughput_req_sec": 0.02,
+              "mean_res_time_ms": 60013.2,
+              "median_res_time_ms": 60008.54,
+              "p95_res_time_ms": 60021.94
+            }
+          }
+        }
+      },
+      "saturated": true,
+      "server_cache": null
+    },
+    {
+      "users": 500,
+      "samples": 1995,
+      "error_pct": 100.0,
+      "throughput_req_sec": 6.67,
+      "mean_res_time_ms": 60019.89,
+      "median_res_time_ms": 60018.03,
+      "p95_res_time_ms": 60032.68,
+      "p99_res_time_ms": 60131.41,
+      "max_res_time_ms": 60195.49,
+      "errors": {
+        "RetriesExceeded: URL http://localhost:8001/api/rooms: 0, original=timed out": 500,
+        "RetriesExceeded: URL http://localhost:8001/api/rooms/notifications/invites: 0, original=timed out": 500,
+        "RetriesExceeded: URL http://localhost:8001/api/users/me: 0, original=timed out": 499,
+        "RetriesExceeded: URL http://localhost:8001/api/rooms/5/messages?limit=50&offset=0: 0, original=ti": 5,
+        "RetriesExceeded: URL http://localhost:8001/api/rooms/1/messages?limit=50&offset=0: 0, original=ti": 5
+      },
+      "by_request": {
+        "GET me": {
+          "samples": 499,
+          "error_pct": 100.0,
+          "throughput_req_sec": 1.67,
+          "mean_res_time_ms": 60019.56,
+          "median_res_time_ms": 60016.86,
+          "p95_res_time_ms": 60037.75
+        },
+        "GET rooms": {
+          "samples": 500,
+          "error_pct": 100.0,
+          "throughput_req_sec": 1.67,
+          "mean_res_time_ms": 60024.8,
+          "median_res_time_ms": 60019.78,
+          "p95_res_time_ms": 60058.3
+        },
+        "GET invites": {
+          "samples": 500,
+          "error_pct": 100.0,
+          "throughput_req_sec": 1.67,
+          "mean_res_time_ms": 60018.11,
+          "median_res_time_ms": 60018.31,
+          "p95_res_time_ms": 60027.9
+        },
+        "GET history": {
+          "samples": 496,
+          "error_pct": 100.0,
+          "throughput_req_sec": 1.66,
+          "mean_res_time_ms": 60017.05,
+          "median_res_time_ms": 60016.62,
+          "p95_res_time_ms": 60026.26
+        }
+      },
+      "phases": {
+        "arrival": {
+          "users": 500,
+          "samples": 495,
+          "error_pct": 100.0,
+          "throughput_req_sec": 4.15,
+          "mean_res_time_ms": 60019.49,
+          "median_res_time_ms": 60016.81,
+          "p95_res_time_ms": 60037.75,
+          "p99_res_time_ms": 60133.07,
+          "max_res_time_ms": 60140.65,
+          "errors": {
+            "RetriesExceeded: URL http://localhost:8001/api/users/me: 0, original=timed out": 495
+          },
+          "by_request": {
+            "GET me": {
+              "samples": 495,
+              "error_pct": 100.0,
+              "throughput_req_sec": 4.15,
+              "mean_res_time_ms": 60019.49,
+              "median_res_time_ms": 60016.81,
+              "p95_res_time_ms": 60037.75
+            }
+          }
+        },
+        "steady": {
+          "users": 500,
+          "samples": 1500,
+          "error_pct": 100.0,
+          "throughput_req_sec": 6.27,
+          "mean_res_time_ms": 60020.02,
+          "median_res_time_ms": 60018.37,
+          "p95_res_time_ms": 60030.91,
+          "p99_res_time_ms": 60097.9,
+          "max_res_time_ms": 60195.49,
+          "errors": {
+            "RetriesExceeded: URL http://localhost:8001/api/rooms: 0, original=timed out": 500,
+            "RetriesExceeded: URL http://localhost:8001/api/rooms/notifications/invites: 0, original=timed out": 500,
+            "RetriesExceeded: URL http://localhost:8001/api/rooms/5/messages?limit=50&offset=0: 0, original=ti": 5,
+            "RetriesExceeded: URL http://localhost:8001/api/rooms/1/messages?limit=50&offset=0: 0, original=ti": 5,
+            "RetriesExceeded: URL http://localhost:8001/api/rooms/9/messages?limit=50&offset=0: 0, original=ti": 5
+          },
+          "by_request": {
+            "GET me": {
+              "samples": 4,
+              "error_pct": 100.0,
+              "throughput_req_sec": 0.02,
+              "mean_res_time_ms": 60028.47,
+              "median_res_time_ms": 60023.9,
+              "p95_res_time_ms": 60037.55
+            },
+            "GET rooms": {
+              "samples": 500,
+              "error_pct": 100.0,
+              "throughput_req_sec": 2.09,
+              "mean_res_time_ms": 60024.8,
+              "median_res_time_ms": 60019.78,
+              "p95_res_time_ms": 60058.3
+            },
+            "GET invites": {
+              "samples": 500,
+              "error_pct": 100.0,
+              "throughput_req_sec": 2.09,
+              "mean_res_time_ms": 60018.11,
+              "median_res_time_ms": 60018.31,
+              "p95_res_time_ms": 60027.9
+            },
+            "GET history": {
+              "samples": 496,
+              "error_pct": 100.0,
+              "throughput_req_sec": 2.07,
+              "mean_res_time_ms": 60017.05,
+              "median_res_time_ms": 60016.62,
+              "p95_res_time_ms": 60026.26
+            }
+          }
+        }
+      },
+      "saturated": true,
+      "server_cache": null
+    }
+  ]
+}

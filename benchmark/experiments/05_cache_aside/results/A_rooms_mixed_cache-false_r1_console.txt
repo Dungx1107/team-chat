@@ -1,0 +1,61 @@
+
+===== ROOMS_MIXED: 50 người dùng =====
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      GET rooms                                                                       1024     0(0.00%) |   1523     576    3928   1400 |   14.54        0.00
+POST     POST message                                                                     264     0(0.00%) |   2032    1051    4049   1900 |    3.75        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      1288     0(0.00%) |   1627     576    4049   1500 |   18.29        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      GET rooms                                                                            1400   1500   1600   1700   2200   2400   2900   3300   3900   3900   3900   1024
+POST     POST message                                                                         1900   2000   2100   2100   2600   3100   3500   3700   4000   4000   4000    264
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                           1500   1700   1900   1900   2200   2500   3100   3500   3900   4000   4000   1288
+
+-> 18.11 req/s | trung bình 1679.03 ms | p95 2560.77 ms | lỗi 0.0%
+
+===== ROOMS_MIXED: 100 người dùng =====
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      GET rooms                                                                        128   58(45.31%) |  26642     681   60024  31000 |    1.88        0.85
+POST     POST message                                                                      42   27(64.29%) |  36303    1727   60024  34000 |    0.62        0.40
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                       170   85(50.00%) |  29029     681   60024  32000 |    2.50        1.25
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      GET rooms                                                                           31000  33000  60000  60000  60000  60000  60000  60000  60000  60000  60000    128
+POST     POST message                                                                        34000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000     42
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                          32000  34000  60000  60000  60000  60000  60000  60000  60000  60000  60000    170
+
+Error report
+# occurrences      Error                                                                                               
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+28                 GET GET rooms: LocustBadStatusCode(code=500)                                                        
+8                  POST POST message: LocustBadStatusCode(code=500)                                                    
+3                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/2/messages', 0, original=timed out)
+30                 GET GET rooms: RetriesExceeded('http://localhost:8001/api/rooms', 0, original=timed out)            
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/12/messages', 0, original=timed out)
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/15/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/7/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/9/messages', 0, original=timed out)
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/3/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/18/messages', 0, original=timed out)
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/10/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/17/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/11/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/8/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/6/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/20/messages', 0, original=timed out)
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+
+-> 0.03 req/s | trung bình 35770.11 ms | p95 35770.11 ms | lỗi 100.0%
+   lỗi x1: LocustBadStatusCode: URL http://localhost:8001/api/rooms: code=500
+-> Lỗi vượt 50.0%, dừng ở mức 100 người dùng
+
+=== XONG! Kết quả: C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\experiments\05_cache_aside\results\A_rooms_mixed_cache-false_r1.json ===

@@ -1,0 +1,405 @@
+
+===== SESSION: 100 người dùng =====
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      GET history                                                                      450     0(0.00%) |    731     567    1534    680 |    1.51        0.00
+GET      GET invites                                                                      140     0(0.00%) |    360     279     713    300 |    0.47        0.00
+GET      GET me                                                                           140     0(0.00%) |    348     282     991    300 |    0.47        0.00
+GET      GET members                                                                      447     0(0.00%) |    556     467    1065    500 |    1.50        0.00
+GET      GET pinned                                                                       448     0(0.00%) |    555     466    1193    490 |    1.50        0.00
+GET      GET rooms                                                                        140     0(0.00%) |    565      10    1215    580 |    0.47        0.00
+POST     POST message                                                                     586     0(0.00%) |   1122    1025    1716   1100 |    1.97        0.00
+POST     POST reaction                                                                    234     0(0.00%) |   1222    1087    1878   1200 |    0.79        0.00
+POST     POST upload                                                                       32     0(0.00%) |   1642    1518    2288   1518 |    0.11        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      2617     0(0.00%) |    764      10    2288    670 |    8.79        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      GET history                                                                           680    700    710    740   1100   1100   1200   1200   1500   1500   1500    450
+GET      GET invites                                                                           300    330    380    410    660    690    710    710    710    710    710    140
+GET      GET me                                                                                300    300    320    330    590    680    730    750    990    990    990    140
+GET      GET members                                                                           500    520    550    590    860    900    970   1000   1100   1100   1100    447
+GET      GET pinned                                                                            490    510    540    590    870    890    940   1000   1200   1200   1200    448
+GET      GET rooms                                                                             580    590    610    640    970    990   1000   1100   1200   1200   1200    140
+POST     POST message                                                                         1100   1100   1100   1200   1400   1500   1500   1500   1700   1700   1700    586
+POST     POST reaction                                                                        1200   1200   1200   1300   1500   1600   1700   1800   1900   1900   1900    234
+POST     POST upload                                                                          1500   1600   1700   1800   1900   2000   2300   2300   2300   2300   2300     32
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                            670   1000   1100   1100   1200   1300   1500   1600   2000   2300   2300   2617
+
+-> 8.77 req/s | trung bình 766.12 ms | p95 1368.02 ms | lỗi 0.0% | trúng cache 0.7201
+   [arrival] 14.56 req/s | p95 1254.33 ms | lỗi 0.0% | danh sách phòng p95 980.81 ms
+   [steady] 7.25 req/s | p95 1446.74 ms | lỗi 0.0% | danh sách phòng p95 994.01 ms
+   request danh sách phòng phục vụ hoàn toàn từ cache: 0.0143
+   NGHẼN (chuẩn: p95 <= 1 s và lỗi <= 1% ở cả hai giai đoạn)
+
+===== SESSION: 200 người dùng =====
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      GET history                                                                      310  157(50.65%) |  31392     593   60294  35000 |    1.03        0.52
+GET      GET invites                                                                      210   74(35.24%) |  23643     283   60024   2700 |    0.70        0.25
+GET      GET me                                                                           215   58(26.98%) |  18954     308   60053   2200 |    0.72        0.19
+GET      GET members                                                                      197   65(32.99%) |  21629     487   60204   2100 |    0.66        0.22
+GET      GET pinned                                                                       227   83(36.56%) |  23791     497   60085   2600 |    0.76        0.28
+GET      GET rooms                                                                        211   70(33.18%) |  22001      18   60077   2800 |    0.70        0.23
+POST     POST message                                                                     166   91(54.82%) |  34659    1150   60042  60000 |    0.55        0.30
+POST     POST reaction                                                                     92   52(56.52%) |  35541    1232   60032  60000 |    0.31        0.17
+POST     POST upload                                                                       10    7(70.00%) |  43066    1563   60018  60000 |    0.03        0.02
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      1638  657(40.11%) |  25964      18   60294   3600 |    5.45        2.19
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      GET history                                                                         35000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000    310
+GET      GET invites                                                                          2700  38000  60000  60000  60000  60000  60000  60000  60000  60000  60000    210
+GET      GET me                                                                               2200   5500  60000  60000  60000  60000  60000  60000  60000  60000  60000    215
+GET      GET members                                                                          2100  35000  60000  60000  60000  60000  60000  60000  60000  60000  60000    197
+GET      GET pinned                                                                           2600  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000    227
+GET      GET rooms                                                                            2800  34000  60000  60000  60000  60000  60000  60000  60000  60000  60000    211
+POST     POST message                                                                        60000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000    166
+POST     POST reaction                                                                       60000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000     92
+POST     POST upload                                                                         60000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000     10
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                           3600  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000   1638
+
+Error report
+# occurrences      Error                                                                                               
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+3                  GET GET invites: LocustBadStatusCode(code=500)                                                      
+4                  GET GET history: LocustBadStatusCode(code=500)                                                      
+1                  GET GET me: LocustBadStatusCode(code=500)                                                           
+1                  GET GET members: LocustBadStatusCode(code=500)                                                      
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/1/messages', 0, original=timed out)
+57                 GET GET me: RetriesExceeded('http://localhost:8001/api/users/me', 0, original=timed out)            
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/23/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/29/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/23/members', 0, original=timed out)
+70                 GET GET rooms: RetriesExceeded('http://localhost:8001/api/rooms', 0, original=timed out)            
+71                 GET GET invites: RetriesExceeded('http://localhost:8001/api/rooms/notifications/invites', 0, original=timed out)
+7                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/13/pinned-messages', 0, original=timed out)
+6                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/11/members', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101000/reactions', 0, original=timed out)
+4                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/20/messages', 0, original=timed out)
+4                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/24/pinned-messages', 0, original=timed out)
+7                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/30/messages?limit=50&offset=0', 0, original=timed out)
+2                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/19/pinned-messages', 0, original=timed out)
+4                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/26/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100037/reactions', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/24/messages?limit=50&offset=0', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/18/messages', 0, original=timed out)
+4                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/22/members', 0, original=timed out)
+6                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/1/pinned-messages', 0, original=timed out)
+6                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/11/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101297/reactions', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/22/messages?limit=50&offset=0', 0, original=timed out)
+1                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/7/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/19/members', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/18/messages?limit=50&offset=0', 0, original=timed out)
+2                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/17/members', 0, original=timed out)
+4                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/25/pinned-messages', 0, original=timed out)
+4                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/27/messages?limit=50&offset=0', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/5/messages', 0, original=timed out)
+4                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/21/members', 0, original=timed out)
+2                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/8/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/15/messages', 0, original=timed out)
+1                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/20/messages?limit=50&offset=0', 0, original=timed out)
+4                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/28/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101167/reactions', 0, original=timed out)
+3                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/7/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/2/messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100501/reactions', 0, original=timed out)
+7                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/3/messages?limit=50&offset=0', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/12/messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101186/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101231/reactions', 0, original=timed out)
+2                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101320/reactions', 0, original=timed out)
+8                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/1/messages?limit=50&offset=0', 0, original=timed out)
+4                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/8/messages', 0, original=timed out)
+2                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100315/reactions', 0, original=timed out)
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/16/messages', 0, original=timed out)
+6                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/11/messages', 0, original=timed out)
+9                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/3/messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100731/reactions', 0, original=timed out)
+7                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/12/messages?limit=50&offset=0', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/17/messages', 0, original=timed out)
+7                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/13/messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100971/reactions', 0, original=timed out)
+3                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/4/messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101185/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101235/reactions', 0, original=timed out)
+2                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101277/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101280/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100946/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101329/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101267/reactions', 0, original=timed out)
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/9/messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101102/reactions', 0, original=timed out)
+6                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/2/pinned-messages', 0, original=timed out)
+1                  POST POST upload: RetriesExceeded('http://localhost:8001/api/rooms/19/messages/upload', 0, original=timed out)
+3                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/27/members', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100920/reactions', 0, original=timed out)
+6                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/11/pinned-messages', 0, original=timed out)
+3                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/28/members', 0, original=timed out)
+2                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/4/pinned-messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100956/reactions', 0, original=timed out)
+3                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/26/members', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/25/messages?limit=50&offset=0', 0, original=timed out)
+2                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/9/messages?limit=50&offset=0', 0, original=timed out)
+1                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/17/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100086/reactions', 0, original=timed out)
+3                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/22/pinned-messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/3499/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100673/reactions', 0, original=timed out)
+1                  POST POST upload: RetriesExceeded('http://localhost:8001/api/rooms/7/messages/upload', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/13/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101094/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101128/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101078/reactions', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/6/messages', 0, original=timed out)
+6                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/2/messages?limit=50&offset=0', 0, original=timed out)
+5                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/19/messages', 0, original=timed out)
+4                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/23/pinned-messages', 0, original=timed out)
+4                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/29/pinned-messages', 0, original=timed out)
+2                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/23/messages', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/21/messages?limit=50&offset=0', 0, original=timed out)
+4                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/13/members', 0, original=timed out)
+3                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/24/members', 0, original=timed out)
+6                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/30/pinned-messages', 0, original=timed out)
+3                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/26/pinned-messages', 0, original=timed out)
+3                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/22/messages', 0, original=timed out)
+5                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/1/members', 0, original=timed out)
+1                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/7/pinned-messages', 0, original=timed out)
+3                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/28/pinned-messages', 0, original=timed out)
+2                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/18/pinned-messages', 0, original=timed out)
+1                  POST POST upload: RetriesExceeded('http://localhost:8001/api/rooms/17/messages/upload', 0, original=timed out)
+3                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/25/members', 0, original=timed out)
+3                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/27/pinned-messages', 0, original=timed out)
+4                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/21/messages', 0, original=timed out)
+1                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/8/pinned-messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100108/reactions', 0, original=timed out)
+1                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/20/pinned-messages', 0, original=timed out)
+5                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/3/pinned-messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100626/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101414/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101294/reactions', 0, original=timed out)
+4                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/12/pinned-messages', 0, original=timed out)
+1                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/19/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101254/reactions', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/10/messages', 0, original=timed out)
+1                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/14/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/990/reactions', 0, original=timed out)
+4                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/2/members', 0, original=timed out)
+1                  POST POST upload: RetriesExceeded('http://localhost:8001/api/rooms/5/messages/upload', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/6977/reactions', 0, original=timed out)
+1                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/4/members', 0, original=timed out)
+1                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/4/messages?limit=50&offset=0', 0, original=timed out)
+1                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/9/pinned-messages', 0, original=timed out)
+1                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/17/pinned-messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100944/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101136/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100908/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100947/reactions', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/14/messages', 0, original=timed out)
+1                  POST POST upload: RetriesExceeded('http://localhost:8001/api/rooms/8/messages/upload', 0, original=timed out)
+1                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/15/messages?limit=50&offset=0', 0, original=timed out)
+2                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/29/members', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101255/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101001/reactions', 0, original=timed out)
+1                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/18/members', 0, original=timed out)
+2                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/21/pinned-messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/5996/reactions', 0, original=timed out)
+2                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/30/members', 0, original=timed out)
+1                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/7/members', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/6237/reactions', 0, original=timed out)
+1                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/8/members', 0, original=timed out)
+1                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/20/members', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101188/reactions', 0, original=timed out)
+1                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/3/members', 0, original=timed out)
+3                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/12/members', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/101283/reactions', 0, original=timed out)
+1                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/14/pinned-messages', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100229/reactions', 0, original=timed out)
+2                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/6/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/25/messages', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/31/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/35/messages?limit=50&offset=0', 0, original=timed out)
+1                  GET GET members: RetriesExceeded('http://localhost:8001/api/rooms/9/members', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/10/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/39/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/32/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/36/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/40/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/34/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/38/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/33/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100179/reactions', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100345/reactions', 0, original=timed out)
+1                  POST POST upload: RetriesExceeded('http://localhost:8001/api/rooms/13/messages/upload', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/5748/reactions', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/28/messages', 0, original=timed out)
+1                  GET GET pinned: RetriesExceeded('http://localhost:8001/api/rooms/15/pinned-messages', 0, original=timed out)
+1                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/5/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/29/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/30/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/26/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/24/messages', 0, original=timed out)
+1                  POST POST message: RetriesExceeded('http://localhost:8001/api/rooms/27/messages', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/37/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST upload: RetriesExceeded('http://localhost:8001/api/rooms/12/messages/upload', 0, original=timed out)
+1                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/16/messages?limit=50&offset=0', 0, original=timed out)
+1                  POST POST reaction: RetriesExceeded('http://localhost:8001/api/messages/100040/reactions', 0, original=timed out)
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+
+-> 5.46 req/s | trung bình 25964.57 ms | p95 60020.58 ms | lỗi 40.11%
+   [arrival] 9.16 req/s | p95 60014.8 ms | lỗi 11.3% | danh sách phòng p95 33727.34 ms
+   [steady] 2.27 req/s | p95 60023.19 ms | lỗi 98.52% | danh sách phòng p95 60021.87 ms
+   NGHẼN (chuẩn: p95 <= 1 s và lỗi <= 1% ở cả hai giai đoạn)
+   lỗi x71: RetriesExceeded: URL http://localhost:8001/api/rooms/notifications/invites: 0, original=timed out
+   lỗi x70: RetriesExceeded: URL http://localhost:8001/api/rooms: 0, original=timed out
+   lỗi x57: RetriesExceeded: URL http://localhost:8001/api/users/me: 0, original=timed out
+   lỗi x9: RetriesExceeded: URL http://localhost:8001/api/rooms/3/messages: 0, original=timed out
+   lỗi x8: RetriesExceeded: URL http://localhost:8001/api/rooms/1/messages?limit=50&offset=0: 0, original=ti
+
+===== SESSION: 500 người dùng =====
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      GET history                                                                      480 480(100.00%) |  60016   60004   60033  60004 |    1.61        1.61
+GET      GET invites                                                                      500 500(100.00%) |  60016   60005   60031  60005 |    1.68        1.68
+GET      GET me                                                                           500 500(100.00%) |  60014   60003   60030  60003 |    1.68        1.68
+GET      GET rooms                                                                        500 500(100.00%) |  60019   60005   60140  60005 |    1.68        1.68
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      1980 1980(100.00%) |  60016   60003   60140  60003 |    6.66        6.66
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      GET history                                                                         60000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000    480
+GET      GET invites                                                                         60000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000    500
+GET      GET me                                                                              60000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000    500
+GET      GET rooms                                                                           60000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000    500
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                          60000  60000  60000  60000  60000  60000  60000  60000  60000  60000  60000   1980
+
+Error report
+# occurrences      Error                                                                                               
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+500                GET GET me: RetriesExceeded('http://localhost:8001/api/users/me', 0, original=timed out)            
+500                GET GET rooms: RetriesExceeded('http://localhost:8001/api/rooms', 0, original=timed out)            
+500                GET GET invites: RetriesExceeded('http://localhost:8001/api/rooms/notifications/invites', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/5/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/1/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/6/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/2/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/8/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/4/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/10/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/3/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/7/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/9/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/11/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/15/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/12/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/16/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/13/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/14/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/20/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/18/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/19/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/17/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/24/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/23/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/21/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/22/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/28/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/26/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/30/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/27/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/25/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/29/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/31/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/32/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/38/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/34/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/35/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/39/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/37/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/33/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/36/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/40/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/45/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/41/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/42/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/46/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/48/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/44/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/50/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/43/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/47/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/49/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/55/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/51/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/56/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/52/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/53/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/54/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/60/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/58/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/59/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/57/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/63/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/64/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/61/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/62/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/68/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/70/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/66/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/67/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/65/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/69/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/72/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/71/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/78/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/74/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/76/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/80/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/75/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/79/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/73/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/77/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/82/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/86/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/84/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/88/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/90/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/83/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/87/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/81/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/85/messages?limit=50&offset=0', 0, original=timed out)
+5                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/89/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/91/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/95/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/92/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/96/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/93/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/94/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/100/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/98/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/99/messages?limit=50&offset=0', 0, original=timed out)
+3                  GET GET history: RetriesExceeded('http://localhost:8001/api/rooms/97/messages?limit=50&offset=0', 0, original=timed out)
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+
+-> 6.67 req/s | trung bình 60018.52 ms | p95 60026.05 ms | lỗi 100.0%
+   [arrival] 4.14 req/s | p95 60022.43 ms | lỗi 100.0% | danh sách phòng p95 None ms
+   [steady] 6.27 req/s | p95 60026.7 ms | lỗi 100.0% | danh sách phòng p95 60027.0 ms
+   NGHẼN (chuẩn: p95 <= 1 s và lỗi <= 1% ở cả hai giai đoạn)
+   lỗi x500: RetriesExceeded: URL http://localhost:8001/api/rooms: 0, original=timed out
+   lỗi x500: RetriesExceeded: URL http://localhost:8001/api/rooms/notifications/invites: 0, original=timed out
+   lỗi x497: RetriesExceeded: URL http://localhost:8001/api/users/me: 0, original=timed out
+   lỗi x5: RetriesExceeded: URL http://localhost:8001/api/rooms/5/messages?limit=50&offset=0: 0, original=ti
+   lỗi x5: RetriesExceeded: URL http://localhost:8001/api/rooms/1/messages?limit=50&offset=0: 0, original=ti
+-> Lỗi vượt 50.0%, dừng ở mức 500 người dùng
+
+=== XONG! Kết quả: C:\Users\DELL\Desktop\ktpm\team-chat\benchmark\experiments\05_cache_aside\results\S_on60_r2.json ===
