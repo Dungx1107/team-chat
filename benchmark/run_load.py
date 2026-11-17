@@ -46,7 +46,7 @@ SATURATION_P95_MS = 1000
 SATURATION_ERROR_PCT = 1
 
 # Không để tăng tải 0 s: 2000 kết nối mở trong cùng một tích tắc gây lỗi do chính cách test
-RAMP_UP = float(os.getenv("BENCH_RAMP_UP", "5"))
+RAMP_UP = float(os.getenv("BENCH_RAMP_UP", "20"))
 SKIP_SECONDS = int(os.getenv("BENCH_SKIP_SECONDS", "10"))
 HOLD_SECONDS = int(os.getenv("BENCH_HOLD_SECONDS", "60"))
 REST_SECONDS = int(os.getenv("BENCH_REST_SECONDS", "15"))

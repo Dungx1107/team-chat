@@ -48,8 +48,13 @@ uploads/
 .env.bak*
 
 # Đo hiệu năng: dữ liệu sinh ra (token, tệp mẫu) và tệp tạm của JMeter
-benchmark/shared/data/
-benchmark/**/data/
+benchmark/shared/data/*
+!benchmark/shared/data/.gitkeep
+# Dữ liệu sinh ra của từng thí nghiệm (có token)
+benchmark/experiments/*/data/
+
 *.jtl
 temp_html_*/
 temp_tokens_*.csv
+
+

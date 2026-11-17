@@ -17,7 +17,7 @@ nhau đúng một thay đổi: cùng DB, cùng dữ liệu, cùng máy.
 
 ## Dữ liệu
 
-Chạy trong môi trường đo ([`../../README.md`](../../README.md)). Sau seed chung,
+Chạy trong môi trường đo ([`../../BENCHMARK_GUIDE.md`](../../BENCHMARK_GUIDE.md)). Sau seed chung,
 `seed_rooms.py` thêm 4 user, mỗi user tham gia **10 / 50 / 100 / 200 phòng**. Mỗi phòng có
 5 thành viên và 20 tin. Token ghi ra `data/tokens_rooms.csv`.
 

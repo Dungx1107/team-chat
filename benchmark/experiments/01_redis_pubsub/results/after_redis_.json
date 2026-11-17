@@ -1,0 +1,94 @@
+{
+  "scenario": "send",
+  "note": "4 workers + Redis - Test sập",
+  "finished_at": "2026-11-17T10:09:21+00:00",
+  "settings": {
+    "host": "http://localhost:8001",
+    "ramp_up_s": 20.0,
+    "skip_s": 10,
+    "hold_s": 60,
+    "rest_s": 15,
+    "think_s": 1.0,
+    "locust_workers": 4
+  },
+  "seed": {
+    "layout": {
+      "groups": 40,
+      "group_size": 50,
+      "rooms_per_group": 10,
+      "messages": 250,
+      "attachments": 5
+    },
+    "random_seed": 42,
+    "password": "Bench@12345",
+    "created_at": "2026-11-17T08:41:31Z",
+    "counts": {
+      "users": 2000,
+      "rooms": 400,
+      "memberships": 20000,
+      "messages": 100000,
+      "attachments": 2000
+    }
+  },
+  "results": [
+    {
+      "users": 600,
+      "samples": 21310,
+      "error_pct": 0.02,
+      "throughput_req_sec": 355.86,
+      "mean_res_time_ms": 618.61,
+      "median_res_time_ms": 325.24,
+      "p95_res_time_ms": 777.71,
+      "p99_res_time_ms": 2333.62,
+      "max_res_time_ms": 32025.15,
+      "errors": {
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms/38/messages: code=500": 1,
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms/33/messages: code=500": 1,
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms/39/messages: code=500": 1,
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms/95/messages: code=500": 1
+      }
+    },
+    {
+      "users": 700,
+      "samples": 23866,
+      "error_pct": 0.0,
+      "throughput_req_sec": 398.96,
+      "mean_res_time_ms": 683.1,
+      "median_res_time_ms": 663.12,
+      "p95_res_time_ms": 1029.4,
+      "p99_res_time_ms": 1200.16,
+      "max_res_time_ms": 1662.86,
+      "errors": {}
+    },
+    {
+      "users": 800,
+      "samples": 19418,
+      "error_pct": 0.31,
+      "throughput_req_sec": 324.27,
+      "mean_res_time_ms": 1172.17,
+      "median_res_time_ms": 492.06,
+      "p95_res_time_ms": 1214.37,
+      "p99_res_time_ms": 30862.12,
+      "max_res_time_ms": 31669.58,
+      "errors": {
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms/46/messages: code=500": 2,
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms/54/messages: code=500": 2,
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms/52/messages: code=500": 2,
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms/48/messages: code=500": 2,
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms/123/messages: code=500": 2
+      }
+    },
+    {
+      "users": 900,
+      "samples": 21366,
+      "error_pct": 0.0,
+      "throughput_req_sec": 356.78,
+      "mean_res_time_ms": 464.24,
+      "median_res_time_ms": 487.72,
+      "p95_res_time_ms": 630.68,
+      "p99_res_time_ms": 859.07,
+      "max_res_time_ms": 1106.05,
+      "errors": {}
+    }
+  ]
+}

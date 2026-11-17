@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # để tệp thử tải lên nằm trong volume thay vì đổ vào bucket thật
     STORAGE_BACKEND: str = "supabase"
 
+    # Cấu hình Redis cho Pub/Sub (WebSocket đa worker)
+    REDIS_URL: str = "redis://localhost:6379/0"
+
     # Cache-Aside cho đường đọc danh sách phòng (app/queries). Cache nằm trong RAM của
     # tiến trình nên chỉ đúng khi chạy MỘT worker; nhiều worker cần bản Redis.
     CACHE_ENABLED: bool = True
