@@ -61,6 +61,7 @@ services:
       # Đo trước/sau Cache-Aside: BENCH_CACHE_ENABLED=false docker compose -f docker-compose.bench.yml up -d
       CACHE_ENABLED: ${BENCH_CACHE_ENABLED:-true}
       CACHE_TTL_SECONDS: ${BENCH_CACHE_TTL:-60}
+      CACHE_BACKEND: ${BENCH_CACHE_BACKEND:-redis}
     # Số worker đổi được để đo cải tiến nhiều worker (Redis Pub/Sub)
     command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${BENCH_WORKERS:-1}"
     ports:

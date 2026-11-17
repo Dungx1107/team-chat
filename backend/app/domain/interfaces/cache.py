@@ -32,3 +32,11 @@ class ICache(ABC):
     def delete_prefix(self, prefix: str) -> None:
         """Xóa mọi key bắt đầu bằng prefix, dùng khi không biết chính xác key nào bị ảnh hưởng."""
         pass
+
+    def record_request(self, full_hit: bool) -> None:
+        """Đếm một request đọc: có được phục vụ HOÀN TOÀN từ cache không. Mặc định bỏ qua."""
+        return None
+
+    def stats(self) -> Dict[str, Any]:
+        """Số liệu để đo hiệu năng (/health). Mặc định rỗng."""
+        return {}

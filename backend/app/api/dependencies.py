@@ -18,6 +18,7 @@ from app.infra.storage.supabase_storage import SupabaseFileStorage
 from app.infra.storage.local_storage import LocalFileStorage
 from app.infra.realtime.connection_manager import connection_manager
 from app.infra.cache.memory_cache import InMemoryCache
+from app.infra.cache.redis_cache import RedisCache
 
 # Đường đọc (CQRS mức nhẹ) và Cache-Aside
 from app.queries.room_queries import IRoomQueries, RoomQueries, CachedRoomQueries
@@ -44,7 +45,14 @@ else:
 
 # Cache dùng chung cho cả tiến trình. Bật cache thì mọi Service phát sự kiện qua
 # RoomCacheInvalidator: nó xóa key liên quan rồi chuyển tiếp cho WebSocket.
-room_cache = InMemoryCache() if settings.CACHE_ENABLED else None
+# Nhiều worker thì bắt buộc CACHE_BACKEND=redis: bản trong RAM mỗi worker một bản,
+# worker này xóa cache thì worker kia vẫn trả dữ liệu cũ.
+if not settings.CACHE_ENABLED:
+    room_cache = None
+elif settings.CACHE_BACKEND == "redis":
+    room_cache = RedisCache(settings.REDIS_URL)
+else:
+    room_cache = InMemoryCache()
 event_publisher = (
     RoomCacheInvalidator(connection_manager, room_cache) if room_cache else connection_manager
 )

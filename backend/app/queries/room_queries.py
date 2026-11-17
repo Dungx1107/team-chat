@@ -13,7 +13,6 @@ Danh sách phòng ghép từ hai phần có vòng đời khác nhau:
 Tách như vậy để một tin nhắn mới chỉ xóa đúng một key của phòng đó, thay vì xóa
 danh sách của cả 50 thành viên.
 """
-import threading
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
 
@@ -29,35 +28,6 @@ def room_summary_key(room_id: int) -> str:
 
 
 ROOM_SUMMARY_PREFIX = "room:"
-
-
-class ReadPathStats:
-    """Đếm request danh sách phòng: bao nhiêu cái phục vụ HOÀN TOÀN từ cache.
-
-    Tỉ lệ trúng cache theo key không nói đủ: một request đọc ~11 key, trượt 1 key
-    vẫn phải hỏi DB. Chỉ số này đếm theo request, xem qua /health.
-    """
-
-    def __init__(self):
-        self._lock = threading.Lock()
-        self.requests = 0
-        self.full_hits = 0
-
-    def record(self, full_hit: bool) -> None:
-        with self._lock:
-            self.requests += 1
-            self.full_hits += full_hit
-
-    def snapshot(self) -> dict:
-        with self._lock:
-            return {
-                "requests": self.requests,
-                "full_hits": self.full_hits,
-                "full_hit_rate": round(self.full_hits / self.requests, 4) if self.requests else None,
-            }
-
-
-read_stats = ReadPathStats()
 
 
 class IRoomQueries(ABC):
@@ -121,7 +91,7 @@ class CachedRoomQueries(IRoomQueries):
         summaries = {rid: cached[room_summary_key(rid)] for rid in room_ids if room_summary_key(rid) in cached}
 
         missing = [rid for rid in room_ids if rid not in summaries]
-        read_stats.record(full_hit and not missing)
+        self.cache.record_request(full_hit and not missing)
         if missing:
             # Các phòng còn thiếu lấy chung một lần, vẫn là truy vấn gộp của cải tiến N+1
             fresh = self.inner.room_summaries(missing)

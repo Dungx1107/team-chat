@@ -22,6 +22,8 @@ class InMemoryCache(ICache):
         self.hits = 0
         self.misses = 0
         self.evictions = 0
+        self.requests = 0
+        self.full_hits = 0
 
     def get(self, key: str) -> Optional[Any]:
         with self._lock:
@@ -56,16 +58,15 @@ class InMemoryCache(ICache):
             for key in [k for k in self._data if k.startswith(prefix)]:
                 del self._data[key]
 
+    def record_request(self, full_hit: bool) -> None:
+        with self._lock:
+            self.requests += 1
+            self.full_hits += full_hit
+
     def stats(self) -> dict:
         with self._lock:
-            total = self.hits + self.misses
-            return {
-                "entries": len(self._data),
-                "hits": self.hits,
-                "misses": self.misses,
-                "evictions": self.evictions,
-                "hit_rate": round(self.hits / total, 4) if total else None,
-            }
+            return _stats_dict(self.hits, self.misses, self.requests, self.full_hits,
+                               backend="memory", entries=len(self._data), evictions=self.evictions)
 
     def _get_locked(self, key: str, now: float) -> Optional[Any]:
         entry = self._data.get(key)
@@ -80,3 +81,16 @@ class InMemoryCache(ICache):
         self._data.move_to_end(key)
         self.hits += 1
         return value
+
+
+def _stats_dict(hits: int, misses: int, requests: int, full_hits: int, **extra) -> dict:
+    total = hits + misses
+    return {
+        **extra,
+        "hits": hits,
+        "misses": misses,
+        "hit_rate": round(hits / total, 4) if total else None,
+        "requests": requests,
+        "full_hits": full_hits,
+        "full_hit_rate": round(full_hits / requests, 4) if requests else None,
+    }

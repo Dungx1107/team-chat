@@ -17,9 +17,11 @@ class Settings(BaseSettings):
     # Cấu hình Redis cho Pub/Sub (WebSocket đa worker)
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # Cache-Aside cho đường đọc danh sách phòng (app/queries). Cache nằm trong RAM của
-    # tiến trình nên chỉ đúng khi chạy MỘT worker; nhiều worker cần bản Redis.
+    # Cache-Aside cho đường đọc danh sách phòng (app/queries).
+    # CACHE_BACKEND: "memory" (RAM của tiến trình, chỉ đúng khi chạy MỘT worker)
+    #                hoặc "redis" (dùng chung REDIS_URL, đúng với nhiều worker).
     CACHE_ENABLED: bool = True
+    CACHE_BACKEND: str = "memory"
     CACHE_TTL_SECONDS: int = 60
     JWT_SECRET_KEY: str = "super-secret-key-change-it-in-production-min-32-chars"
     JWT_ALGORITHM: str = "HS256"
