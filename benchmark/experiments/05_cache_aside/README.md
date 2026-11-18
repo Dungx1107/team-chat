@@ -8,12 +8,13 @@ Ngày đo: 17–18/11/2026 · Người đo: Dat · Commit: `8fc0a74` (cache tron
   p95 ở 50 người giảm từ **~1,9 giây xuống ~0,1 giây** (gần 20 lần), và hệ thống chịu
   được 100 người thay vì kẹt hẳn.
 - **Trong kịch bản dùng app sát thực tế, cache gần như không tạo khác biệt.** Chỉ **1–4%**
-  request danh sách phòng được phục vụ hoàn toàn từ cache: tin nhắn mới đến liên tục làm
-  cache của phòng bị xóa, còn mỗi người chỉ mở danh sách phòng khi mở app hoặc tải lại
+  request danh sách phòng được phục vụ hoàn toàn từ cache (3–5% khi chỉ 20% người chat
+  chủ động): tin nhắn mới đến liên tục làm cache của phòng bị xóa, còn mỗi người chỉ mở danh sách phòng khi mở app hoặc tải lại
   trang. Danh sách phòng cũng chỉ là phần nhỏ trong tải; phần nặng là gửi tin và mở phòng.
 - **Với 4 worker, cache phải nằm trên Redis.** Cache trong RAM cho kết quả sai (người
   dùng thấy dữ liệu cũ); cache Redis đúng cả 17 loại thao tác ghi. Redis sập thì app vẫn
   chạy nhờ Circuit Breaker.
+- **Khi quá tải**, cache giảm lỗi rõ (2000 người: 21% so với 70% khi người dùng chủ yếu đọc).
 - Kết luận cho nhóm: Cache-Aside đúng về kiến trúc và có lợi cho tải đọc nhiều (giờ cao
   điểm mở app, khởi động lại server), nhưng **cải tiến có tác dụng lớn nhất trong thực tế
   là sửa N+1 lịch sử chat** (thí nghiệm 06).
@@ -67,6 +68,10 @@ của phòng đó. TTL 60 giây là lưới an toàn.
 
 ## 4. Kết quả
 
+Ba mức hành vi người dùng: **chỉ đọc** (4.1, lạc quan cho cache), **người dùng thực tế**
+(4.5, 20% chat chủ động), **ai cũng chat liên tục** (4.3, 4.4, bi quan). 4.2 là phép thử
+phụ với ghi rất dày.
+
 ### 4.1 Chỉ đọc — cận trên (cách A, 1 worker, bể 15 kết nối)
 
 Mỗi người xem danh sách phòng, nghỉ 1 giây, lặp lại. Trung bình 2 lần đo.
@@ -112,7 +117,35 @@ Sau khi merge cải tiến của Dũng. So b (đã sửa N+1, không cache) và 
 Riêng p95 danh sách phòng ở 100 người: 990 ms → 734 ms. Các mức khác chênh nhau trong
 khoảng dao động đo.
 
-### 4.5 Supabase thật (cách B)
+### 4.5 Người dùng thực tế: 20% chat chủ động (cách A, 4 worker)
+
+Như 4.4 nhưng chỉ **20%** người dùng chat chủ động (nhịp như trên); **80%** chủ yếu đọc:
+vẫn mở app, chuyển phòng, F5, reaction ~3 phút/lần, ~10 phút mới gửi một tin. Ai chủ
+động được chọn cố định theo user (`BENCH_ACTIVE_RATIO=0.2`). Tỉ lệ đọc:ghi theo request
+HTTP tăng từ ~4:1 (4.4) lên ~5–6:1 lúc đang chat và ~10:1 tính cả đợt mở app.
+
+| Người dùng | b: p95 | b: lỗi | c: p95 | c: lỗi | c: request phục vụ hoàn toàn từ cache |
+|---|---|---|---|---|---|
+| 100 | 1137 ms | 0% | 1154 ms | 0% | 4,2% |
+| 200 | 1144 ms | 0% | 1150 ms | 0% | 4,8% |
+| 500 | 1261 ms | **0%** | 1234 ms | 0,01% | 4,6% |
+| 1000 | 4933 ms | **0%** | 7174 ms \* | 0,01% \* | 3,0% \* |
+| 2000 | quá tải | **70%** | quá tải | **21%** \* | 2,9% \* |
+
+\* Mức 1000 và 2000 của c đo lại riêng (`..._rerun`): lần đầu máy chuyển sang chế độ ngủ
+từ 02:24 tới 09:16 đúng lúc đang đo mức 1000 (`_resources.csv` không ghi gì suốt khoảng
+đó, nhật ký Windows ghi sự kiện thức dậy lúc 09:16), nên mức 1000 và 2000 của lần đầu
+**không dùng**. Lần đo lại bắt đầu thẳng từ mức 1000 (không qua các mức nhỏ hơn trước đó).
+
+- So với 4.4, ghi ít đi làm hệ thống **nhẹ hơn một chút**: 1000 người không còn lỗi, p95
+  4,9 s (4.4: 6,0 s). Mức chịu tải theo chuẩn p95 < 3 s vẫn **~500 người**.
+- Cache trúng nhiều hơn (theo request 3–5% thay vì 1–4%) nhưng vẫn thấp: danh sách phòng
+  chỉ được đọc khi mở app hoặc F5, và giữa hai lần đó gần như luôn có một phòng có tin mới.
+- Khi **quá tải** (2000 người), có cache thì lỗi ít hơn hẳn (21% so với 70%; ở 4.4 là 42%
+  so với 48%): cache bớt việc cho DB đúng lúc DB là nút thắt. Đây là kết quả một lần đo,
+  cần đo lặp để chắc.
+
+### 4.6 Supabase thật (cách B)
 
 Project Supabase **riêng** (không phải project chính), cùng vùng Seoul, session pooler,
 độ trễ mạng thật ~98 ms, không giả lập. Gói miễn phí chỉ cho ~15 kết nối nên chạy
@@ -147,7 +180,9 @@ bằng `tc netem` đáng tin**, nên các kết quả cách A (đo được nhi�
 - Vòng 3 của lượt `A_*` (16:16–16:28 ngày 17/11) chạy trùng lúc chạy thử kịch bản session
   (seed lại DB, dựng lại backend) nên **không dùng**; `S_on600_r1` (TTL 10 phút) bị ngắt
   giữa chừng và bị thay bằng đo trên nền mới.
-- Kịch bản chưa mô phỏng kết nối WebSocket.
+- Kịch bản chưa mô phỏng kết nối WebSocket (nhận tin đẩy về), tải đọc lớn nhất của app chat
+  và là phần nên đo cho Redis Pub/Sub.
+- Chưa đo tải tăng đột ngột và chạy dài (rò rỉ bộ nhớ, kết nối).
 - Tỉ lệ trúng cache thật cần đo trên production: `/health` có sẵn `hit_rate` và `full_hit_rate`.
 
 ## 7. Phát hiện cho nhóm
@@ -163,7 +198,8 @@ bằng `tc netem` đáng tin**, nên các kết quả cách A (đo được nhi�
 ```bash
 bash benchmark/experiments/05_cache_aside/run_all.sh       # 4.1, 4.2
 bash benchmark/experiments/05_cache_aside/run_session.sh   # 4.4 (CONFIGS để chọn cấu hình)
-bash benchmark/experiments/05_cache_aside/run_supabase.sh  # 4.5, cần BENCH_DATABASE_URL trong .env
+ACTIVE_RATIO=0.2 bash benchmark/experiments/05_cache_aside/run_session.sh   # 4.5
+bash benchmark/experiments/05_cache_aside/run_supabase.sh  # 4.6, cần BENCH_DATABASE_URL trong .env
 ```
 
 ## Tệp kết quả (`results/`)
@@ -172,8 +208,9 @@ bash benchmark/experiments/05_cache_aside/run_supabase.sh  # 4.5, cần BENCH_DA
 |---|---|
 | `A_rooms_*`, `A_rooms_mixed_*` | 4.1, 4.2 (dùng r1, r2) |
 | `S_off_*`, `S_on60_*` | 4.3 |
-| `S2_a_*`, `S2_b_*`, `S2_c_*` | 4.4 (a = lịch sử chat bản cũ, xem thí nghiệm 06) |
-| `B_supabase_*` | 4.5 |
+| `S2_a_*`, `S2_b_*`, `S2_c_*` (không có `_active`) | 4.4 (a = lịch sử chat bản cũ, xem thí nghiệm 06) |
+| `S2_*_active0.2*` | 4.5 (`c_..._active0.2` mức 1000/2000 không dùng; dùng `_rerun`) |
+| `B_supabase_*` | 4.6 |
 
 Mỗi lượt có `.json` (số liệu), `_console.txt`, `_resources.csv` (CPU/RAM mỗi 5 giây),
 `_backend.log.gz`.

@@ -15,6 +15,13 @@ COMPOSE="docker compose -f docker-compose.bench.yml"
 R="$PWD/benchmark/experiments/05_cache_aside/results"
 LATENCY_MS="${LATENCY_MS:-90}"
 TTL="${TTL:-60}"
+# Tỉ lệ người dùng chat chủ động (1 = ai cũng chat liên tục, xem locustfile.py)
+export BENCH_ACTIVE_RATIO="${ACTIVE_RATIO:-1}"
+SUFFIX=""
+[ "$BENCH_ACTIVE_RATIO" != "1" ] && SUFFIX="_active${BENCH_ACTIVE_RATIO}"
+# Chạy lại riêng vài mức (vd. STEPS="1000 2000" NAME_SUFFIX=_rerun) mà không ghi đè lượt cũ
+STEPS="${STEPS:-}"
+SUFFIX="${SUFFIX}${NAME_SUFFIX:-}"
 CONFIGS="${CONFIGS:-a:old:false:redis:4 b:new:false:redis:4 c:new:true:redis:4}"
 REPO_FILE=backend/app/repositories/message_repo.py
 mkdir -p "$R"
@@ -25,7 +32,7 @@ trap restore_repo EXIT
 
 for cfg in $CONFIGS; do
   IFS=: read -r label history cache cache_backend workers <<< "$cfg"
-  name="S2_${label}_hist-${history}_cache-${cache}_w${workers}"
+  name="S2_${label}_hist-${history}_cache-${cache}_w${workers}${SUFFIX}"
   echo "===== $name ($(date +%H:%M:%S)) ====="
 
   if [ "$history" = "old" ]; then
@@ -56,8 +63,8 @@ for cfg in $CONFIGS; do
     done ) > "$R/${name}_resources.csv" 2>&1 &
   sp=$!
 
-  python benchmark/run_load.py --scenario session \
-    --note "session, cach A: Postgres local + tre ${LATENCY_MS} ms, lich su chat=$history, CACHE_ENABLED=$cache ($cache_backend, TTL ${TTL}s), $workers worker, be ket noi 20+30/worker" \
+  python benchmark/run_load.py --scenario session ${STEPS:+--steps $STEPS} \
+    --note "session, cach A: Postgres local + tre ${LATENCY_MS} ms, lich su chat=$history, CACHE_ENABLED=$cache ($cache_backend, TTL ${TTL}s), $workers worker, be ket noi 20+30/worker, ty le nguoi chat chu dong $BENCH_ACTIVE_RATIO" \
     --out "$(cygpath -w "$R/${name}.json" 2>/dev/null || echo "$R/${name}.json")" \
     > "$R/${name}_console.txt" 2>&1
 

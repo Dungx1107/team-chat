@@ -18,6 +18,10 @@ lặp lại đúng MỘT hành động theo BENCH_SCENARIO, nghỉ BENCH_THINK_S
                chuyển phòng ~90 s/lần (3 phòng đầu nhóm "hay dùng" gấp 5 lần),
                tải lại trang (= mở app lại) ~10 phút/lần
              Tin mới đến qua WebSocket nên KHÔNG gọi lại lịch sử khi đang ở trong phòng.
+             BENCH_ACTIVE_RATIO (mặc định 1 = ai cũng chat liên tục): chỉ tỉ lệ này
+             người dùng chat chủ động; số còn lại chủ yếu đọc (PASSIVE_RATES): vẫn mở
+             app, chuyển phòng, F5, nhưng ~10 phút mới gửi một tin. Ai chủ động được
+             chọn cố định theo user_id nên giữa các lượt đo là cùng một nhóm người.
 
 Ghi từng request sau BENCH_SKIP_SECONDS giây đầu ra BENCH_SAMPLES_DIR, để run_load.py
 gộp các tiến trình và tính số liệu chỉ trên đoạn đã ổn định.
@@ -43,7 +47,8 @@ SAMPLES_DIR = os.environ.get("BENCH_SAMPLES_DIR")
 
 # Số lần mỗi hành động trong một phút của MỘT người dùng (kịch bản session)
 SESSION_RATES = {"send": 60 / 45, "react": 60 / 120, "switch": 60 / 90, "reload": 60 / 600}
-SESSION_MEAN_GAP_S = 60 / sum(SESSION_RATES.values())
+PASSIVE_RATES = {"send": 60 / 600, "react": 60 / 180, "switch": 60 / 90, "reload": 60 / 600}
+ACTIVE_RATIO = float(os.environ.get("BENCH_ACTIVE_RATIO", "1"))
 FILE_RATIO = 0.05
 HOT_ROOMS, HOT_WEIGHT = 3, 5
 EMOJIS = ("👍", "❤️", "😂", "😮", "😢", "🎉")
@@ -101,7 +106,7 @@ class ChatUser(FastHttpUser):
     def wait_time(self):
         if SCENARIO == "session":
             # Khoảng cách giữa hai hành động của người thật không đều: phân bố mũ
-            return random.expovariate(1 / SESSION_MEAN_GAP_S)
+            return random.expovariate(1 / self.mean_gap_s)
         return THINK_S
 
     def on_start(self):
@@ -114,6 +119,10 @@ class ChatUser(FastHttpUser):
         self.rooms = range(int(me["room_first"]), int(me["room_last"]) + 1)
         if SCENARIO == "session":
             self.room_weights = [HOT_WEIGHT if i < HOT_ROOMS else 1 for i in range(len(self.rooms))]
+            # Băm user_id để chọn cố định ai chủ động, rải đều trong mọi nhóm
+            active = (int(me["user_id"]) * 7919) % 1000 < ACTIVE_RATIO * 1000
+            self.rates = SESSION_RATES if active else PASSIVE_RATES
+            self.mean_gap_s = 60 / sum(self.rates.values())
             self.message_ids = []
             self.open_app()
 
@@ -138,7 +147,7 @@ class ChatUser(FastHttpUser):
         self.client.get(f"/api/rooms/{room_id}/members", headers=self.auth, name="GET members")
 
     def session_step(self):
-        action = random.choices(list(SESSION_RATES), weights=list(SESSION_RATES.values()))[0]
+        action = random.choices(list(self.rates), weights=list(self.rates.values()))[0]
         if action == "react" and not self.message_ids:
             action = "send"
         if action == "send":
