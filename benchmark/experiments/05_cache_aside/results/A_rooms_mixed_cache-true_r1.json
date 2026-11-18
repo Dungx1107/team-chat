@@ -1,0 +1,113 @@
+{
+  "scenario": "rooms_mixed",
+  "note": "cach A: Postgres local + tre 90 ms, CACHE_ENABLED=true, lan 1, 1 worker",
+  "finished_at": "2026-11-17T08:49:23+00:00",
+  "settings": {
+    "host": "http://localhost:8001",
+    "ramp_up_s": 5.0,
+    "skip_s": 10,
+    "hold_s": 60,
+    "rest_s": 15,
+    "think_s": 1.0,
+    "locust_workers": 4
+  },
+  "seed": {
+    "layout": {
+      "groups": 40,
+      "group_size": 50,
+      "rooms_per_group": 10,
+      "messages": 250,
+      "attachments": 5
+    },
+    "random_seed": 42,
+    "password": "Bench@12345",
+    "created_at": "2026-11-17T08:44:35Z",
+    "counts": {
+      "users": 2000,
+      "rooms": 400,
+      "memberships": 20000,
+      "messages": 100000,
+      "attachments": 2000
+    }
+  },
+  "results": [
+    {
+      "users": 50,
+      "samples": 1280,
+      "error_pct": 0.0,
+      "throughput_req_sec": 21.25,
+      "mean_res_time_ms": 1293.18,
+      "median_res_time_ms": 1272.45,
+      "p95_res_time_ms": 2141.47,
+      "p99_res_time_ms": 2666.9,
+      "max_res_time_ms": 4212.23,
+      "errors": {},
+      "by_request": {
+        "GET rooms": {
+          "samples": 1043,
+          "error_pct": 0.0,
+          "throughput_req_sec": 17.31,
+          "mean_res_time_ms": 1170.9,
+          "median_res_time_ms": 1183.92,
+          "p95_res_time_ms": 2061.39
+        },
+        "POST message": {
+          "samples": 237,
+          "error_pct": 0.0,
+          "throughput_req_sec": 3.93,
+          "mean_res_time_ms": 1831.3,
+          "median_res_time_ms": 1763.77,
+          "p95_res_time_ms": 2572.22
+        }
+      },
+      "server_cache": {
+        "hits": 11277,
+        "misses": 2627,
+        "hit_rate": 0.8111
+      }
+    },
+    {
+      "users": 100,
+      "samples": 41,
+      "error_pct": 9.76,
+      "throughput_req_sec": 1.24,
+      "mean_res_time_ms": 27268.64,
+      "median_res_time_ms": 31607.33,
+      "p95_res_time_ms": 32254.0,
+      "p99_res_time_ms": 32528.99,
+      "max_res_time_ms": 32528.99,
+      "errors": {
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms: code=500": 3,
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms/7/messages: code=500": 1
+      },
+      "by_request": {
+        "GET rooms": {
+          "samples": 39,
+          "error_pct": 7.69,
+          "throughput_req_sec": 1.18,
+          "mean_res_time_ms": 27038.52,
+          "median_res_time_ms": 31623.53,
+          "p95_res_time_ms": 32248.5
+        },
+        "POST message": {
+          "samples": 2,
+          "error_pct": 50.0,
+          "throughput_req_sec": 0.06,
+          "mean_res_time_ms": 31755.93,
+          "median_res_time_ms": 30982.88,
+          "p95_res_time_ms": 32528.99
+        }
+      },
+      "server_cache": null
+    },
+    {
+      "users": 200,
+      "samples": 0,
+      "error_pct": 100.0,
+      "errors": {
+        "Không request nào hoàn thành trong thời gian đo (server nghẽn)": 1
+      },
+      "server_cache": null
+    }
+  ]
+}

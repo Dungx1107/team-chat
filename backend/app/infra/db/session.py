@@ -5,8 +5,8 @@ from app.config import settings
 engine = create_engine(
     settings.DATABASE_URL,
     echo=False,
-    pool_size=20,          # Mỗi worker giữ thường trực 20 kết nối (4 workers = 80)
-    max_overflow=30,       # Cho phép mở thêm tối đa 30 kết nối/worker khi cao điểm (4 workers = 120)
+    pool_size=settings.DB_POOL_SIZE,        # mặc định 20/worker (4 workers = 80)
+    max_overflow=settings.DB_MAX_OVERFLOW,  # mặc định thêm 30/worker khi cao điểm (4 workers = 120)
     pool_timeout=30,       # Thời gian tối đa chờ lấy kết nối từ pool
     pool_pre_ping=True,    # Kiểm tra kết nối còn sống trước khi dùng
     pool_recycle=3600,     # Tái tạo kết nối sau 1 giờ

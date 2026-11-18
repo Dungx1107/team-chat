@@ -1,0 +1,75 @@
+{
+  "scenario": "rooms_mixed",
+  "note": "cach A: Postgres local + tre 90 ms, CACHE_ENABLED=false, lan 2, 1 worker",
+  "finished_at": "2026-11-17T09:09:51+00:00",
+  "settings": {
+    "host": "http://localhost:8001",
+    "ramp_up_s": 5.0,
+    "skip_s": 10,
+    "hold_s": 60,
+    "rest_s": 15,
+    "think_s": 1.0,
+    "locust_workers": 4
+  },
+  "seed": {
+    "layout": {
+      "groups": 40,
+      "group_size": 50,
+      "rooms_per_group": 10,
+      "messages": 250,
+      "attachments": 5
+    },
+    "random_seed": 42,
+    "password": "Bench@12345",
+    "created_at": "2026-11-17T08:54:27Z",
+    "counts": {
+      "users": 2000,
+      "rooms": 400,
+      "memberships": 20000,
+      "messages": 100000,
+      "attachments": 2000
+    }
+  },
+  "results": [
+    {
+      "users": 50,
+      "samples": 1108,
+      "error_pct": 0.0,
+      "throughput_req_sec": 18.35,
+      "mean_res_time_ms": 1639.39,
+      "median_res_time_ms": 1478.35,
+      "p95_res_time_ms": 2583.33,
+      "p99_res_time_ms": 3194.98,
+      "max_res_time_ms": 4291.68,
+      "errors": {},
+      "by_request": {
+        "GET rooms": {
+          "samples": 893,
+          "error_pct": 0.0,
+          "throughput_req_sec": 14.79,
+          "mean_res_time_ms": 1549.6,
+          "median_res_time_ms": 1423.49,
+          "p95_res_time_ms": 2382.96
+        },
+        "POST message": {
+          "samples": 215,
+          "error_pct": 0.0,
+          "throughput_req_sec": 3.56,
+          "mean_res_time_ms": 2012.34,
+          "median_res_time_ms": 1890.33,
+          "p95_res_time_ms": 2784.85
+        }
+      },
+      "server_cache": null
+    },
+    {
+      "users": 100,
+      "samples": 0,
+      "error_pct": 100.0,
+      "errors": {
+        "Không request nào hoàn thành trong thời gian đo (server nghẽn)": 1
+      },
+      "server_cache": null
+    }
+  ]
+}

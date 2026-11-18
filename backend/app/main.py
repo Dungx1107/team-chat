@@ -20,6 +20,7 @@ from app.api.routers import (
     calls_router,
 )
 from app.infra.realtime.connection_manager import connection_manager
+from app.api.dependencies import room_cache
 
 logging.basicConfig(level=logging.INFO)
 
@@ -86,4 +87,5 @@ def health_check():
         "service": "team-chat-api",
         "version": "2.0.0",
         "online_users": len(connection_manager.online_user_ids()),
+        "cache": room_cache.stats() if room_cache else None,
     }

@@ -89,5 +89,15 @@ class IRoomRepository(ABC):
         pass
 
     @abstractmethod
+    def list_memberships(self, user_id: int) -> List[Tuple[int, str]]:
+        """[(room_id, vai trò)] của mọi phòng người này tham gia, phòng mới nhất trước."""
+        pass
+
+    @abstractmethod
+    def get_room_summaries(self, room_ids: List[int]) -> Dict[int, dict]:
+        """{room_id: thông tin phòng + member_count + last_message}, không phụ thuộc người xem."""
+        pass
+
+    @abstractmethod
     def get_last_message_summary(self, room_id: int) -> Optional[dict]:
         pass

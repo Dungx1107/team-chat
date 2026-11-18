@@ -29,7 +29,7 @@ Chạy cách cũ và cách mới trong cùng một tiến trình, đếm truy v�
 SQLAlchemy, kiểm tra hai cách trả kết quả **giống hệt nhau**, đo trung vị và p95 qua 30 lần.
 
 `BENCH_RTT_MS=30` thêm 30 ms trễ cho mỗi truy vấn, mô phỏng DB ở xa như Supabase
-Singapore. Đây là chỗ N+1 gây hại nhiều nhất.
+(độ trễ thật tới Supabase của nhóm, ở Seoul, khoảng 90 ms). Đây là chỗ N+1 gây hại nhiều nhất.
 
 ```bash
 B="docker compose -f docker-compose.bench.yml run --rm backend"

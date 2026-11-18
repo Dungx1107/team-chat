@@ -1,0 +1,91 @@
+{
+  "scenario": "rooms_mixed",
+  "note": "cach A: Postgres local + tre 90 ms, CACHE_ENABLED=false, lan 1, 1 worker",
+  "finished_at": "2026-11-17T08:43:49+00:00",
+  "settings": {
+    "host": "http://localhost:8001",
+    "ramp_up_s": 5.0,
+    "skip_s": 10,
+    "hold_s": 60,
+    "rest_s": 15,
+    "think_s": 1.0,
+    "locust_workers": 4
+  },
+  "seed": {
+    "layout": {
+      "groups": 40,
+      "group_size": 50,
+      "rooms_per_group": 10,
+      "messages": 250,
+      "attachments": 5
+    },
+    "random_seed": 42,
+    "password": "Bench@12345",
+    "created_at": "2026-11-17T08:31:35Z",
+    "counts": {
+      "users": 2000,
+      "rooms": 400,
+      "memberships": 20000,
+      "messages": 100000,
+      "attachments": 2000
+    }
+  },
+  "results": [
+    {
+      "users": 50,
+      "samples": 1089,
+      "error_pct": 0.0,
+      "throughput_req_sec": 18.11,
+      "mean_res_time_ms": 1679.03,
+      "median_res_time_ms": 1493.86,
+      "p95_res_time_ms": 2560.77,
+      "p99_res_time_ms": 3558.12,
+      "max_res_time_ms": 4049.15,
+      "errors": {},
+      "by_request": {
+        "GET rooms": {
+          "samples": 857,
+          "error_pct": 0.0,
+          "throughput_req_sec": 14.26,
+          "mean_res_time_ms": 1573.78,
+          "median_res_time_ms": 1435.73,
+          "p95_res_time_ms": 2407.94
+        },
+        "POST message": {
+          "samples": 232,
+          "error_pct": 0.0,
+          "throughput_req_sec": 3.86,
+          "mean_res_time_ms": 2067.82,
+          "median_res_time_ms": 1919.59,
+          "p95_res_time_ms": 3053.05
+        }
+      },
+      "server_cache": null
+    },
+    {
+      "users": 100,
+      "samples": 1,
+      "error_pct": 100.0,
+      "throughput_req_sec": 0.03,
+      "mean_res_time_ms": 35770.11,
+      "median_res_time_ms": 35770.11,
+      "p95_res_time_ms": 35770.11,
+      "p99_res_time_ms": 35770.11,
+      "max_res_time_ms": 35770.11,
+      "errors": {
+        "LocustBadStatusCode: URL http://localhost:8001/api/rooms: code=500": 1
+      },
+      "by_request": {
+        "GET rooms": {
+          "samples": 1,
+          "error_pct": 100.0,
+          "throughput_req_sec": 0.03,
+          "mean_res_time_ms": 35770.11,
+          "median_res_time_ms": 35770.11,
+          "p95_res_time_ms": 35770.11
+        }
+      },
+      "server_cache": null
+    }
+  ]
+}

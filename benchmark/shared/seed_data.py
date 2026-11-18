@@ -73,7 +73,13 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 def _guard():
     url = settings.DATABASE_URL.lower()
     if "supabase" in url or "pooler" in url:
-        sys.exit("TỪ CHỐI: DATABASE_URL trỏ vào Supabase. Chỉ chạy trong docker-compose.bench.yml.")
+        # Chỉ cho phép một project Supabase RIÊNG để đo (cách B), và không bao giờ là
+        # project chính: seed XÓA SẠCH database trước khi tạo dữ liệu ảo.
+        prod_ref = os.environ.get("BENCH_PROD_DB_REF", "").lower()
+        if os.environ.get("BENCH_ALLOW_REMOTE_DB") != "1" or not prod_ref:
+            sys.exit("TỪ CHỐI: DATABASE_URL trỏ vào Supabase. Chỉ chạy vào project đo riêng qua run_supabase.sh.")
+        if prod_ref in url:
+            sys.exit("TỪ CHỐI: DATABASE_URL là project Supabase CHÍNH của nhóm.")
     if settings.STORAGE_BACKEND != "local":
         sys.exit("TỪ CHỐI: STORAGE_BACKEND phải là 'local' trong môi trường đo.")
 

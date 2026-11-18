@@ -71,6 +71,10 @@ class RoomService:
                 role=RoomMember.ROLE_OWNER,
             )
         )
+        self.events.publish_to_user(owner_id, "room.created", {
+            "room_id": created_room.id,
+            "user_id": owner_id,
+        })
         return created_room
 
     def list_rooms(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Room]:
@@ -131,8 +135,11 @@ class RoomService:
         if not is_owner:
             raise PermissionError("Bạn không có quyền xóa phòng này (chỉ chủ phòng mới được xóa)")
 
+        # Xóa trước rồi mới phát: ai nghe sự kiện mà đọc lại (vd. bộ xóa cache) sẽ
+        # thấy phòng đã mất, không lưu nhầm bản cũ
+        deleted = self.room_repo.delete(room_id)
         self.events.publish_to_room(room_id, "room.deleted", {"id": room_id})
-        return self.room_repo.delete(room_id)
+        return deleted
 
     # ---------- Thành viên ----------
 

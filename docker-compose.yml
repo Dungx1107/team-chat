@@ -19,6 +19,8 @@ services:
       - .env
     environment:
       REDIS_URL: redis://redis:6379/0
+      # Cache danh sách phòng dùng chung Redis để đúng cả khi chạy nhiều worker
+      CACHE_BACKEND: redis
     depends_on:
       - redis
     ports:

@@ -24,7 +24,7 @@ flowchart LR
     API --> Files
 ```
 
-`docker-compose.yml` định nghĩa hai service chạy mặc định: `backend`, `web`. Có thêm service `turn` dùng profile tùy chọn để thử coturn trong LAN; service này không chạy mặc định. Database và file storage do Supabase cung cấp. Không có Redis, message broker, migration runner hoặc SFU/media server xử lý cuộc gọi tập trung trong repository.
+`docker-compose.yml` định nghĩa hai service: `backend`, `web`. Máy chủ TURN không còn trong compose; khai TURN bên ngoài qua biến `ICE_SERVERS`. Môi trường đo hiệu năng dùng file riêng `docker-compose.bench.yml`. Database và file storage do Supabase cung cấp. Không có Redis, message broker, migration runner hoặc SFU/media server xử lý cuộc gọi tập trung trong repository.
 
 ## Mục lục
 
@@ -45,6 +45,7 @@ flowchart LR
 | [13 - Security](13-security.md) | Cơ chế hiện có và rủi ro cần lưu ý |
 | [14 - Code flow](14-code-flow.md) | Luồng login, message, room, upload, call |
 | [15 - Dịch vụ bên thứ ba](15-third-party-services.md) | Đăng ký và chạy TURN, Cloudflare Tunnel cho tính năng gọi |
+| [17 - Kiến trúc pha 2](17-kien-truc-pha-2.md) | Sơ đồ kiến trúc hiện tại, thay đổi so với pha 1, môi trường đo và giới hạn đo được |
 
 ## Traceability nhanh
 

@@ -112,7 +112,7 @@ class RoomRepository(IRoomRepository):
                 (RoomMemberModel.room_id == RoomModel.id)
                 & (RoomMemberModel.user_id == user_id),
             )
-            .order_by(RoomModel.created_at.desc())
+            .order_by(RoomModel.created_at.desc(), RoomModel.id.desc())
             .offset(offset)
             .limit(limit)
             .all()
@@ -281,16 +281,60 @@ class RoomRepository(IRoomRepository):
         )
         for rid, role in roles:
             summaries[rid]["my_role"] = role
+        for rid, count in self._member_counts(room_ids).items():
+            summaries[rid]["member_count"] = count
+        for rid, last in self._last_messages(room_ids).items():
+            summaries[rid]["last_message"] = last
+        return summaries
 
-        counts = (
+    def list_memberships(self, user_id: int) -> List[Tuple[int, str]]:
+        """(room_id, vai trò) của mọi phòng người này tham gia, cùng thứ tự với list_joined_by_user."""
+        return [
+            (room_id, role)
+            for room_id, role in (
+                self.db.query(RoomMemberModel.room_id, RoomMemberModel.role)
+                .join(RoomModel, RoomModel.id == RoomMemberModel.room_id)
+                .filter(RoomMemberModel.user_id == user_id)
+                .order_by(RoomModel.created_at.desc(), RoomModel.id.desc())
+                .all()
+            )
+        ]
+
+    def get_room_summaries(self, room_ids: List[int]) -> Dict[int, dict]:
+        """Thông tin phòng, số thành viên và tin cuối -- phần KHÔNG phụ thuộc người xem.
+
+        3 truy vấn cố định. Phòng không còn tồn tại thì không có trong kết quả.
+        """
+        if not room_ids:
+            return {}
+        rooms = self.db.query(RoomModel).filter(RoomModel.id.in_(room_ids)).all()
+        counts = self._member_counts(room_ids)
+        lasts = self._last_messages(room_ids)
+        return {
+            m.id: {
+                "id": m.id,
+                "name": m.name,
+                "description": m.description,
+                "is_private": m.is_private,
+                "owner_id": m.owner_id,
+                "created_at": m.created_at,
+                "avatar_url": m.avatar_url,
+                "theme_color": m.theme_color,
+                "member_count": counts.get(m.id, 0),
+                "last_message": lasts.get(m.id),
+            }
+            for m in rooms
+        }
+
+    def _member_counts(self, room_ids: List[int]) -> Dict[int, int]:
+        return dict(
             self.db.query(RoomMemberModel.room_id, func.count(RoomMemberModel.id))
             .filter(RoomMemberModel.room_id.in_(room_ids))
             .group_by(RoomMemberModel.room_id)
             .all()
         )
-        for rid, count in counts:
-            summaries[rid]["member_count"] = count
 
+    def _last_messages(self, room_ids: List[int]) -> Dict[int, dict]:
         # Đánh số tin trong từng phòng, mới nhất là 1, rồi chỉ lấy hàng số 1
         ranked = (
             self.db.query(
@@ -315,11 +359,10 @@ class RoomRepository(IRoomRepository):
             )
             .all()
         )
-        for message, user, attachment, nickname in rows:
-            summaries[message.room_id]["last_message"] = self._message_summary(
-                message, user, attachment, nickname
-            )
-        return summaries
+        return {
+            message.room_id: self._message_summary(message, user, attachment, nickname)
+            for message, user, attachment, nickname in rows
+        }
 
     def _message_summary(self, message, user, attachment, nickname) -> dict:
         return {
