@@ -14,7 +14,7 @@ Ngày đo: 17–18/11/2026 · Người đo: Dat · Commit: `8fc0a74` (cache tron
 - **Với 4 worker, cache phải nằm trên Redis.** Cache trong RAM cho kết quả sai (người
   dùng thấy dữ liệu cũ); cache Redis đúng cả 17 loại thao tác ghi. Redis sập thì app vẫn
   chạy nhờ Circuit Breaker.
-- **Khi quá tải**, cache giảm lỗi rõ (2000 người: 21% so với 70% khi người dùng chủ yếu đọc).
+- **Khi quá tải** (2000 người), có cache thì lỗi thấp hơn ở cả 3 lần so sánh, nhưng mức chênh dao động lớn (6–49 điểm %).
 - Kết luận cho nhóm: Cache-Aside đúng về kiến trúc và có lợi cho tải đọc nhiều (giờ cao
   điểm mở app, khởi động lại server), nhưng **cải tiến có tác dụng lớn nhất trong thực tế
   là sửa N+1 lịch sử chat** (thí nghiệm 06).
@@ -124,26 +124,29 @@ vẫn mở app, chuyển phòng, F5, reaction ~3 phút/lần, ~10 phút mới g�
 động được chọn cố định theo user (`BENCH_ACTIVE_RATIO=0.2`). Tỉ lệ đọc:ghi theo request
 HTTP tăng từ ~4:1 (4.4) lên ~5–6:1 lúc đang chat và ~10:1 tính cả đợt mở app.
 
-| Người dùng | b: p95 | b: lỗi | c: p95 | c: lỗi | c: request phục vụ hoàn toàn từ cache |
+Đo 2 lần (lần 2: hậu tố `_r2`).
+
+| Người dùng | b: p95 (lần 1 / 2) | b: lỗi | c: p95 (lần 1 / 2) | c: lỗi | c: request phục vụ hoàn toàn từ cache |
 |---|---|---|---|---|---|
-| 100 | 1137 ms | 0% | 1154 ms | 0% | 4,2% |
-| 200 | 1144 ms | 0% | 1150 ms | 0% | 4,8% |
-| 500 | 1261 ms | **0%** | 1234 ms | 0,01% | 4,6% |
-| 1000 | 4933 ms | **0%** | 7174 ms \* | 0,01% \* | 3,0% \* |
-| 2000 | quá tải | **70%** | quá tải | **21%** \* | 2,9% \* |
+| 100 | 1137 / 1133 ms | 0 / 0% | 1154 / 1144 ms | 0 / 0% | 4,2 / 5,9% |
+| 200 | 1144 / 1132 ms | 0 / 0% | 1150 / 1147 ms | 0 / 0% | 4,8 / 5,1% |
+| 500 | 1261 / 1164 ms | 0 / 0,15% | 1234 / 1289 ms | 0,01 / 0% | 4,6 / 3,7% |
+| 1000 | 4933 / 8648 ms | 0 / 1,6% | 7174 \* / 60 013 ms | 0,01 \* / 8,0% | 3,0 / 4,0% |
+| 2000 | quá tải | 70 / 67% | quá tải | 21 \* / 52% | |
 
-\* Mức 1000 và 2000 của c đo lại riêng (`..._rerun`): lần đầu máy chuyển sang chế độ ngủ
-từ 02:24 tới 09:16 đúng lúc đang đo mức 1000 (`_resources.csv` không ghi gì suốt khoảng
-đó, nhật ký Windows ghi sự kiện thức dậy lúc 09:16), nên mức 1000 và 2000 của lần đầu
-**không dùng**. Lần đo lại bắt đầu thẳng từ mức 1000 (không qua các mức nhỏ hơn trước đó).
+\* Lần 1 của c ở mức 1000 và 2000 đo lại riêng (`..._rerun`, bắt đầu thẳng từ mức 1000)
+vì lần chạy đầu bị gián đoạn; số liệu mức 1000/2000 trong `c_..._active0.2.json` không dùng.
 
-- So với 4.4, ghi ít đi làm hệ thống **nhẹ hơn một chút**: 1000 người không còn lỗi, p95
-  4,9 s (4.4: 6,0 s). Mức chịu tải theo chuẩn p95 < 3 s vẫn **~500 người**.
-- Cache trúng nhiều hơn (theo request 3–5% thay vì 1–4%) nhưng vẫn thấp: danh sách phòng
-  chỉ được đọc khi mở app hoặc F5, và giữa hai lần đó gần như luôn có một phòng có tin mới.
-- Khi **quá tải** (2000 người), có cache thì lỗi ít hơn hẳn (21% so với 70%; ở 4.4 là 42%
-  so với 48%): cache bớt việc cho DB đúng lúc DB là nút thắt. Đây là kết quả một lần đo,
-  cần đo lặp để chắc.
+- **100–500 người: hai lần đo gần như trùng nhau**, p95 ~1,1–1,3 s, gần như không lỗi, cả
+  có và không có cache. Mức chịu tải theo chuẩn p95 < 3 s và lỗi < 1%: **~500 người**.
+- **1000 người là mép giới hạn**: hai lần đo lệch nhau nhiều (p95 5–9 s, có lần 60 s; lỗi
+  0–8%). Kết luận an toàn: chưa chịu ổn định được 1000 người.
+- So với 4.4 (ai cũng chat), ghi ít đi làm hệ thống nhẹ hơn một chút nhưng **không đổi
+  mức chịu tải**.
+- **Cache vẫn ít tác dụng**: theo request chỉ 4–6% phục vụ hoàn toàn từ cache.
+- **Khi quá tải (2000 người)**, có cache thì lỗi thấp hơn ở cả 3 lần so sánh (4.4: 42% so
+  với 48%; 4.5: 21% so với 70% và 52% so với 67%), nhưng mức chênh dao động lớn nên chỉ
+  nên nói cache **giảm nhẹ** lỗi khi quá tải.
 
 ### 4.6 Supabase thật (cách B)
 
@@ -209,7 +212,7 @@ bash benchmark/experiments/05_cache_aside/run_supabase.sh  # 4.6, cần BENCH_DA
 | `A_rooms_*`, `A_rooms_mixed_*` | 4.1, 4.2 (dùng r1, r2) |
 | `S_off_*`, `S_on60_*` | 4.3 |
 | `S2_a_*`, `S2_b_*`, `S2_c_*` (không có `_active`) | 4.4 (a = lịch sử chat bản cũ, xem thí nghiệm 06) |
-| `S2_*_active0.2*` | 4.5 (`c_..._active0.2` mức 1000/2000 không dùng; dùng `_rerun`) |
+| `S2_*_active0.2*` | 4.5 lần 1 (`c_..._active0.2` mức 1000/2000 không dùng; dùng `_rerun`), `_r2` là lần 2 |
 | `B_supabase_*` | 4.6 |
 
 Mỗi lượt có `.json` (số liệu), `_console.txt`, `_resources.csv` (CPU/RAM mỗi 5 giây),
