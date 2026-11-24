@@ -1,5 +1,7 @@
 from typing import List
 import mimetypes
+import logging
+from starlette.concurrency import run_in_threadpool
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 from fastapi.responses import StreamingResponse
@@ -20,10 +22,12 @@ from app.api.dependencies import (
     get_room_queries,
     file_storage,
     get_db,
+    get_group_media_service,
 )
 from app.queries.room_queries import IRoomQueries
 from app.services.room_service import RoomService
 from app.services.message_service import MessageService
+from app.services.group_media_service import GroupMediaService
 from app.infra.realtime.connection_manager import connection_manager
 from app.repositories.invite_repo import InviteRepository
 from app.repositories.user_repo import UserRepository
@@ -31,6 +35,15 @@ from app.repositories.room_repo import RoomRepository
 from app.domain.models import RoomMember
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
+logger = logging.getLogger(__name__)
+
+
+async def _disconnect_group_member(media, room_id, user_id):
+    try:
+        await media.remove_from_room(room_id, user_id)
+    except Exception:
+        # Quyền phòng đã được thu hồi; reconciler tiếp tục retry việc ngắt SFU.
+        logger.warning("Chưa ngắt SFU cho user %s trong room %s", user_id, room_id, exc_info=True)
 
 
 def _to_response(room, my_role=None, member_count=None, last_message=None, unread_count=0) -> RoomResponse:
@@ -236,17 +249,19 @@ def join_room(
 
 
 @router.delete("/{room_id}/leave", status_code=status.HTTP_204_NO_CONTENT)
-def leave_room(
+async def leave_room(
     room_id: int,
     current_user_id: int = Depends(get_current_user_id),
-    room_service: RoomService = Depends(get_room_service)
+    room_service: RoomService = Depends(get_room_service),
+    media: GroupMediaService = Depends(get_group_media_service),
 ):
     try:
-        room_service.leave_room(room_id, current_user_id)
+        await run_in_threadpool(room_service.leave_room, room_id, current_user_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    await _disconnect_group_member(media, room_id, current_user_id)
 
 
 @router.get("/{room_id}/members", response_model=List[MemberResponse])
@@ -391,18 +406,20 @@ def reject_invite(
 
 
 @router.delete("/{room_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_member(
+async def remove_member(
     room_id: int,
     user_id: int,
     current_user_id: int = Depends(get_current_user_id),
-    room_service: RoomService = Depends(get_room_service)
+    room_service: RoomService = Depends(get_room_service),
+    media: GroupMediaService = Depends(get_group_media_service),
 ):
     try:
-        room_service.remove_member(room_id, current_user_id, user_id)
+        await run_in_threadpool(room_service.remove_member, room_id, current_user_id, user_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    await _disconnect_group_member(media, room_id, user_id)
 
 
 @router.patch("/{room_id}/members/{user_id}/role", response_model=MemberResponse)

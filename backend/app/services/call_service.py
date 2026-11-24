@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from app.domain.interfaces import (
     ICallRepository,
@@ -13,8 +14,7 @@ from app.domain.models import Call, CallParticipant
 class CallService:
     """Nghiệp vụ cuộc gọi thoại/video.
 
-    Âm thanh và hình ảnh đi thẳng giữa hai trình duyệt qua WebRTC, không qua
-    server. Server chỉ làm hai việc:
+    DIRECT trao đổi media P2P; GROUP dùng LiveKit SFU. FastAPI quản lý:
       1. Quản lý vòng đời cuộc gọi (mời, nhận, từ chối, kết thúc) và lưu lịch sử.
       2. Chuyển tiếp tín hiệu kết nối WebRTC (SDP offer/answer, ICE candidate)
          giữa những người đang ở trong cùng một cuộc gọi -- gọi là signaling.
@@ -36,11 +36,17 @@ class CallService:
         room_repo: IRoomRepository,
         user_repo: IUserRepository,
         event_publisher: Optional[IEventPublisher] = None,
+        max_group_participants: int = 0,
+        admission_seconds: int = 60,
+        reconnect_seconds: int = 30,
     ):
         self.call_repo = call_repo
         self.room_repo = room_repo
         self.user_repo = user_repo
         self.events = event_publisher or NullEventPublisher()
+        self.max_group_participants = max_group_participants
+        self.admission_seconds = admission_seconds
+        self.reconnect_seconds = reconnect_seconds
 
     # ---------- Tiện ích ----------
 
@@ -91,6 +97,7 @@ class CallService:
     def start_call(self, caller_id: int, callee_id: int, room_id: int, kind: str) -> Call:
         if caller_id == callee_id:
             raise ValueError("Không thể tự gọi cho chính mình")
+        self.call_repo.lock_participants([caller_id, callee_id], room_id)
 
         if not self.room_repo.get_by_id(room_id):
             raise ValueError("Phòng chat không tồn tại")
@@ -132,6 +139,7 @@ class CallService:
         Khác gọi 1-1: không đổ chuông cho ai cả. Cuộc gọi vào trạng thái ACTIVE
         ngay, những người trong phòng thấy thông báo và tự quyết định có vào hay không.
         """
+        self.call_repo.lock_participants([user_id], room_id)
         if not self.room_repo.get_by_id(room_id):
             raise ValueError("Phòng chat không tồn tại")
         if not self.room_repo.get_member(room_id, user_id):
@@ -152,7 +160,8 @@ class CallService:
             room_id=room_id,
             status=Call.STATUS_ACTIVE,
             participants=[
-                CallParticipant(call_id=None, user_id=user_id, state=CallParticipant.STATE_JOINED)
+                CallParticipant(call_id=None, user_id=user_id, state=CallParticipant.STATE_CONNECTING,
+                                connection_deadline=datetime.utcnow() + timedelta(seconds=self.admission_seconds))
             ],
         )
         created = self.call_repo.create(call)
@@ -163,6 +172,8 @@ class CallService:
 
     def join_call(self, call_id: int, user_id: int) -> Call:
         call = self._get_call_or_fail(call_id)
+        self.call_repo.lock_participants([user_id], call.room_id)
+        call = self._get_call_or_fail(call_id)
         if call.room_id and not self.room_repo.get_member(call.room_id, user_id):
             raise PermissionError("Bạn không phải thành viên của phòng này")
 
@@ -171,8 +182,13 @@ class CallService:
         if other and other.id != call.id:
             raise RuntimeError("Bạn đang ở trong một cuộc gọi khác")
 
-        already_in = user_id in call.active_participant_ids()
-        call.join(user_id)  # entity kiểm tra kiểu cuộc gọi, trạng thái và sức chứa
+        participant = call.get_participant(user_id)
+        already_in = bool(participant and participant.is_active())
+        participant = call.join(user_id, self.max_group_participants)
+        if not already_in:
+            participant.state = CallParticipant.STATE_CONNECTING
+            participant.joined_at = None
+            participant.connection_deadline = datetime.utcnow() + timedelta(seconds=self.admission_seconds)
         saved = self.call_repo.save(call)
 
         if not already_in:
@@ -190,6 +206,10 @@ class CallService:
         return saved
 
     def leave_call(self, call_id: int, user_id: int) -> Call:
+        call = self._get_call_or_fail(call_id)
+        if not call.is_group():
+            raise ValueError("Chỉ cuộc gọi nhóm mới dùng leave")
+        self.call_repo.lock_participants([user_id], call.room_id)
         call = self._get_call_or_fail(call_id)
         if not call.has_participant(user_id):
             raise PermissionError("Bạn không nằm trong cuộc gọi này")
@@ -232,6 +252,8 @@ class CallService:
 
     def end_call(self, call_id: int, user_id: int, missed: bool = False) -> Call:
         call = self._get_call_or_fail(call_id)
+        if call.is_group():
+            raise ValueError("GROUP dùng leave; không kết thúc cuộc gọi của người khác")
         if not call.is_open():
             return call
         call.end(user_id, missed=missed)
@@ -242,13 +264,14 @@ class CallService:
     def end_calls_of_user(self, user_id: int) -> None:
         """Dọn cuộc gọi dở dang khi một người mất hết kết nối (đóng tab, rớt mạng).
 
-        Gọi nhóm chỉ rời một mình; những người còn lại vẫn nói chuyện tiếp.
+        GROUP do SFU quản lý; mất chat WebSocket không kết thúc media.
         """
         call = self.call_repo.find_open_call_of_user(user_id)
         if not call:
             return
         if call.is_group():
-            self.leave_call(call.id, user_id)
+            # Chat WebSocket và media SFU có vòng đời độc lập.
+            return
         else:
             self.end_call(call.id, user_id, missed=call.status == Call.STATUS_RINGING)
 
@@ -277,9 +300,12 @@ class CallService:
             raise ValueError("Tín hiệu quá lớn")
 
         call = self._get_call_or_fail(call_id)
+        if call.is_group():
+            raise ValueError("GROUP dùng SFU, không chuyển tiếp signaling mesh")
         if not call.is_open():
             raise ValueError("Cuộc gọi đã kết thúc")
-        if not call.has_participant(from_user_id) or not call.has_participant(to_user_id):
+        if not all(call.get_participant(uid) and call.get_participant(uid).is_active()
+                   for uid in (from_user_id, to_user_id)):
             raise PermissionError("Chỉ người trong cuộc gọi mới gửi được tín hiệu")
         if from_user_id == to_user_id:
             raise ValueError("Không thể gửi tín hiệu cho chính mình")
@@ -289,3 +315,59 @@ class CallService:
             "from_user_id": from_user_id,
             "signal": signal,
         })
+
+    def require_sfu_admission(self, call_id: int, user_id: int) -> Call:
+        call = self._get_call_or_fail(call_id)
+        if not call.is_group() or not call.is_open():
+            raise ValueError("Cuộc gọi GROUP không còn mở")
+        if not self.room_repo.get_member(call.room_id, user_id):
+            raise PermissionError("Bạn không phải thành viên phòng")
+        participant = call.get_participant(user_id)
+        if not participant or not participant.is_active():
+            raise PermissionError("Bạn chưa được chấp thuận tham gia cuộc gọi")
+        if participant.connection_deadline and participant.connection_deadline <= datetime.utcnow():
+            raise PermissionError("Phiên tham gia đã hết hạn; hãy tham gia lại")
+        return call
+
+    def sync_group_media(self, call_id: int, sessions: Dict[int, str]) -> Call:
+        """Đối soát snapshot hiện tại; webhook trùng/trễ không áp dụng delta cũ."""
+        call = self._get_call_or_fail(call_id)
+        if not call.is_group() or not call.is_open():
+            return call
+        self.call_repo.lock_participants([], call.room_id)
+        call = self._get_call_or_fail(call_id)
+        now = datetime.utcnow()
+        changed = False
+        for participant in call.participants:
+            if not participant.is_active():
+                continue
+            member = self.room_repo.get_member(call.room_id, participant.user_id)
+            sid = sessions.get(participant.user_id) if member else None
+            if not member or (participant.state == CallParticipant.STATE_CONNECTING
+                              and participant.connection_deadline and participant.connection_deadline <= now):
+                call.leave(participant.user_id)
+                changed = True
+            elif sid:
+                if participant.state != CallParticipant.STATE_JOINED or participant.session_id != sid:
+                    participant.state = CallParticipant.STATE_JOINED
+                    participant.session_id = sid
+                    participant.connection_deadline = None
+                    participant.joined_at = participant.joined_at or now
+                    call.answered_at = call.answered_at or now
+                    changed = True
+            elif participant.state == CallParticipant.STATE_JOINED:
+                participant.state = CallParticipant.STATE_RECONNECTING
+                participant.connection_deadline = now + timedelta(seconds=self.reconnect_seconds)
+                changed = True
+            elif participant.connection_deadline is None:
+                participant.connection_deadline = now + timedelta(seconds=self.admission_seconds)
+                changed = True
+            elif participant.connection_deadline <= now:
+                call.leave(participant.user_id)
+                changed = True
+        if changed:
+            call = self.call_repo.save(call)
+            self._notify(call, "call.room_updated")
+            self.events.publish_to_room(call.room_id,
+                "call.room_updated" if call.is_open() else "call.room_ended", self.to_payload(call))
+        return call
