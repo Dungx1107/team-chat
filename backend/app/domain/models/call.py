@@ -14,6 +14,8 @@ class CallParticipant:
     STATE_JOINED = "JOINED"
     STATE_DECLINED = "DECLINED"
     STATE_LEFT = "LEFT"
+    STATE_CONNECTING = "CONNECTING"
+    STATE_RECONNECTING = "RECONNECTING"
 
     def __init__(
         self,
@@ -23,6 +25,8 @@ class CallParticipant:
         id: Optional[int] = None,
         joined_at: Optional[datetime] = None,
         left_at: Optional[datetime] = None,
+        connection_deadline: Optional[datetime] = None,
+        session_id: Optional[str] = None,
     ):
         self.id = id
         self.call_id = call_id
@@ -30,9 +34,11 @@ class CallParticipant:
         self.state = state
         self.joined_at = joined_at
         self.left_at = left_at
+        self.connection_deadline = connection_deadline
+        self.session_id = session_id
 
     def is_active(self) -> bool:
-        return self.state in (self.STATE_INVITED, self.STATE_JOINED)
+        return self.state in (self.STATE_INVITED, self.STATE_JOINED, self.STATE_CONNECTING, self.STATE_RECONNECTING)
 
 
 class Call:
@@ -51,10 +57,8 @@ class Call:
     MODE_GROUP = "GROUP"     # gọi nhóm trong phòng, ai muốn vào thì vào
     VALID_MODES = (MODE_DIRECT, MODE_GROUP)
 
-    # Gọi nhóm hiện dùng mô hình mesh: mỗi người nối trực tiếp tới từng người
-    # còn lại, nên số kết nối tăng theo bình phương. Giới hạn 6 người để máy
-    # yếu vẫn chịu được; muốn đông hơn phải chuyển sang máy chủ media (SFU).
-    MAX_GROUP_PARTICIPANTS = 6
+    # 0 không đặt trần; số dương vẫn có thể dùng để giới hạn theo deployment.
+    MAX_GROUP_PARTICIPANTS = 0
 
     STATUS_RINGING = "RINGING"
     STATUS_ACTIVE = "ACTIVE"
@@ -77,6 +81,7 @@ class Call:
         answered_at: Optional[datetime] = None,
         ended_at: Optional[datetime] = None,
         participants: Optional[List[CallParticipant]] = None,
+        media_cleanup_pending: bool = False,
     ):
         if kind not in self.VALID_KINDS:
             raise ValueError(f"Loại cuộc gọi không hợp lệ: {kind}")
@@ -91,11 +96,12 @@ class Call:
         self.created_at = created_at or datetime.utcnow()
         # Cuộc gọi nhóm vào ACTIVE ngay khi mở, không có bước bấm nghe máy.
         # Không đặt mốc này thì thời lượng cuộc gọi nhóm luôn rỗng.
-        if answered_at is None and status == self.STATUS_ACTIVE:
+        if answered_at is None and status == self.STATUS_ACTIVE and mode == self.MODE_DIRECT:
             answered_at = self.created_at
         self.answered_at = answered_at
         self.ended_at = ended_at
         self.participants: List[CallParticipant] = participants or []
+        self.media_cleanup_pending = media_cleanup_pending
 
     # ---------- Truy vấn ----------
 
@@ -148,7 +154,7 @@ class Call:
 
     # ---------- Gọi nhóm ----------
 
-    def join(self, user_id: int) -> CallParticipant:
+    def join(self, user_id: int, max_participants: int = MAX_GROUP_PARTICIPANTS) -> CallParticipant:
         """Tham gia cuộc gọi nhóm đang diễn ra."""
         if not self.is_group():
             raise ValueError("Chỉ cuộc gọi nhóm mới tham gia được")
@@ -156,12 +162,12 @@ class Call:
             raise ValueError("Cuộc gọi đã kết thúc")
 
         participant = self.get_participant(user_id)
-        if participant and participant.state == CallParticipant.STATE_JOINED:
+        if participant and participant.is_active():
             return participant  # đã ở trong rồi, gọi lại cũng không sao
 
-        if len(self.active_participant_ids()) >= self.MAX_GROUP_PARTICIPANTS:
+        if max_participants > 0 and sum(p.is_active() for p in self.participants) >= max_participants:
             raise RuntimeError(
-                f"Cuộc gọi đã đủ {self.MAX_GROUP_PARTICIPANTS} người"
+                f"Cuộc gọi đã đủ {max_participants} người"
             )
 
         now = datetime.utcnow()
@@ -183,13 +189,14 @@ class Call:
     def leave(self, user_id: int) -> bool:
         """Rời cuộc gọi nhóm. Người cuối cùng rời đi thì cuộc gọi kết thúc."""
         participant = self.get_participant(user_id)
-        if not participant or participant.state != CallParticipant.STATE_JOINED:
+        if not participant or not participant.is_active():
             return False
 
         participant.state = CallParticipant.STATE_LEFT
         participant.left_at = datetime.utcnow()
+        participant.connection_deadline = None
 
-        if not self.active_participant_ids():
+        if not any(p.is_active() for p in self.participants):
             self._close(self.STATUS_ENDED)
         return True
 
@@ -226,6 +233,7 @@ class Call:
         now = datetime.utcnow()
         self.status = final_status
         self.ended_at = now
+        self.media_cleanup_pending = self.is_group()
         for p in self.participants:
             if p.is_active():
                 p.state = CallParticipant.STATE_LEFT

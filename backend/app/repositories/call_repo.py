@@ -2,12 +2,20 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.domain.interfaces import ICallRepository
 from app.domain.models import Call, CallParticipant
-from app.infra.db.models import CallModel, CallParticipantModel
+from app.infra.db.models import CallModel, CallParticipantModel, UserModel, RoomModel
 
 
 class CallRepository(ICallRepository):
     def __init__(self, db: Session):
         self.db = db
+
+    def lock_participants(self, user_ids: List[int], room_id: Optional[int]) -> None:
+        # Cùng thứ tự ở DIRECT và GROUP để bảo vệ một user/một cuộc gọi.
+        if user_ids:
+            self.db.query(UserModel).filter(UserModel.id.in_(sorted(set(user_ids)))).order_by(UserModel.id).with_for_update().all()
+        if room_id is not None:
+            self.db.query(RoomModel).filter(RoomModel.id == room_id).with_for_update().first()
+        self.db.expire_all()
 
     def _to_entity(self, model: Optional[CallModel]) -> Optional[Call]:
         if not model:
@@ -22,6 +30,7 @@ class CallRepository(ICallRepository):
             created_at=model.created_at,
             answered_at=model.answered_at,
             ended_at=model.ended_at,
+            media_cleanup_pending=model.media_cleanup_pending,
             participants=[
                 CallParticipant(
                     id=p.id,
@@ -30,6 +39,8 @@ class CallRepository(ICallRepository):
                     state=p.state,
                     joined_at=p.joined_at,
                     left_at=p.left_at,
+                    connection_deadline=p.connection_deadline,
+                    session_id=p.session_id,
                 )
                 for p in sorted(model.participants, key=lambda p: p.id or 0)
             ],
@@ -45,6 +56,7 @@ class CallRepository(ICallRepository):
             created_at=call.created_at,
             answered_at=call.answered_at,
             ended_at=call.ended_at,
+            media_cleanup_pending=call.media_cleanup_pending,
         )
         model.participants = [
             CallParticipantModel(
@@ -52,6 +64,8 @@ class CallRepository(ICallRepository):
                 state=p.state,
                 joined_at=p.joined_at,
                 left_at=p.left_at,
+                connection_deadline=p.connection_deadline,
+                session_id=p.session_id,
             )
             for p in call.participants
         ]
@@ -71,6 +85,7 @@ class CallRepository(ICallRepository):
         model.status = call.status
         model.answered_at = call.answered_at
         model.ended_at = call.ended_at
+        model.media_cleanup_pending = call.media_cleanup_pending
 
         by_user = {p.user_id: p for p in call.participants}
         existing = {pm.user_id for pm in model.participants}
@@ -80,6 +95,8 @@ class CallRepository(ICallRepository):
                 pm.state = p.state
                 pm.joined_at = p.joined_at
                 pm.left_at = p.left_at
+                pm.connection_deadline = p.connection_deadline
+                pm.session_id = p.session_id
 
         # Người mới tham gia cuộc gọi nhóm chưa có dòng trong bảng
         for p in call.participants:
@@ -89,6 +106,8 @@ class CallRepository(ICallRepository):
                     state=p.state,
                     joined_at=p.joined_at,
                     left_at=p.left_at,
+                    connection_deadline=p.connection_deadline,
+                    session_id=p.session_id,
                 ))
 
         self.db.commit()
@@ -101,6 +120,7 @@ class CallRepository(ICallRepository):
             .join(CallParticipantModel, CallParticipantModel.call_id == CallModel.id)
             .filter(
                 CallParticipantModel.user_id == user_id,
+                CallParticipantModel.state.in_(("INVITED", "CONNECTING", "JOINED", "RECONNECTING")),
                 CallModel.status.in_(Call.OPEN_STATUSES),
             )
             .order_by(CallModel.created_at.desc())

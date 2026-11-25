@@ -2,6 +2,8 @@
 #
 #   docker compose -f docker-compose.bench.yml up -d --build
 #   docker compose -f docker-compose.bench.yml run --rm backend python /benchmark/shared/seed_data.py
+# SFU self-hosted: docker compose -f docker-compose.bench.yml --profile livekit up -d --build
+# Credentials LiveKit lấy từ .env; BENCH_LIVEKIT_URL là URL generator truy cập được.
 #
 # Khác production:
 #   - DB Postgres local chứa user ảo, không đụng Supabase
@@ -68,6 +70,14 @@ services:
       CACHE_ENABLED: ${BENCH_CACHE_ENABLED:-true}
       CACHE_TTL_SECONDS: ${BENCH_CACHE_TTL:-60}
       CACHE_BACKEND: ${BENCH_CACHE_BACKEND:-redis}
+      # Chỉ nhận cấu hình LiveKit; DB/JWT/Storage benchmark vẫn tách production.
+      LIVEKIT_DEPLOYMENT: self-hosted
+      LIVEKIT_URL: ${BENCH_LIVEKIT_URL:-ws://127.0.0.1:7880}
+      LIVEKIT_API_URL: http://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-teamchat-local}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+      LIVEKIT_ROOM_PREFIX: ${LIVEKIT_ROOM_PREFIX:-teamchat-call-}
+      GROUP_CALL_MAX_PARTICIPANTS: ${GROUP_CALL_MAX_PARTICIPANTS:-0}
     # Số worker đổi được để đo cải tiến nhiều worker (Redis Pub/Sub)
     command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${BENCH_WORKERS:-1}"
     ports:
@@ -76,6 +86,11 @@ services:
       - ./backend:/app
       - ./benchmark:/benchmark
       - bench_uploads:/app/uploads
+
+  livekit:
+    extends:
+      file: docker-compose.yml
+      service: livekit
 
 volumes:
   bench_pgdata:

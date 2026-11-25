@@ -1,5 +1,7 @@
 import json
 import logging
+from typing import Literal
+from pydantic import Field
 
 from pydantic_settings import BaseSettings
 
@@ -63,6 +65,23 @@ class Settings(BaseSettings):
     #       ICE_SERVERS=[{"urls":["turn:vd.com:3478","turn:vd.com:3478?transport=tcp"],
     #                     "username":"user","credential":"pass"}]
     ICE_SERVERS: str = "stun:stun.l.google.com:19302"
+
+    # DIRECT giữ ICE_SERVERS; GROUP dùng cùng SDK với hai deployment LiveKit.
+    LIVEKIT_DEPLOYMENT: Literal["self-hosted", "cloud"] = "self-hosted"
+    LIVEKIT_URL: str = ""  # URL public cho browser, ws:// (local) hoặc wss://
+    LIVEKIT_API_URL: str = ""  # URL backend truy cập được, có thể là http://livekit:7880
+    LIVEKIT_API_KEY: str = ""
+    LIVEKIT_API_SECRET: str = ""
+    LIVEKIT_ROOM_PREFIX: str = "teamchat-call-"
+    LIVEKIT_TOKEN_TTL_SECONDS: int = Field(default=120, ge=30, le=600)
+    GROUP_CALL_MAX_PARTICIPANTS: int = Field(default=0, ge=0)  # 0: không đặt trần số người
+    GROUP_CALL_ADMISSION_SECONDS: int = Field(default=60, ge=15, le=300)
+    GROUP_CALL_RECONNECT_SECONDS: int = Field(default=30, ge=10, le=120)
+    GROUP_CALL_SYNC_SECONDS: int = Field(default=10, ge=3, le=60)
+
+    @property
+    def livekit_configured(self) -> bool:
+        return bool(self.LIVEKIT_URL and self.LIVEKIT_API_KEY and self.LIVEKIT_API_SECRET)
 
     @property
     def ice_server_list(self) -> list:

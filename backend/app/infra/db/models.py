@@ -197,6 +197,7 @@ class CallModel(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     answered_at = Column(DateTime, nullable=True)
     ended_at = Column(DateTime, nullable=True)
+    media_cleanup_pending = Column(Boolean, nullable=False, default=False)
 
     participants = relationship(
         "CallParticipantModel",
@@ -215,6 +216,8 @@ class CallParticipantModel(Base):
     state = Column(String(20), nullable=False, default="INVITED")
     joined_at = Column(DateTime, nullable=True)
     left_at = Column(DateTime, nullable=True)
+    connection_deadline = Column(DateTime, nullable=True)
+    session_id = Column(String(100), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("call_id", "user_id", name="uq_call_participant"),

@@ -1,0 +1,14 @@
+port: 7880
+bind_addresses:
+  - 0.0.0.0
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  use_external_ip: false
+# --node-ip và --keys được cấp từ Compose, không lưu secret ở đây.
+# Cấu hình một node cho local/LAN. Internet cần IP/cổng media truy cập được
+# và TURN/TLS phù hợp; HTTP tunnel chỉ chuyển signaling.
+room:
+  auto_create: false
+logging:
+  level: info

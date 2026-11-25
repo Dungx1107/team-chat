@@ -21,6 +21,13 @@ services:
       REDIS_URL: redis://redis:6379/0
       # Cache danh sách phòng dùng chung Redis để đúng cả khi chạy nhiều worker
       CACHE_BACKEND: redis
+      LIVEKIT_DEPLOYMENT: ${LIVEKIT_DEPLOYMENT:-self-hosted}
+      LIVEKIT_URL: ${LIVEKIT_URL:-}
+      LIVEKIT_API_URL: ${LIVEKIT_API_URL:-}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+      LIVEKIT_ROOM_PREFIX: ${LIVEKIT_ROOM_PREFIX:-teamchat-call-}
+      GROUP_CALL_MAX_PARTICIPANTS: ${GROUP_CALL_MAX_PARTICIPANTS:-0}
     depends_on:
       - redis
     ports:
@@ -42,7 +49,27 @@ services:
       - "${HTTP_PORT:-80}:80"
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
+      - ./deploy/livekit/nginx-location.conf:/etc/nginx/locations/livekit.conf:ro
       - certs:/etc/nginx/certs
+
+  # .env: COMPOSE_PROFILES=livekit cho self-hosted; để trống khi dùng Cloud.
+  livekit:
+    profiles: [livekit]
+    image: livekit/livekit-server:v1.13.11
+    restart: unless-stopped
+    command:
+      - --config
+      - /etc/livekit.yaml
+      - --node-ip
+      - ${LIVEKIT_NODE_IP:-127.0.0.1}
+      - --keys
+      - "${LIVEKIT_API_KEY:-teamchat-local}: ${LIVEKIT_API_SECRET:-}"
+    volumes:
+      - ./deploy/livekit/livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "${LIVEKIT_SIGNAL_PORT:-7880}:7880"
+      - "7881:7881/tcp"
+      - "7882:7882/udp"
 
 volumes:
   certs:

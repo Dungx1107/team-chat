@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from contextlib import suppress
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -32,6 +33,9 @@ with engine.begin() as connection:
     connection.execute(text("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS theme_color VARCHAR(20)"))
     connection.execute(text("ALTER TABLE room_members ADD COLUMN IF NOT EXISTS nickname VARCHAR(100)"))
     connection.execute(text("ALTER TABLE room_members ALTER COLUMN nickname TYPE VARCHAR(100)"))
+    connection.execute(text("ALTER TABLE call_participants ADD COLUMN IF NOT EXISTS connection_deadline TIMESTAMP"))
+    connection.execute(text("ALTER TABLE call_participants ADD COLUMN IF NOT EXISTS session_id VARCHAR(100)"))
+    connection.execute(text("ALTER TABLE calls ADD COLUMN IF NOT EXISTS media_cleanup_pending BOOLEAN NOT NULL DEFAULT FALSE"))
 
 # Thư mục lưu tệp tải lên, gắn với Docker volume
 Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
@@ -72,13 +76,22 @@ async def on_startup():
     """Gắn event loop chính và khởi tạo kết nối Redis."""
     connection_manager.bind_loop(asyncio.get_running_loop())
     await connection_manager.startup()  # <-- Thêm dòng này để bật Redis
+    app.state.group_reconciler = None
+    if settings.livekit_configured:
+        from app.infra.media.reconciler import reconcile_groups
+        app.state.group_reconciler = asyncio.create_task(reconcile_groups())
     logging.info("Team Chat API đã sẵn sàng, realtime đang bật")
     logging.info("CORS origins cho phép: %s", settings.cors_origin_list)
 
 @app.on_event("shutdown")
 async def on_shutdown():
     """Đóng kết nối Redis khi tắt app."""
-    await connection_manager.shutdown()  # <-- Thêm hàm này
+    task = getattr(app.state, "group_reconciler", None)
+    if task:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+    await connection_manager.shutdown()
 
 @app.get("/health", tags=["Health"])
 def health_check():

@@ -5,6 +5,11 @@ from app.domain.models import Call
 
 class ICallRepository(ABC):
     @abstractmethod
+    def lock_participants(self, user_ids: List[int], room_id: Optional[int]) -> None:
+        """Khóa user theo thứ tự rồi phòng trong giao dịch tạo/tham gia cuộc gọi."""
+        pass
+
+    @abstractmethod
     def create(self, call: Call) -> Call:
         """Lưu cuộc gọi kèm toàn bộ người tham gia."""
         pass

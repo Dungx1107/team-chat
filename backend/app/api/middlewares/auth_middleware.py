@@ -33,6 +33,8 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     """
 
     def _is_public(self, path: str, method: str) -> bool:
+        if path == "/api/calls/livekit/webhook" and method == "POST":
+            return True  # Handler tự xác minh JWT LiveKit và hash raw body.
         if any(path.startswith(p) for p in PUBLIC_PATHS):
             return True
         return method == "GET" and any(p.match(path) for p in PUBLIC_PATTERNS)

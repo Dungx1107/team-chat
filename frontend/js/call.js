@@ -20,18 +20,17 @@
  *    - KHÔNG đổ chuông. Ai mở cuộc gọi thì cả phòng thấy banner và tự bấm
  *      "Tham gia" — giống mô hình phòng họp (Zoom/Meet) hơn là gọi điện.
  *
- * MÔ HÌNH MESH CHO GỌI NHÓM
+ * ĐƯỜNG TRUYỀN THEO MODE
  * -------------------------
- * Mỗi client giữ N-1 RTCPeerConnection — một kết nối riêng tới TỪNG người
- * còn lại. Ưu: không cần máy chủ media (SFU/MCU). Nhược: băng thông upload
- * tăng theo N, chỉ chịu được nhóm nhỏ (~6 người). Đông hơn phải dùng SFU.
+ * DIRECT giữ RTCPeerConnection P2P. GROUP dùng GroupSfuTransport/LiveKit;
+ * self-hosted hoặc Cloud được backend chọn khi khởi chạy.
  *
  * QUY ƯỚC CHỐNG XUNG ĐỘT OFFER (GLARE)
  * ------------------------------------
  * Nếu cả hai bên cùng gửi offer → xung đột (glare) → kết nối thất bại.
  * Quy ước ở đây:
- *   - Người ĐÃ Ở TRONG cuộc gọi  → chủ động gửi offer.
- *   - Người MỚI VÀO              → chỉ chờ và trả answer.
+ *   - DIRECT: caller tạo offer, callee trả answer.
+ *   - GROUP: SDK quản lý signaling với SFU, không trao đổi offer giữa user.
  * Nhờ vậy không bao giờ có hai offer chéo nhau.
  */
 
@@ -85,6 +84,8 @@ const callUI = {
    *   - pendingIce:      ICE candidate đến TRƯỚC khi có remoteDescription
    */
   peers: new Map(),
+  groupTransport: null,
+  groupStarting: false,
 
   /** MediaStream cục bộ (mic + camera của chính mình). */
   localStream: null,
@@ -109,7 +110,7 @@ const callUI = {
   ringTimeoutSeconds: 30,
 
   /** Số người tối đa trong cuộc gọi nhóm — server cấu hình được. */
-  maxGroupParticipants: 6,
+  maxGroupParticipants: 0,
 
   /** Âm thanh đổ chuông/ringback đang phát (Web Audio API). */
   tone: null,
@@ -129,7 +130,7 @@ const callUI = {
 
   /** Đang có cuộc gọi hay không (bất kể 1-1 hay nhóm). */
   isBusy() {
-    return this.call !== null;
+    return this.call !== null || this.groupStarting;
   },
 
   /** Cuộc gọi hiện tại có phải nhóm không. */
@@ -180,7 +181,7 @@ const callUI = {
       const cfg = await api.getCallConfig();
       this.iceServers = cfg.ice_servers || [];
       this.ringTimeoutSeconds = cfg.ring_timeout_seconds || 30;
-      this.maxGroupParticipants = cfg.max_group_participants || 6;
+      this.maxGroupParticipants = cfg.max_group_participants ?? 0;
     } catch {
       this.iceServers = null; // để lần sau tải lại
     }
@@ -232,6 +233,7 @@ const callUI = {
           video: {
             width: { ideal: 1280 },
             height: { ideal: 720 },
+            frameRate: { ideal: 30 },
             facingMode: "user",
           },
         });
@@ -428,16 +430,22 @@ const callUI = {
    */
   async startGroupCall(kind = "VIDEO") {
     if (!currentRoom) return;
-    if (this.isBusy()) {
+    if (this.isBusy() || this.groupStarting) {
       toast("Bạn đang trong một cuộc gọi khác", "error");
       return;
     }
     if (!this.mediaSupported()) return;
+    if (!globalThis.LivekitClient) {
+      toast("Không tải được thư viện cuộc gọi nhóm. Hãy tải lại trang.", "error");
+      return;
+    }
+    this.groupStarting = true;
     await this.loadConfig();
 
     try {
       this.localStream = await this.getMedia(kind);
     } catch (err) {
+      this.groupStarting = false;
       toast(err.message, "error");
       return;
     }
@@ -446,6 +454,7 @@ const callUI = {
     try {
       call = await api.startGroupCall(currentRoom.id, kind);
     } catch (err) {
+      this.groupStarting = false;
       this.stopLocalStream();
       toast(err.message, "error");
       return;
@@ -454,13 +463,49 @@ const callUI = {
     this.call = call;
     this.role = "member";
     this.resetControls();
-    this.connectedAt = Date.now();
+    this.connectedAt = null;
     this.render("group");
-    this.startDurationTimer();
-
-    // Vào cuộc gọi đã có sẵn: người trong đó sẽ gửi offer tới mình,
-    // ở đây chỉ cần chờ (không gọi ensurePeer).
-    this.updateRoomCallBanner(null);
+    this.setStatusText("Đang kết nối...");
+    let transport;
+    try {
+      transport = new GroupSfuTransport({
+        onChange: () => {
+          if (this.groupTransport !== transport) return;
+          this.render("group");
+        },
+        onDisconnected: (reason) => {
+          if (this.groupTransport === transport) {
+            if (reason === globalThis.LivekitClient?.DisconnectReason?.DUPLICATE_IDENTITY) {
+              this.teardown();
+              toast("Cuộc gọi đã được mở trên thiết bị khác");
+              return;
+            }
+            toast("Đã ngắt kết nối cuộc gọi nhóm");
+            this.leaveCall();
+          }
+        },
+        onAudioBlocked: () => {
+          if (this.groupTransport === transport) this.showGroupAudioButton();
+        },
+      });
+      this.groupTransport = transport;
+      const session = await api.getSfuSession(call.id);
+      if (this.call?.id !== call.id || this.groupTransport !== transport) return;
+      await transport.connect(session, this.localStream);
+      if (this.groupTransport !== transport) return;
+      this.connectedAt = Date.now();
+      this.startDurationTimer();
+      this.updateRoomCallBanner(null);
+      const synced = await api.syncGroupCall(call.id);
+      if (this.groupTransport === transport) { this.call = synced; this.render("group"); }
+    } catch (err) {
+      if (this.call?.id === call.id && (!transport || this.groupTransport === transport)) {
+        await this.leaveCall();
+        toast(err.message || "Không kết nối được cuộc gọi nhóm", "error");
+      }
+    } finally {
+      this.groupStarting = false;
+    }
   },
 
   /** Tham gia cuộc gọi nhóm đang diễn ra trong phòng (từ banner). */
@@ -493,8 +538,8 @@ const callUI = {
     if (newcomer === this.myId()) return;
 
     toast(`${data.user.full_name} đã tham gia cuộc gọi`);
-    // Mình đã ở trong cuộc gọi -> mình là bên gửi offer cho người mới
-    await this.ensurePeer(newcomer, true);
+    // GROUP nhận media qua SDK, không tạo peer tới người mới.
+    if (!this.isGroup()) await this.ensurePeer(newcomer, true);
     this.render("group");
   },
 
@@ -830,6 +875,7 @@ const callUI = {
    */
   async onSignal(data) {
     if (!this.call || data.call_id !== this.call.id) return;
+    if (this.isGroup()) return;
     const from = Number(data.from_user_id);
 
     let peer = this.peers.get(from);
@@ -975,6 +1021,9 @@ const callUI = {
     this.ringTimer = null;
     this.durationTimer = null;
     this.stopTone();
+    const groupTransport = this.groupTransport;
+    this.groupTransport = null;
+    if (groupTransport) groupTransport.disconnect().catch(console.error);
 
     for (const userId of Array.from(this.peers.keys())) this.closePeer(userId);
     this.stopLocalStream();
@@ -1012,6 +1061,10 @@ const callUI = {
    * tắt bằng enabled chỉ mute track, peer vẫn thấy kết nối sống.
    */
   toggleMic() {
+    if (this.isGroup() && this.groupTransport) {
+      this.groupTransport.setMicEnabled(!this.micOn).catch(err => toast(err.message, "error"));
+      return;
+    }
     if (!this.localStream) return;
     this.micOn = !this.micOn;
     this.localStream.getAudioTracks().forEach((t) => (t.enabled = this.micOn));
@@ -1025,6 +1078,10 @@ const callUI = {
    * Nếu cuộc gọi không có video track → thông báo.
    */
   toggleCam() {
+    if (this.isGroup() && this.groupTransport) {
+      this.groupTransport.setCameraEnabled(!this.camOn).catch(err => toast(err.message, "error"));
+      return;
+    }
     if (!this.localStream) return;
     const tracks = this.localStream.getVideoTracks();
     if (!tracks.length) {
@@ -1131,6 +1188,10 @@ const callUI = {
     clearInterval(this.durationTimer);
     const tick = () => {
       if (!this.connectedAt) return;
+      if (this.isGroup() && this.groupTransport?.room.state !== "connected") {
+        this.setStatusText("Đang kết nối lại...");
+        return;
+      }
       this.setStatusText(
         this.formatDuration(
           Math.floor((Date.now() - this.connectedAt) / 1000)
@@ -1187,6 +1248,14 @@ const callUI = {
 
     let hasVideo;
     let micOn = true;
+
+    if (this.isGroup() && this.groupTransport) {
+      const media = this.groupTransport.media(userId);
+      video.classList.toggle("invisible", !media.camera);
+      holder.classList.toggle("hidden", media.camera);
+      document.getElementById(`call-mic-${userId}`)?.classList.toggle("hidden", media.mic);
+      return;
+    }
 
     if (Number(userId) === this.myId()) {
       // Bản thân: dựa vào track cục bộ
@@ -1267,6 +1336,9 @@ const callUI = {
         true
       )}
     `;
+    if (this.isGroup() && this.groupTransport && this.groupTransport.room.canPlaybackAudio === false) {
+      this.showGroupAudioButton();
+    }
   },
 
   /**
@@ -1313,6 +1385,11 @@ const callUI = {
   render(stage) {
     const root = document.getElementById("call-root");
     if (!this.call) return;
+    if (this.isGroup() && this.groupTransport) {
+      const media = this.groupTransport.media(this.myId());
+      this.micOn = media.mic;
+      this.camOn = media.camera;
+    }
 
     // --- Cuộc gọi 1-1 đang đổ chuông ---
     if (stage === "incoming") {
@@ -1373,7 +1450,9 @@ const callUI = {
       avatar_url: me.avatar_url,
       username: me.username,
     };
-    const others = this.otherActiveIds().map(
+    const others = this.isGroup() && this.groupTransport
+      ? this.groupTransport.users().map(u => this.participantInfo(u.id) || u)
+      : this.otherActiveIds().map(
       (id) =>
         this.participantInfo(id) || { id, full_name: `Người dùng #${id}` }
     );
@@ -1399,7 +1478,7 @@ const callUI = {
     root.innerHTML = `
       <div id="call-stage" class="fixed inset-0 z-[45] bg-slate-950 text-white flex flex-col">
         ${
-          FORCE_RELAY
+          FORCE_RELAY && !this.isGroup()
             ? `
         <div class="shrink-0 bg-amber-500/90 text-slate-900 text-xs text-center py-1.5 px-4 font-medium">
           Chế độ thử TURN đang bật · mọi cuộc gọi bị ép đi qua máy chủ trung gian ·
@@ -1488,7 +1567,36 @@ const callUI = {
         }
         this.updateTileVisibility(u.id);
       }
+      // Callee đã dựng tile trước khi xin thiết bị: gắn preview khi stream sẵn sàng.
+      if (!this.isGroup() && Number(u.id) === this.myId()) {
+        const preview = document.getElementById(`call-video-${u.id}`);
+        if (preview && this.localStream && preview.srcObject !== this.localStream) preview.srcObject = this.localStream;
+      }
+      if (this.isGroup() && this.groupTransport) {
+        const tile = document.getElementById(`call-tile-${u.id}`);
+        const isMe = Number(u.id) === this.myId();
+        let audio = tile.querySelector("audio");
+        if (!isMe && !audio) {
+          audio = document.createElement("audio");
+          audio.autoplay = true;
+          tile.appendChild(audio);
+        }
+        this.groupTransport.attach(u.id, document.getElementById(`call-video-${u.id}`), isMe ? null : audio);
+        this.updateTileVisibility(u.id);
+      }
     });
+    this.groupTransport?.pruneAttachments();
+  },
+
+  showGroupAudioButton() {
+    const controls = document.getElementById("call-controls");
+    if (!controls || document.getElementById("call-enable-audio")) return;
+    const button = document.createElement("button");
+    button.id = "call-enable-audio";
+    button.textContent = "Bật âm thanh";
+    button.onclick = () => this.groupTransport?.room.startAudio().then(() => button.remove())
+      .catch(() => toast("Hãy cho phép phát âm thanh trên trình duyệt", "error"));
+    controls.appendChild(button);
   },
 };
 
@@ -1540,4 +1648,7 @@ if (FORCE_RELAY) {
 // ===========================================================================
 // Đóng tab giữa cuộc gọi: server tự dọn khi WebSocket ngắt,
 // ở đây chỉ cần giải phóng camera/micro để tắt đèn cam ngay lập tức.
-window.addEventListener("pagehide", () => callUI.stopLocalStream());
+window.addEventListener("pagehide", () => {
+  callUI.groupTransport?.disconnect().catch(() => {});
+  callUI.stopLocalStream();
+});

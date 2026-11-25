@@ -31,6 +31,10 @@ from app.services.message_service import MessageService
 from app.services.user_service import UserService
 from app.services.call_service import CallService
 from app.repositories.call_repo import CallRepository
+from app.infra.media.livekit_gateway import LiveKitGateway
+from app.services.group_media_service import GroupMediaService
+
+livekit_gateway = LiveKitGateway(settings)
 
 
 # Bộ nhớ lưu trữ dùng chung, khởi tạo một lần
@@ -105,7 +109,14 @@ def get_call_service(db: Session = Depends(get_db)) -> CallService:
         room_repo=RoomRepository(db),
         user_repo=UserRepository(db),
         event_publisher=event_publisher,
+        max_group_participants=settings.GROUP_CALL_MAX_PARTICIPANTS,
+        admission_seconds=settings.GROUP_CALL_ADMISSION_SECONDS,
+        reconnect_seconds=settings.GROUP_CALL_RECONNECT_SECONDS,
     )
+
+
+def get_group_media_service(calls: CallService = Depends(get_call_service)) -> GroupMediaService:
+    return GroupMediaService(calls, livekit_gateway)
 
 
 # --- Đường đọc ---

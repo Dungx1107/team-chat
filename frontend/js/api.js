@@ -356,6 +356,14 @@ const api = {
     return this.request(`/calls/${callId}/join`, { method: "POST" });
   },
 
+  getSfuSession(callId) {
+    return this.request(`/calls/${callId}/sfu-session`, { method: "POST" });
+  },
+
+  syncGroupCall(callId) {
+    return this.request(`/calls/${callId}/sfu-sync`, { method: "POST" });
+  },
+
   leaveCall(callId) {
     return this.request(`/calls/${callId}/leave`, { method: "POST" });
   },

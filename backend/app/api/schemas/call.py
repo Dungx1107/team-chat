@@ -46,3 +46,12 @@ class IceConfigResponse(BaseModel):
     ice_servers: List[dict]
     ring_timeout_seconds: int
     max_group_participants: int
+    group_transport: str = "sfu"
+    group_available: bool = False
+
+
+class SfuSessionResponse(BaseModel):
+    server_url: str
+    participant_token: str
+    call_id: int
+    expires_at: datetime

@@ -14,3 +14,4 @@ google-auth>=2.0.0
 supabase>=2.0.0
 requests
 redis>=5.0.1
+livekit-api==2.0.1
